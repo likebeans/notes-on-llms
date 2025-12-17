@@ -30,3 +30,8 @@ Thumbs.db
 .env
 .env.local
 .env.*.local
+
+# CSDN articles data
+docs/csdn_articles/
+docs/rag/csdn_articles.json
+docs/rag/csdn_articles.md

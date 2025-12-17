@@ -26,6 +26,8 @@ export default defineConfig({
       { text: '学习路线', link: '/guide/roadmap' },
       { text: 'RAG', link: '/rag/' },
       { text: 'Agent', link: '/agent/' },
+      { text: 'Prompt', link: '/prompt/' },
+      { text: 'MCP', link: '/mcp/' },
       { text: '训练微调', link: '/training/' },
       { text: '面试', link: '/interviews/' },
       { text: '速查', link: '/reference/glossary' },
@@ -48,6 +50,7 @@ export default defineConfig({
           text: 'RAG 专区',
           items: [
             { text: '概述', link: '/rag/' },
+            { text: '范式演进', link: '/rag/paradigms' },
             { text: '文档切分', link: '/rag/chunking' },
             { text: 'Embedding', link: '/rag/embedding' },
             { text: '向量数据库', link: '/rag/vector-db' },
@@ -69,6 +72,29 @@ export default defineConfig({
             { text: '多智能体', link: '/agent/multi-agent' },
             { text: '评估', link: '/agent/evaluation' },
             { text: '安全', link: '/agent/safety' },
+          ]
+        }
+      ],
+      '/prompt/': [
+        {
+          text: 'Prompt 专区',
+          items: [
+            { text: '概述', link: '/prompt/' },
+            { text: '基础技术', link: '/prompt/basics' },
+            { text: '高级技术', link: '/prompt/advanced' },
+            { text: '上下文工程', link: '/prompt/context' },
+            { text: '安全测试', link: '/prompt/security' },
+          ]
+        }
+      ],
+      '/mcp/': [
+        {
+          text: 'MCP 专区',
+          items: [
+            { text: '概述', link: '/mcp/' },
+            { text: '快速入门', link: '/mcp/quickstart' },
+            { text: '核心概念', link: '/mcp/concepts' },
+            { text: '高级功能', link: '/mcp/advanced' },
           ]
         }
       ],
