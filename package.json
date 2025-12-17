@@ -1,6 +1,7 @@
 {
   "name": "notes-on-llms",
   "version": "1.0.0",
+  "packageManager": "pnpm@9.15.1",
   "description": "大模型学习笔记 - RAG, Agent, 训练微调",
   "type": "module",
   "scripts": {
