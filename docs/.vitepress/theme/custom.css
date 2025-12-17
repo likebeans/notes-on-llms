@@ -1,0 +1,63 @@
+/* 自定义 CSS 变量 */
+:root {
+  --vp-c-brand-1: #5f67ee;
+  --vp-c-brand-2: #747bff;
+  --vp-c-brand-3: #9499ff;
+  --vp-c-brand-soft: rgba(95, 103, 238, 0.14);
+}
+
+.dark {
+  --vp-c-brand-1: #9499ff;
+  --vp-c-brand-2: #747bff;
+  --vp-c-brand-3: #5f67ee;
+  --vp-c-brand-soft: rgba(148, 153, 255, 0.14);
+}
+
+/* 首页 Hero 区域样式 */
+:root {
+  --vp-home-hero-name-color: transparent;
+  --vp-home-hero-name-background: -webkit-linear-gradient(120deg, #5f67ee 30%, #41d1ff);
+  --vp-home-hero-image-background-image: linear-gradient(-45deg, #5f67ee 50%, #41d1ff 50%);
+  --vp-home-hero-image-filter: blur(44px);
+}
+
+.dark {
+  --vp-home-hero-image-background-image: linear-gradient(-45deg, #5f67ee 50%, #41d1ff 50%);
+}
+
+/* 加密页面样式占位（后续集成加密插件时使用） */
+.password-protected {
+  padding: 2rem;
+  text-align: center;
+}
+
+.password-protected input {
+  padding: 0.5rem 1rem;
+  border: 1px solid var(--vp-c-border);
+  border-radius: 4px;
+  margin-right: 0.5rem;
+}
+
+.password-protected button {
+  padding: 0.5rem 1rem;
+  background: var(--vp-c-brand-1);
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.password-protected button:hover {
+  background: var(--vp-c-brand-2);
+}
+
+/* 私密标记样式 */
+.private-badge {
+  display: inline-block;
+  padding: 0.1rem 0.4rem;
+  font-size: 0.75rem;
+  background: var(--vp-c-warning-soft);
+  color: var(--vp-c-warning-1);
+  border-radius: 4px;
+  margin-left: 0.5rem;
+}

@@ -1,0 +1,24 @@
+{
+  "name": "notes-on-llms",
+  "version": "1.0.0",
+  "description": "大模型学习笔记 - RAG, Agent, 训练微调",
+  "type": "module",
+  "scripts": {
+    "docs:dev": "vitepress dev docs",
+    "docs:build": "vitepress build docs",
+    "docs:preview": "vitepress preview docs"
+  },
+  "keywords": [
+    "llm",
+    "rag",
+    "agent",
+    "fine-tuning",
+    "vitepress"
+  ],
+  "author": "likebeans",
+  "license": "MIT",
+  "devDependencies": {
+    "vitepress": "^1.5.0",
+    "vue": "^3.5.13"
+  }
+}
