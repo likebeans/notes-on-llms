@@ -1,6 +1,7 @@
 import { defineConfig } from 'vitepress'
+import { withMermaid } from 'vitepress-plugin-mermaid'
 
-export default defineConfig({
+export default withMermaid(defineConfig({
   title: 'Notes on LLMs',
   description: '大模型学习笔记 - RAG, Agent, 训练微调',
   
@@ -234,5 +235,44 @@ export default defineConfig({
     image: {
       lazyLoading: true
     }
+  },
+  
+  vite: {
+    optimizeDeps: {
+      include: ['mermaid', 'dayjs'],
+    },
+    ssr: {
+      noExternal: ['mermaid']
+    }
+  },
+  
+  mermaid: {
+    theme: 'base',
+    themeVariables: {
+      // 节点颜色
+      primaryColor: '#e0e7ff',
+      primaryTextColor: '#1e293b',
+      primaryBorderColor: '#6366f1',
+      // 次要节点
+      secondaryColor: '#fef3c7',
+      secondaryTextColor: '#1e293b',
+      secondaryBorderColor: '#f59e0b',
+      // 第三节点
+      tertiaryColor: '#dcfce7',
+      tertiaryTextColor: '#1e293b',
+      tertiaryBorderColor: '#22c55e',
+      // 连接线
+      lineColor: '#6366f1',
+      // 文字
+      textColor: '#1e293b',
+      fontSize: '14px',
+      fontFamily: 'system-ui, -apple-system, sans-serif',
+      // subgraph 子图
+      clusterBkg: '#f1f5f9',
+      clusterBorder: '#cbd5e1',
+      titleColor: '#1e293b',
+      // 边标签
+      edgeLabelBackground: '#ffffff'
+    }
   }
-})
+}))
