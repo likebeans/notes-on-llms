@@ -9,7 +9,7 @@ description: 检索增强生成（RAG）技术全景图谱
 
 ## 🗺️ RAG 知识图谱
 
-<div class="knowledge-map">
+<div class="knowledge-map rag">
   <div class="map-center">
     <span class="map-title">RAG</span>
   </div>
@@ -59,59 +59,6 @@ description: 检索增强生成（RAG）技术全景图谱
   </div>
 </div>
 
-<style>
-.knowledge-map {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  border-radius: 16px;
-  padding: 2rem;
-  margin: 2rem 0;
-  color: white;
-}
-.map-center {
-  text-align: center;
-  margin-bottom: 1.5rem;
-}
-.map-title {
-  display: inline-block;
-  background: white;
-  color: #667eea;
-  font-size: 2rem;
-  font-weight: bold;
-  padding: 1rem 2rem;
-  border-radius: 50px;
-  box-shadow: 0 4px 15px rgba(0,0,0,0.2);
-}
-.map-branches {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 1rem;
-}
-.branch {
-  background: rgba(255,255,255,0.15);
-  backdrop-filter: blur(10px);
-  border-radius: 12px;
-  padding: 1rem;
-  transition: transform 0.2s;
-}
-.branch:hover {
-  transform: translateY(-4px);
-}
-.branch-title {
-  font-weight: bold;
-  font-size: 1.1rem;
-  margin-bottom: 0.5rem;
-  padding-bottom: 0.5rem;
-  border-bottom: 2px solid rgba(255,255,255,0.3);
-}
-.branch ul {
-  margin: 0;
-  padding-left: 1.2rem;
-  font-size: 0.9rem;
-}
-.branch li {
-  margin: 0.3rem 0;
-}
-</style>
 
 ---
 
@@ -199,39 +146,6 @@ description: 检索增强生成（RAG）技术全景图谱
   </div>
 </div>
 
-<style>
-.compare-box {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-  margin: 1.5rem 0;
-  flex-wrap: wrap;
-}
-.compare-item {
-  flex: 1;
-  min-width: 200px;
-  padding: 1rem;
-  border-radius: 8px;
-  background: var(--vp-c-bg-soft);
-  border: 1px solid var(--vp-c-border);
-}
-.compare-item.highlight {
-  background: linear-gradient(135deg, #667eea20 0%, #764ba220 100%);
-  border-color: #667eea;
-}
-.compare-title {
-  font-weight: bold;
-  margin-bottom: 0.5rem;
-  color: var(--vp-c-brand);
-}
-.compare-flow {
-  font-size: 0.9rem;
-}
-.compare-vs {
-  font-weight: bold;
-  color: var(--vp-c-text-2);
-}
-</style>
 
 #### 3.3 Agentic RAG
 
@@ -294,55 +208,6 @@ description: 检索增强生成（RAG）技术全景图谱
   </div>
 </div>
 
-<style>
-.learning-path {
-  display: flex;
-  align-items: flex-start;
-  gap: 0.5rem;
-  margin: 2rem 0;
-  flex-wrap: wrap;
-  justify-content: center;
-}
-.path-step {
-  background: var(--vp-c-bg-soft);
-  border-radius: 12px;
-  padding: 1rem;
-  min-width: 150px;
-  border: 2px solid var(--vp-c-border);
-}
-.step-1 { border-color: #10b981; }
-.step-2 { border-color: #3b82f6; }
-.step-3 { border-color: #8b5cf6; }
-.step-num {
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  background: var(--vp-c-brand);
-  color: white;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: bold;
-  margin-bottom: 0.5rem;
-}
-.step-1 .step-num { background: #10b981; }
-.step-2 .step-num { background: #3b82f6; }
-.step-3 .step-num { background: #8b5cf6; }
-.step-title {
-  font-weight: bold;
-  margin-bottom: 0.5rem;
-}
-.path-step ul {
-  margin: 0;
-  padding-left: 1rem;
-  font-size: 0.85rem;
-}
-.path-arrow {
-  font-size: 1.5rem;
-  color: var(--vp-c-text-2);
-  align-self: center;
-}
-</style>
 
 ---
 
@@ -399,14 +264,14 @@ description: 检索增强生成（RAG）技术全景图谱
 
 | 章节 | 内容 | 状态 |
 |------|------|------|
-| [RAG范式演进](/rag/paradigms) | Naive→Advanced→Modular→Graph→Agentic | ✅ |
-| [文档切分](/rag/chunking) | 15种切分策略详解 | ✅ |
-| [Embedding](/rag/embedding) | 向量化原理与模型选型 | ✅ |
-| [向量数据库](/rag/vector-db) | HNSW算法/Chroma/Milvus/Qdrant | ✅ |
-| [检索策略](/rag/retrieval) | 稠密/稀疏/混合检索 | ✅ |
-| [重排序](/rag/rerank) | Cross-Encoder/LLM重排序 | ✅ |
-| [RAG评估](/rag/evaluation) | RAGAs/ARES评估框架 | ✅ |
-| [生产实践](/rag/production) | 架构设计/部署/监控/安全 | ✅ |
+| [RAG范式演进](/llms/rag/paradigms) | Naive→Advanced→Modular→Graph→Agentic | ✅ |
+| [文档切分](/llms/rag/chunking) | 15种切分策略详解 | ✅ |
+| [Embedding](/llms/rag/embedding) | 向量化原理与模型选型 | ✅ |
+| [向量数据库](/llms/rag/vector-db) | HNSW算法/Chroma/Milvus/Qdrant | ✅ |
+| [检索策略](/llms/rag/retrieval) | 稠密/稀疏/混合检索 | ✅ |
+| [重排序](/llms/rag/rerank) | Cross-Encoder/LLM重排序 | ✅ |
+| [RAG评估](/llms/rag/evaluation) | RAGAs/ARES评估框架 | ✅ |
+| [生产实践](/llms/rag/production) | 架构设计/部署/监控/安全 | ✅ |
 
 ---
 

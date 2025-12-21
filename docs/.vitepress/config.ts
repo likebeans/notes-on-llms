@@ -24,11 +24,17 @@ export default defineConfig({
     nav: [
       { text: '首页', link: '/' },
       { text: '学习路线', link: '/guide/roadmap' },
-      { text: 'RAG', link: '/rag/' },
-      { text: 'Agent', link: '/agent/' },
-      { text: 'Prompt', link: '/prompt/' },
-      { text: 'MCP', link: '/mcp/' },
-      { text: '训练微调', link: '/training/' },
+      {
+        text: 'LLMs',
+        items: [
+          { text: 'RAG', link: '/llms/rag/' },
+          { text: 'Agent', link: '/llms/agent/' },
+          { text: '训练微调', link: '/llms/training/' },
+          { text: '多模态', link: '/llms/multimodal/' },
+          { text: 'Prompt', link: '/llms/prompt/' },
+          { text: 'MCP', link: '/llms/mcp/' },
+        ]
+      },
       { text: '面试', link: '/interviews/' },
       { text: '速查', link: '/reference/glossary' },
       { text: '资源', link: '/resources/papers' },
@@ -45,71 +51,79 @@ export default defineConfig({
           ]
         }
       ],
-      '/rag/': [
+      '/llms/rag/': [
         {
           text: 'RAG 专区',
           items: [
-            { text: '概述', link: '/rag/' },
-            { text: '范式演进', link: '/rag/paradigms' },
-            { text: '文档切分', link: '/rag/chunking' },
-            { text: 'Embedding', link: '/rag/embedding' },
-            { text: '向量数据库', link: '/rag/vector-db' },
-            { text: '检索策略', link: '/rag/retrieval' },
-            { text: '重排序', link: '/rag/rerank' },
-            { text: '评估', link: '/rag/evaluation' },
-            { text: '生产实践', link: '/rag/production' },
+            { text: '概述', link: '/llms/rag/' },
+            { text: '范式演进', link: '/llms/rag/paradigms' },
+            { text: '文档切分', link: '/llms/rag/chunking' },
+            { text: 'Embedding', link: '/llms/rag/embedding' },
+            { text: '向量数据库', link: '/llms/rag/vector-db' },
+            { text: '检索策略', link: '/llms/rag/retrieval' },
+            { text: '重排序', link: '/llms/rag/rerank' },
+            { text: '评估', link: '/llms/rag/evaluation' },
+            { text: '生产实践', link: '/llms/rag/production' },
           ]
         }
       ],
-      '/agent/': [
+      '/llms/agent/': [
         {
           text: 'Agent 专区',
           items: [
-            { text: '概述', link: '/agent/' },
-            { text: '工具调用', link: '/agent/tool-calling' },
-            { text: '规划', link: '/agent/planning' },
-            { text: '记忆', link: '/agent/memory' },
-            { text: '多智能体', link: '/agent/multi-agent' },
-            { text: '评估', link: '/agent/evaluation' },
-            { text: '安全', link: '/agent/safety' },
+            { text: '概述', link: '/llms/agent/' },
+            { text: '工具调用', link: '/llms/agent/tool-calling' },
+            { text: '规划', link: '/llms/agent/planning' },
+            { text: '记忆', link: '/llms/agent/memory' },
+            { text: '多智能体', link: '/llms/agent/multi-agent' },
+            { text: '评估', link: '/llms/agent/evaluation' },
+            { text: '安全', link: '/llms/agent/safety' },
           ]
         }
       ],
-      '/prompt/': [
+      '/llms/prompt/': [
         {
           text: 'Prompt 专区',
           items: [
-            { text: '概述', link: '/prompt/' },
-            { text: '基础技术', link: '/prompt/basics' },
-            { text: '高级技术', link: '/prompt/advanced' },
-            { text: '上下文工程', link: '/prompt/context' },
-            { text: '安全测试', link: '/prompt/security' },
+            { text: '概述', link: '/llms/prompt/' },
+            { text: '基础技术', link: '/llms/prompt/basics' },
+            { text: '高级技术', link: '/llms/prompt/advanced' },
+            { text: '上下文工程', link: '/llms/prompt/context' },
+            { text: '安全测试', link: '/llms/prompt/security' },
           ]
         }
       ],
-      '/mcp/': [
+      '/llms/mcp/': [
         {
           text: 'MCP 专区',
           items: [
-            { text: '概述', link: '/mcp/' },
-            { text: '快速入门', link: '/mcp/quickstart' },
-            { text: '核心概念', link: '/mcp/concepts' },
-            { text: '高级功能', link: '/mcp/advanced' },
+            { text: '概述', link: '/llms/mcp/' },
+            { text: '快速入门', link: '/llms/mcp/quickstart' },
+            { text: '核心概念', link: '/llms/mcp/concepts' },
+            { text: '高级功能', link: '/llms/mcp/advanced' },
           ]
         }
       ],
-      '/training/': [
+      '/llms/training/': [
         {
           text: '训练与微调',
           items: [
-            { text: '概述', link: '/training/' },
-            { text: '数据处理', link: '/training/data' },
-            { text: 'SFT 监督微调', link: '/training/sft' },
-            { text: 'DPO', link: '/training/dpo' },
-            { text: 'RLHF', link: '/training/rlhf' },
-            { text: 'LoRA', link: '/training/lora' },
-            { text: '评估', link: '/training/eval' },
-            { text: '部署推理', link: '/training/serving' },
+            { text: '概述', link: '/llms/training/' },
+            { text: '数据处理', link: '/llms/training/data' },
+            { text: 'SFT 监督微调', link: '/llms/training/sft' },
+            { text: 'DPO', link: '/llms/training/dpo' },
+            { text: 'RLHF', link: '/llms/training/rlhf' },
+            { text: 'LoRA', link: '/llms/training/lora' },
+            { text: '评估', link: '/llms/training/eval' },
+            { text: '部署推理', link: '/llms/training/serving' },
+          ]
+        }
+      ],
+      '/llms/multimodal/': [
+        {
+          text: '多模态',
+          items: [
+            { text: '概述', link: '/llms/multimodal/' },
           ]
         }
       ],

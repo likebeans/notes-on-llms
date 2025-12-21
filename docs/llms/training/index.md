@@ -29,29 +29,6 @@ description: 大模型训练与微调技术全景 - 从预训练到对齐
 └─────────────────┴─────────────────┴─────────────────┴─────────────────────────┘
 ```
 
-<style>
-.training-stages {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 1rem;
-  margin: 2rem 0;
-}
-.stage-card {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  border-radius: 12px;
-  padding: 1.5rem;
-  color: white;
-}
-.stage-card h4 {
-  margin: 0 0 0.5rem 0;
-  font-size: 1.2rem;
-}
-.stage-card p {
-  margin: 0;
-  font-size: 0.9rem;
-  opacity: 0.9;
-}
-</style>
 
 ---
 

@@ -675,11 +675,11 @@ class BatchRetriever:
 
 ## 相关阅读
 
-- [RAG范式演进](/rag/paradigms) - 了解RAG技术发展脉络
-- [文档切分策略](/rag/chunking) - 影响检索粒度的切分技术
-- [Embedding技术](/rag/embedding) - 稠密检索的基础
-- [向量数据库](/rag/vector-db) - 检索的底层存储
-- [重排序优化](/rag/rerank) - 检索后的精排技术
+- [RAG范式演进](/llms/rag/paradigms) - 了解RAG技术发展脉络
+- [文档切分策略](/llms/rag/chunking) - 影响检索粒度的切分技术
+- [Embedding技术](/llms/rag/embedding) - 稠密检索的基础
+- [向量数据库](/llms/rag/vector-db) - 检索的底层存储
+- [重排序优化](/llms/rag/rerank) - 检索后的精排技术
 
 > **相关文章**：
 > - [高级RAG技术全景：从原理到实战](https://dd-ff.blog.csdn.net/article/details/149396526)

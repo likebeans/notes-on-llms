@@ -1,0 +1,56 @@
+# CSDN 专栏文章列表
+
+> 共 50 篇文章
+
+| 序号 | 文章标题 |
+|------|----------|
+| 1 | [Python实用技术——爬虫（一）：爬虫基础](https://dd-ff.blog.csdn.net/article/details/124586445) |
+| 2 | [数学建模国赛/美赛常见赛题类型及建模方案（纯干货）](https://dd-ff.blog.csdn.net/article/details/128052468) |
+| 3 | [数据库系统课设——基于python+pyqt5+mysql的酒店管理系统（可直接运行）--GUI编程](https://dd-ff.blog.csdn.net/article/details/132414740) |
+| 4 | [数学建模三大类模型适用场景及建模方法（纯干货）](https://dd-ff.blog.csdn.net/article/details/128053896) |
+| 5 | [深究C语言4.链表和结构体](https://dd-ff.blog.csdn.net/article/details/121981368) |
+| 6 | [快速手搓一个MCP服务指南（六）：FastMCP 中间件：构建可扩展的 MCP 服务器架构](https://dd-ff.blog.csdn.net/article/details/149025596#comments_38427568) |
+| 7 | [数据库系统课设——基于python+pyqt5+mysql的酒店管理系统（可直接运行）--GUI编程（2）](https://dd-ff.blog.csdn.net/article/details/133381625#comments_38315187) |
+| 8 | [大型语言模型（LLM）的版本化、对齐机制与核心概念解析](https://dd-ff.blog.csdn.net/article/details/152255344#comments_38293643) |
+| 9 | [数据库系统课设——基于python+pyqt5+mysql的酒店管理系统（可直接运行）--GUI编程](https://dd-ff.blog.csdn.net/article/details/132414740#comments_37999944) |
+| 10 | [MCP的Client居然也这么重要！！](https://dd-ff.blog.csdn.net/article/details/149111693#comments_37763094) |
+| 11 | [LangChainv1 Agent 新版教程，与之前大有不同（二）LangChain Agent 概述与实践指南 LangChain Agent 是一种结合大型语言模型（LLM）与外部工具的高级智能代理系统，能够通过推理、规划和工具调用完成复杂任务。其核心组件包括LLM模型（支持静态/动态选择）、可扩展的工具集（支持错误处理和ReAct循环调用）以及灵活的系统提示词机制。Agent通过AgentExecutor执行，提供结构化输出、记忆状态、流式响应等进阶功能。开发者可自定义Agent模板和工具，并通过中间件实现输入预处理、动态路由等企业级需求。最佳实践建议关注多工具协作](https://dd-ff.blog.csdn.net/article/details/155392815) |
+| 12 | [大语言模型词表构建技术的深度剖析：从原理重构到词表扩充的工程实践（二）](https://dd-ff.blog.csdn.net/article/details/155392780) |
+| 13 | [大语言模型词表构建技术的深度剖析：从原理重构到词表扩充的工程实践](https://dd-ff.blog.csdn.net/article/details/155357751) |
+| 14 | [大模型上下文窗口详解与 RNN/Transformer 架构比较](https://dd-ff.blog.csdn.net/article/details/154742375) |
+| 15 | [Parquet 范式：大语言模型训练数据格式优化的基础解析](https://dd-ff.blog.csdn.net/article/details/154654277) |
+| 16 | [机器的自述文件：AGENTS.md 详尽技术指南](https://dd-ff.blog.csdn.net/article/details/154641830) |
+| 17 | [掌握AI推理：从“提示工程”到“推理架构”的范式转变](https://dd-ff.blog.csdn.net/article/details/154479954) |
+| 18 | [Vibe Kanban：AI 编码代理编排平台深度分析报告Vibe Kanban 是一个开源看板工具，专门用于管理AI编码代理的工作流。它通过并行执行任务、支持多种AI代理和Git深度集成，将开发者角色转变为任务编排者而非代码编写者。核心功能包括代理不可知论、提示词驱动任务创建、"人在环路"审查机制，以及基于Git worktree的隔离工作区。采用Rust后端和TypeScript前端双栈架构，确保高性能与开发效率。相比传统项目管理工具，Vibe Kanban填补了AI代理协作管理的空白，已在GitHub获](https://dd-ff.blog.csdn.net/article/details/154125008) |
+| 19 | [spec-kit深度解析：AI驱动的规范驱动开发（SDD）的架构、哲学与实践启示GitHub的spec-kit项目是一个开源框架，旨在通过结构化工作流程解决当前AI辅助开发中的"氛围编程"问题。该项目将规范转变为贯穿开发周期的动态核心组件，包含四阶段流程：规范(specify)、计划(plan)、任务(tasks)和实现(implement)。其核心理念包括意图驱动开发、创建丰富规范、多步求精和利用先进AI能力。spec-kit特别适用于绿地开发、创造性探索和棕地开发三种场景，通过"章程"文件确立治理原则，确保AI生成内容符合项目标准。这个框架代](https://dd-ff.blog.csdn.net/article/details/154118831) |
+| 20 | [超越对话框：深入剖析ChainForge，实现系统化LLM评估哈佛大学研究团队开发的ChainForge工具解决了LLM提示工程中依赖直觉、缺乏系统化评估的痛点。这款开源可视化工具通过数据流节点界面实现组合测试，支持从探索到优化的全流程工作流。其核心创新包括自动计算输入组合的笛卡尔积、可视化评估流程设计，以及支持自定义代码和LLM评分等多种评估方式。典型案例展示了如何系统化测试模型对提示注入攻击的鲁棒性，彰显了该工具在提升AI开发严谨性方面的价值。ChainForge的出现标志着提示工程正从经验技巧向系统化科学转变。](https://dd-ff.blog.csdn.net/article/details/154005816) |
+| 21 | [解锁效率：一份关于大语言模型量化的综合技术指南大语言模型量化技术概述 现代大语言模型(LLM)规模急剧增长，70B参数模型仅权重就需280GB显存，严重制约了部署应用。量化技术通过降低参数和激活值的数值精度(如从FP32到INT8/INT4)实现模型压缩，可显著减小内存占用、提升推理速度并降低能耗。量化核心在于将高精度数值映射到低精度表示，关键参数包括缩放因子(scale)和零点(zero-point)，并分为对称和非对称两种方案。实践表明，激活值量化比权重量化更具挑战性，主要因其异常值分布特性。量化评估需平衡困惑度指标与下游任务表现，而混合精度量化等](https://dd-ff.blog.csdn.net/article/details/153972239) |
+| 22 | [大模型微调的“省钱”秘笈：PEFT技术深度解析与实战指南](https://dd-ff.blog.csdn.net/article/details/153965724) |
+| 23 | [关于OpenAI CLIP的综合技术报告：架构、对比预训练与多模态影响CLIP的成功不仅在于其卓越的性能，更在于它证明了利用网络规模的原始数据进行学习的可行性，其所构建的多模态嵌入空间，已然成为现代人工智能领域的一块基石。它所提供的强大、通用的视觉-语言理解能力，使其成为一个可以被即插即用（plug-and-play）的基础模块，被广泛集成到各种更复杂的AI系统中，尤其是在内容生成领域扮演了至关重要的角色。它采用双编码器框架，分别为图像和文本这两种不同的模态设计了独立的处理通路，最终将它们的信息投影到一个统一的多模态嵌入空间中，从而实现跨模态的理解与比较。](https://dd-ff.blog.csdn.net/article/details/153877459) |
+| 24 | [“懒惰”大模型的智慧：深入Auto-Think，构建按需思考的AI](https://dd-ff.blog.csdn.net/article/details/153876311) |
+| 25 | [LLM 数据军火库：Data-Juicer、distilabel 与 Easy-Dataset 深度对决](https://dd-ff.blog.csdn.net/article/details/153830206) |
+| 26 | [多感官AI的黎明：多模态大模型综合指南多模态大模型：人工智能的下一次进化](https://dd-ff.blog.csdn.net/article/details/153827638) |
+| 27 | [聊天的“秘密握手”：一份给开发者的LLM对话模板深度指南](https://dd-ff.blog.csdn.net/article/details/153737318) |
+| 28 | [vLLM多模型单端口部署权威指南：从架构约束到生产级实践](https://dd-ff.blog.csdn.net/article/details/153624380) |
+| 29 | [VLLM部署模型时容易踩得坑，我来教你怎么解决](https://dd-ff.blog.csdn.net/article/details/153403814) |
+| 30 | [vLLM揭秘：全面解析如何将LLM推理吞吐量提升24倍的背后黑科技第五节：基准测试与性能对比 vLLM的官方基准测试显示，在多种硬件配置和模型规模下，vLLM相比传统方案（HuggingFace Transformers、Text Generation Inference等）展现出显著优势： 吞吐量对比（A100-80GB GPU） 模型 序列长度 vLLM HF Transformers 提升倍数 LLaMA-7B 256 155 req/s 6.5 req/s 24x LLaMA-13B 512 78 req/s 3.2 req/s 24x LLaMA-30B](https://dd-ff.blog.csdn.net/article/details/153398079) |
+| 31 | [一份关于语言模型对齐的技术论述：从基于PPO的RLHF到直接偏好优化](https://dd-ff.blog.csdn.net/article/details/153269912) |
+| 32 | [解构Citrus：深度剖析一款像医生一样思考的AI](https://dd-ff.blog.csdn.net/article/details/153251946) |
+| 33 | [微调高级推理大模型（COT）的综合指南：从理论到实践](https://dd-ff.blog.csdn.net/article/details/153210150) |
+| 34 | [解码AI智能体的大脑：Function Calling 与 ReAct 策略深度对决AI智能体从"聊天"到"做事"的两种核心策略：Function Calling和ReAct。Function Calling像经验丰富的主管，直接生成结构化指令调用工具，高效可靠但过程不透明；ReAct则像缜密的侦探，通过"思考-行动-观察"循环逐步解决问题，适合复杂任务但耗时较长。两者各有优劣：Function Calling适合明确任务，ReAct擅长动态规划。未来趋势是融合两者优势，让ReAct负责战略思考，Function Calling处](https://dd-ff.blog.csdn.net/article/details/153210207) |
+| 35 | [一份面向研究人员的强化学习对齐指南：为自定义语言模型实施与评估 PPO 和 DPO](https://dd-ff.blog.csdn.net/article/details/153184150) |
+| 36 | [从指令遵循到价值对齐：医疗大语言模型的进阶优化、对齐与工具集成综合技术白皮书医疗AI需超越监督微调（SFT）实现高级对齐，确保安全性、伦理合规性和可靠性。SFT虽能提供准确信息，但难以处理模糊查询和伦理困境。强化学习（RLHF）通过偏好优化，使模型在多个合理回答中选择更优方案。主流对齐算法中，PPO虽复杂但性能更高，适合医疗场景；DPO简单但可能略逊。医疗AI需优先选择PPO，以保障推理能力和安全性，并通过独立奖励模型增强可解释性。最终目标是构建安全可信、能执行复杂任务的医疗级AI助手。](https://dd-ff.blog.csdn.net/article/details/153044759) |
+| 37 | [多轮智能对话系统架构方案（可实战）：从基础模型到自我优化的对话智能体，数据飞轮的重要性](https://dd-ff.blog.csdn.net/article/details/152935034) |
+| 38 | [检索增强生成（RAG）系统综合评估：从核心指标到前沿框架](https://dd-ff.blog.csdn.net/article/details/152823514) |
+| 39 | [从文本到上下文：深入解析Tokenizer、Embedding及高级RAG架构的底层原理](https://dd-ff.blog.csdn.net/article/details/152819135) |
+| 40 | [从潜在空间到实际应用：Embedding模型架构与训练范式的综合解析](https://dd-ff.blog.csdn.net/article/details/152815637) |
+| 41 | [从意义到机制：深入剖析Embedding模型原理及其在RAG中的作用](https://dd-ff.blog.csdn.net/article/details/152809855) |
+| 42 | [从指令到智能：大型语言模型提示词工程与上下文工程的综合分析提示词工程与上下文工程：优化AI交互的关键技术](https://dd-ff.blog.csdn.net/article/details/152799914) |
+| 43 | [深入探秘LLM的“暗语”：特殊Token与LlamaFactory的模板魔法](https://dd-ff.blog.csdn.net/article/details/152328698) |
+| 44 | [终极指南：从“扩充书库”到“教授技能”——大模型微调领域定制的 CPT/SFT 路线图与“健忘症”解药大模型领域定制化：从通用全才到领域专家的技术路径](https://dd-ff.blog.csdn.net/article/details/152267590) |
+| 45 | [大型语言模型（LLM）的版本化、对齐机制与核心概念解析大模型三大版本与对齐技术解析 报告系统分析了LLM的三大核心版本：基座模型（Base）专注知识存储，指令模型（Instruct）强调任务执行，对话模型（Chat）优化交互体验。版本升级依赖对齐技术，包括监督微调（SFT）、人类反馈强化学习（RLHF）和直接偏好优化（DPO）。研究发现，RAG任务中基座模型可能因"对齐税"反而表现更优。部署时需严格遵循Prompt模板规范，确保模型行为可控。报告为LLM选型与优化提供了关键技术框架与实践指南。](https://dd-ff.blog.csdn.net/article/details/152255344) |
+| 46 | [垃圾进，垃圾出：打造高质量LLM微调数据集的终极指南](https://dd-ff.blog.csdn.net/article/details/152254276) |
+| 47 | [超越纯文本：解锁高级RAG中复杂文档预处理的艺术文档预处理：RAG系统的隐形支柱](https://dd-ff.blog.csdn.net/article/details/152045489) |
+| 48 | [答案经济：AI时代SEO与GEO崛起的战略指南](https://dd-ff.blog.csdn.net/article/details/152038939) |
+| 49 | [AI智能体的牢笼：大模型沙箱（SandBox）技术深度解析AI代码执行的安全挑战与沙箱解决方案](https://dd-ff.blog.csdn.net/article/details/151970698) |
+| 50 | [红队测试手册：使用 promptfoo 深入探索大语言模型安全](https://dd-ff.blog.csdn.net/article/details/151834721) |

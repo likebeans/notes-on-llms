@@ -49,44 +49,6 @@ Naive RAG → Advanced RAG → Modular RAG → GraphRAG → Agentic RAG
   </div>
 </div>
 
-<style>
-.paradigm-timeline {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  margin: 2rem 0;
-  flex-wrap: wrap;
-  justify-content: center;
-}
-.paradigm-item {
-  background: var(--vp-c-bg-soft);
-  border: 2px solid var(--vp-c-border);
-  border-radius: 12px;
-  padding: 1rem;
-  text-align: center;
-  min-width: 120px;
-}
-.paradigm-item.highlight {
-  background: linear-gradient(135deg, #667eea20 0%, #764ba220 100%);
-  border-color: #667eea;
-}
-.paradigm-year {
-  font-size: 0.8rem;
-  color: var(--vp-c-text-2);
-}
-.paradigm-name {
-  font-weight: bold;
-  color: var(--vp-c-brand);
-  margin: 0.3rem 0;
-}
-.paradigm-desc {
-  font-size: 0.85rem;
-}
-.paradigm-arrow {
-  font-size: 1.5rem;
-  color: var(--vp-c-text-2);
-}
-</style>
 
 ---
 
@@ -308,42 +270,6 @@ GraphRAG通过**知识图谱**增强RAG，解决传统RAG在**关系推理**和*
   </div>
 </div>
 
-<style>
-.compare-box {
-  display: flex;
-  align-items: stretch;
-  gap: 1rem;
-  margin: 1.5rem 0;
-  flex-wrap: wrap;
-}
-.compare-item {
-  flex: 1;
-  min-width: 200px;
-  padding: 1rem;
-  border-radius: 8px;
-  background: var(--vp-c-bg-soft);
-  border: 1px solid var(--vp-c-border);
-}
-.compare-item.highlight {
-  background: linear-gradient(135deg, #667eea20 0%, #764ba220 100%);
-  border-color: #667eea;
-}
-.compare-title {
-  font-weight: bold;
-  margin-bottom: 0.5rem;
-  color: var(--vp-c-brand);
-}
-.compare-item ul {
-  margin: 0;
-  padding-left: 1.2rem;
-  font-size: 0.9rem;
-}
-.compare-vs {
-  font-weight: bold;
-  color: var(--vp-c-text-2);
-  align-self: center;
-}
-</style>
 
 ### GraphRAG工作流程
 
@@ -673,10 +599,10 @@ def choose_rag_paradigm(requirements):
 
 ## 🔗 相关阅读
 
-- [文档切分策略](/rag/chunking) - 索引阶段的核心技术
-- [Embedding技术](/rag/embedding) - 向量化的原理与实践
-- [检索策略](/rag/retrieval) - 多种检索方法详解
-- [RAG评估](/rag/evaluation) - 系统性能评估方法
+- [文档切分策略](/llms/rag/chunking) - 索引阶段的核心技术
+- [Embedding技术](/llms/rag/embedding) - 向量化的原理与实践
+- [检索策略](/llms/rag/retrieval) - 多种检索方法详解
+- [RAG评估](/llms/rag/evaluation) - 系统性能评估方法
 
 > **核心参考**：
 > - [RAG技术的5种范式](https://hub.baai.ac.cn/view/43613) - 智源社区

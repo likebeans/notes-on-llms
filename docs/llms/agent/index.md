@@ -9,7 +9,7 @@ description: AI智能体技术全景图谱 - 从理论到生产实践
 
 ## 🗺️ Agent 知识图谱
 
-<div class="knowledge-map">
+<div class="knowledge-map agent">
   <div class="map-center">
     <span class="map-title">AI Agent</span>
   </div>
@@ -53,55 +53,6 @@ description: AI智能体技术全景图谱 - 从理论到生产实践
   </div>
 </div>
 
-<style>
-.knowledge-map {
-  background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
-  border-radius: 16px;
-  padding: 2rem;
-  margin: 2rem 0;
-  color: white;
-}
-.map-center {
-  text-align: center;
-  margin-bottom: 1.5rem;
-}
-.map-title {
-  display: inline-block;
-  background: white;
-  color: #3b82f6;
-  font-size: 2rem;
-  font-weight: bold;
-  padding: 1rem 2rem;
-  border-radius: 50px;
-  box-shadow: 0 4px 15px rgba(0,0,0,0.2);
-}
-.map-branches {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 1rem;
-}
-.branch {
-  background: rgba(255,255,255,0.15);
-  backdrop-filter: blur(10px);
-  border-radius: 12px;
-  padding: 1rem;
-}
-.branch-title {
-  font-weight: bold;
-  font-size: 1.1rem;
-  margin-bottom: 0.5rem;
-  padding-bottom: 0.5rem;
-  border-bottom: 2px solid rgba(255,255,255,0.3);
-}
-.branch ul {
-  margin: 0;
-  padding-left: 1.2rem;
-  font-size: 0.9rem;
-}
-.branch li {
-  margin: 0.3rem 0;
-}
-</style>
 
 ---
 

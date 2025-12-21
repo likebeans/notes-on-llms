@@ -387,10 +387,10 @@ async def batch_async_embedding(texts: List[str]):
 
 ## 🔗 相关阅读
 
-- [RAG范式演进](/rag/paradigms) - 了解RAG技术发展脉络
-- [文档切分策略](/rag/chunking) - Embedding前的文本预处理
-- [向量数据库选型](/rag/vector-db) - Embedding存储与检索
-- [检索策略优化](/rag/retrieval) - 基于向量的检索技巧
+- [RAG范式演进](/llms/rag/paradigms) - 了解RAG技术发展脉络
+- [文档切分策略](/llms/rag/chunking) - Embedding前的文本预处理
+- [向量数据库选型](/llms/rag/vector-db) - Embedding存储与检索
+- [检索策略优化](/llms/rag/retrieval) - 基于向量的检索技巧
 
 > **相关文章**：
 > - [从意义到机制：深入剖析Embedding模型原理及其在RAG中的作用](https://dd-ff.blog.csdn.net/article/details/152809855)

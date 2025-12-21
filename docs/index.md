@@ -3,43 +3,43 @@ layout: home
 
 hero:
   name: "Notes on LLMs"
-  text: "大模型学习笔记"
-  tagline: RAG · Agent · 训练微调 | 从入门到面试
+  text: "大模型技术探索与实践"
+  tagline: 🚀 从 RAG 到 Agent，构建下一代 AI 应用
   image:
     src: /logo.svg
     alt: Notes on LLMs
   actions:
     - theme: brand
-      text: 开始学习
+      text: 开始探索
       link: /guide/roadmap
     - theme: alt
-      text: GitHub
+      text: 访问 GitHub
       link: https://github.com/likebeans/notes-on-llms
 
 features:
-  - icon: 🔍
-    title: RAG 检索增强
-    details: 文档切分、Embedding、向量数据库、检索策略、重排序、评估与生产实践
-    link: /rag/
+  - icon: 🧠
+    title: LLM 核心技术
+    details: 深入理解大语言模型原理，掌握 Prompt Engineering、RAG 检索增强等核心技术范式。
+    link: /llms/
   - icon: 🤖
     title: Agent 智能体
-    details: 工具调用、规划、记忆、多智能体协作、安全与评估
-    link: /agent/
-  - icon: 🎯
+    details: 探索 AI Agent 架构与应用，学习工具调用、规划决策、多智能体协作等前沿方向。
+    link: /llms/agent/
+  - icon: ⚙️
     title: 训练与微调
-    details: 数据处理、SFT、DPO、RLHF、LoRA 等技术路线与实践
-    link: /training/
+    details: 从数据处理到模型部署，全流程掌握 SFT、RLHF、LoRA 等模型定制与优化技术。
+    link: /llms/training/
+  - icon: 👁️
+    title: 多模态融合
+    details: 跨越文本限制，探索图像、音频、视频等多模态大模型的理解与生成能力。
+    link: /llms/multimodal/
   - icon: 💼
-    title: 面试专区
-    details: 系统设计、高频考点、代码题，助力 LLM 岗位求职
+    title: 面试与职场
+    details: 系统设计、算法题解、面试真题，助你拿下 LLM 算法工程师 Offer。
     link: /interviews/
-  - icon: 📚
-    title: 速查手册
-    details: 术语表、Checklist、评估指标、常用模板
-    link: /reference/glossary
-  - icon: 🔗
-    title: 资源库
-    details: 精选论文、博客、开源项目索引
+  - icon: 🛠️
+    title: 开发者资源
+    details: 精选论文、开源项目、开发工具与最佳实践，提升开发效率。
     link: /resources/papers
 ---
 
@@ -48,12 +48,12 @@ features:
 ### 🌱 新手入门
 1. [前置知识](/guide/prerequisites) - 需要了解的基础概念
 2. [学习路线图](/guide/roadmap) - 整体学习规划
-3. [RAG 概述](/rag/) - 从最实用的 RAG 开始
+3. [RAG 概述](/llms/rag/) - 从最实用的 RAG 开始
 
 ### 🚀 进阶提升
-1. [Agent 概述](/agent/) - 理解智能体架构
-2. [训练微调概述](/training/) - 掌握模型定制能力
-3. [生产实践](/rag/production) - 落地经验
+1. [Agent 概述](/llms/agent/) - 理解智能体架构
+2. [训练微调概述](/llms/training/) - 掌握模型定制能力
+3. [生产实践](/llms/rag/production) - 落地经验
 
 ### 💼 面试准备
 1. [面试专区](/interviews/) - 高频考点概览

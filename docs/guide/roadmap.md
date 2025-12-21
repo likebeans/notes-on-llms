@@ -69,5 +69,5 @@ description: 大模型应用开发学习路线规划
 ## 📚 延伸阅读
 
 - [前置知识](/guide/prerequisites)
-- [RAG 概述](/rag/)
-- [Agent 概述](/agent/)
+- [RAG 概述](/llms/rag/)
+- [Agent 概述](/llms/agent/)

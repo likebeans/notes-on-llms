@@ -414,9 +414,9 @@ class EvaluationReporter:
 
 ## 🔗 相关阅读
 
-- [Agent概述](/agent/) - Agent整体架构
-- [安全与沙箱](/agent/safety) - 安全性评估
-- [RAG评估方法](/rag/evaluation) - 检索生成评估
+- [Agent概述](/llms/agent/) - Agent整体架构
+- [安全与沙箱](/llms/agent/safety) - 安全性评估
+- [RAG评估方法](/llms/rag/evaluation) - 检索生成评估
 
 > **相关文章**：
 > - [12-Factor Agent方法论](https://dd-ff.blog.csdn.net/article/details/154185674)

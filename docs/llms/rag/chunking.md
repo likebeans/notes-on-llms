@@ -369,10 +369,10 @@ def chunking_with_metadata(text, source_file, page_num):
 
 ## 🔗 相关阅读
 
-- [RAG范式演进](/rag/paradigms) - 了解RAG技术发展脉络
-- [Embedding技术详解](/rag/embedding) - 理解向量化原理
-- [检索策略优化](/rag/retrieval) - 切分后的检索技巧  
-- [RAG评估方法](/rag/evaluation) - 评估切分效果
+- [RAG范式演进](/llms/rag/paradigms) - 了解RAG技术发展脉络
+- [Embedding技术详解](/llms/rag/embedding) - 理解向量化原理
+- [检索策略优化](/llms/rag/retrieval) - 切分后的检索技巧  
+- [RAG评估方法](/llms/rag/evaluation) - 评估切分效果
 
 > **相关文章**：
 > - [解锁RAG效能：15种分块策略秘籍（附实战案例）](https://dd-ff.blog.csdn.net/article/details/149529161)
