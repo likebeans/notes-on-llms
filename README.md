@@ -1,8 +1,10 @@
-# 📚 notes-on-llms
+<p align="center">
+  <img src="docs/public/logo.png" alt="notes-on-llms" width="600">
+</p>
 
-> **系统性理解大语言模型（LLM）从原理到工程实践的知识仓库**
-
-这是一个面向 AI 工程师、研究者以及深度学习学习者的 **大语言模型全景技术参考指南**，帮助你不只是理解模型，还能**理解模型背后的系统工程逻辑**。
+<p align="center">
+  <strong>系统性理解大语言模型（LLM）从原理到工程实践的知识仓库</strong>
+</p>
 
 <p align="center">
   <a href="https://likebeans.github.io/notes-on-llms/">
@@ -14,6 +16,11 @@
   <a href="https://github.com/likebeans/notes-on-llms/blob/main/LICENSE">
     <img src="https://img.shields.io/badge/license-MIT-green?style=for-the-badge" alt="License">
   </a>
+</p>
+
+<p align="center">
+  面向 AI 工程师、研究者以及深度学习学习者的 <strong>大语言模型全景技术参考指南</strong><br>
+  帮助你不只是理解模型，还能<strong>理解模型背后的系统工程逻辑</strong>
 </p>
 
 ---
