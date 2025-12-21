@@ -1,339 +1,514 @@
 ---
-title: MCP协议知识体系
-description: Model Context Protocol - AI工具调用的标准协议
+title: MCP 协议全景
+description: Model Context Protocol - AI 时代的 USB-C 接口
 ---
 
-# MCP协议知识体系
+# MCP 协议全景
 
-> 连接AI模型与外部世界的标准协议
+> **模型上下文协议（MCP）** 是一种开放标准，旨在解决 AI 模型与外部数据源/工具之间的互操作性危机。MCP 被广泛比喻为 **"AI 时代的 USB-C 接口"**——通过统一协议，任何支持 MCP 的 AI 应用都可以无缝连接任何 MCP 服务器。
 
-## 🎯 什么是MCP？
+---
 
-### 核心定义
+## 核心价值
 
-::: tip 定义
-**MCP（Model Context Protocol）** 是由Anthropic提出的开放协议，用于标准化AI模型与外部工具、数据源之间的通信方式，类似于AI领域的"USB协议"。
+```mermaid
+flowchart LR
+    subgraph "传统方案 M×N"
+        M1[模型1] --> T1[工具1]
+        M1 --> T2[工具2]
+        M2[模型2] --> T1
+        M2 --> T2
+        M3[模型3] --> T1
+        M3 --> T2
+    end
+    
+    subgraph "MCP方案 M+N"
+        M4[模型1] --> MCP[MCP协议]
+        M5[模型2] --> MCP
+        M6[模型3] --> MCP
+        MCP --> T3[工具1]
+        MCP --> T4[工具2]
+    end
+```
+
+| 维度 | 传统点对点集成 | MCP 统一协议 |
+| :--- | :--- | :--- |
+| **复杂度** | M×N（每对都需适配） | M+N（通过协议连接） |
+| **维护成本** | API 变更需重构所有集成 | 仅更新 Server 实现 |
+| **可移植性** | 绑定特定模型/厂商 | 一次编写，多处复用 |
+| **生态** | 碎片化 | 标准化互通 |
+
+---
+
+## 1. 架构体系
+
+### 1.1 三层实体模型
+
+```mermaid
+flowchart TB
+    subgraph Host[宿主应用 Host]
+        UI[用户界面]
+        LLM[LLM 推理]
+        CLIENT[MCP Client]
+    end
+    
+    subgraph Server[MCP Server]
+        HANDLER[协议处理]
+        LOGIC[业务逻辑]
+    end
+    
+    subgraph External[外部服务]
+        API[API]
+        DB[(数据库)]
+        FS[文件系统]
+    end
+    
+    UI --> LLM
+    LLM --> CLIENT
+    CLIENT <-->|JSON-RPC| HANDLER
+    HANDLER --> LOGIC
+    LOGIC --> API
+    LOGIC --> DB
+    LOGIC --> FS
+```
+
+| 角色 | 职责 | 典型示例 |
+| :--- | :--- | :--- |
+| **Host（宿主）** | AI 应用容器，运行 LLM，管理 UI，决定何时请求外部上下文 | Claude Desktop, Cursor, VS Code, Zed |
+| **Client（客户端）** | 嵌入 Host 的协议网关，负责连接管理、消息序列化 | mcp-client 库 |
+| **Server（服务器）** | 独立进程，持有数据或执行操作，暴露原语 | mcp-server-git, mcp-server-postgres |
+
+### 1.2 解耦优势
+
+| 角色 | 关注点 |
+| :--- | :--- |
+| **Server 开发者** | 仅关注如何获取数据并转化为 MCP 格式，无需了解调用者是哪个模型 |
+| **Host 开发者** | 仅关注模型推理和用户体验，无需为每个工具编写集成插件 |
+| **用户** | 配置好的 Server 集可在不同 AI 应用间复用 |
+
+---
+
+## 2. 协议分层
+
+### 2.1 数据层：JSON-RPC 2.0
+
+MCP 强制使用 **JSON-RPC 2.0** 作为应用层协议，支持有状态的双向通信。
+
+**请求示例**：
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "tools/call",
+  "params": {
+    "name": "get_weather",
+    "arguments": { "city": "Shanghai" }
+  }
+}
+```
+
+**响应示例**：
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "result": {
+    "content": [{ "type": "text", "text": "Shanghai: 25°C, Sunny" }],
+    "isError": false
+  }
+}
+```
+
+**消息类型**：
+- **Request/Response**：Client 请求，Server 返回结果
+- **Notification**：Server 主动推送（如资源变更通知）
+
+### 2.2 传输层
+
+| 传输方式 | 机制 | 适用场景 | 优势 |
+| :--- | :--- | :--- | :--- |
+| **Stdio** | 父子进程通过 stdin/stdout 通信 | 本地环境 | 零配置、安全、低延迟 |
+| **SSE + HTTP** | POST 发请求，SSE 推响应 | 远程/微服务 | 网络穿透、多路复用 |
+
+```mermaid
+flowchart LR
+    subgraph "Stdio 传输"
+        HOST1[Host 进程] -->|stdin| SERVER1[Server 子进程]
+        SERVER1 -->|stdout| HOST1
+    end
+    
+    subgraph "SSE 传输"
+        HOST2[Host] -->|HTTP POST| SERVER2[Remote Server]
+        SERVER2 -->|SSE 长连接| HOST2
+    end
+```
+
+---
+
+## 3. 核心原语（Primitives）
+
+MCP 定义三种能力原语，标准化 AI 与外部世界的交互模式。
+
+### 3.1 资源（Resources）：被动上下文
+
+**定义**：Server 持有的可读取数据，由唯一 URI 标识。
+
+```mermaid
+flowchart LR
+    C[Client] -->|resources/list| S[Server]
+    S -->|资源列表| C
+    C -->|resources/read| S
+    S -->|资源内容| C
+    C -->|resources/subscribe| S
+    S -.->|notifications/updated| C
+```
+
+| 操作 | 说明 |
+| :--- | :--- |
+| **list** | 查询可用资源列表 |
+| **read** | 根据 URI 获取内容（支持文本/二进制） |
+| **subscribe** | 订阅资源变更，Server 主动推送更新 |
+
+**典型应用**：
+- 读取 IDE 当前文件
+- 获取数据库 Schema
+- 实时尾随日志
+
+### 3.2 工具（Tools）：主动代理行为
+
+**定义**：AI 可调用的可执行函数，是实现代理（Agentic）行为的核心。
+
+```mermaid
+flowchart LR
+    U[用户提问] --> H[Host/LLM]
+    H -->|决策调用| T[tools/call]
+    T --> S[Server 执行]
+    S -->|结果| H
+    H -->|生成回复| U
+```
+
+**工具定义**：
+- **Name**：工具名称
+- **Description**：自然语言描述
+- **Input Schema**：JSON Schema 定义参数类型
+
+**调用流程**：
+1. 用户：*"帮我查苹果股价"*
+2. LLM 决策：调用 `get_stock_price(ticker="AAPL")`
+3. Host 通过 MCP 转发给 Server
+4. Server 执行并返回 `{"price": 150.00}`
+5. LLM 生成：*"苹果当前股价为 150 美元"*
+
+::: warning 人机回环（HITL）
+工具可能产生副作用（修改数据、发送邮件）。MCP 强调敏感工具调用应经过**用户显式确认**。
 :::
 
-### 为什么需要MCP？
+### 3.3 提示词（Prompts）：标准化模板
 
-| 问题 | 传统方案 | MCP方案 |
-|------|----------|---------|
-| **工具集成** | 每个工具单独适配 | 统一协议接入 |
-| **多模型支持** | 重复开发 | 一次开发，多处复用 |
-| **安全控制** | 各自实现 | 协议层标准化 |
-| **生态互通** | 碎片化 | 标准化生态 |
+**定义**：Server 提供的预定义交互模板，简化用户输入。
 
----
+| 用途 | 示例 |
+| :--- | :--- |
+| **工作流标准化** | `git_commit` 模板自动组装符合规范的 Commit Message |
+| **复杂任务封装** | `code_review` 模板内含精调的 System Prompt |
 
-## 🏗️ MCP架构
+### 3.4 原语对比
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                        MCP 架构                                  │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                  │
-│   ┌─────────────┐         ┌─────────────┐         ┌───────────┐ │
-│   │  MCP Client │ ◄─────► │  MCP Server │ ◄─────► │  外部服务  │ │
-│   │  (AI模型)   │   协议   │  (工具提供) │   实现   │  (API等)  │ │
-│   └─────────────┘         └─────────────┘         └───────────┘ │
-│                                                                  │
-│   传输层: stdio | HTTP/SSE | WebSocket                          │
-│                                                                  │
-└─────────────────────────────────────────────────────────────────┘
-```
-
-### 核心组件
-
-| 组件 | 角色 | 说明 |
-|------|------|------|
-| **MCP Client** | 请求方 | AI应用/模型，发起工具调用 |
-| **MCP Server** | 提供方 | 暴露工具、资源、提示模板 |
-| **Transport** | 传输层 | stdio/HTTP/SSE等通信方式 |
+| 特性 | Resources | Tools | Prompts |
+| :--- | :--- | :--- | :--- |
+| **用途** | 提供上下文 | 执行操作 | 提供模板 |
+| **数据流** | Server → Client | 双向 | Server → LLM |
+| **副作用** | 无（只读） | 有 | 无 |
+| **触发方式** | 用户/自动选择 | 模型自主决策 | 用户选择 |
 
 ---
 
-## 🔧 三大核心能力
+## 4. 协议生命周期
 
-### 1. Tools（工具）
-
-允许模型执行操作，如API调用、数据处理等。
-
-```python
-from mcp.server import Server
-from mcp.types import Tool
-
-server = Server("my-server")
-
-@server.tool()
-async def search_web(query: str) -> str:
-    """搜索网络信息
+```mermaid
+sequenceDiagram
+    participant C as Client
+    participant S as Server
     
-    Args:
-        query: 搜索关键词
-    """
-    # 实现搜索逻辑
-    results = await perform_search(query)
-    return results
+    C->>S: initialize (协议版本, 能力声明)
+    S->>C: 响应 (版本, Server 能力)
+    C->>S: notifications/initialized
+    Note over C,S: 会话就绪，开始业务交互
+    C->>S: tools/list
+    S->>C: 工具列表
+    C->>S: tools/call
+    S->>C: 调用结果
 ```
 
-### 2. Resources（资源）
-
-提供结构化数据访问，如文件、数据库记录等。
-
-```python
-@server.resource("file://{path}")
-async def read_file(path: str) -> str:
-    """读取文件内容"""
-    with open(path, 'r') as f:
-        return f.read()
-
-@server.resource("config://settings")
-async def get_settings() -> dict:
-    """获取配置信息"""
-    return {"theme": "dark", "language": "zh"}
-```
-
-### 3. Prompts（提示模板）
-
-预定义的提示词模板，引导模型行为。
-
-```python
-@server.prompt()
-async def summarize_document(document: str) -> str:
-    """文档摘要提示模板"""
-    return f"""请对以下文档进行摘要：
-
-{document}
-
-要求：
-- 保留关键信息
-- 长度控制在200字以内
-- 使用简洁的语言"""
-```
+**关键阶段**：
+1. **初始化**：Client 发送 `initialize`，声明协议版本和能力
+2. **能力协商**：双方就版本和功能达成一致
+3. **会话就绪**：Client 发送 `notifications/initialized`
+4. **业务交互**：列出工具、调用工具、读取资源等
 
 ---
 
-## 🚀 快速开始
+## 5. 开发实战
 
-### 安装
+### 5.1 Python SDK（FastMCP）
 
 ```bash
-# Python SDK
-pip install mcp
-
-# 或使用 FastMCP（更简单的封装）
-pip install fastmcp
+uv add "mcp[cli]"
 ```
 
-### 创建MCP服务器
-
 ```python
-from mcp.server import Server
-from mcp.server.stdio import stdio_server
+from mcp.server.fastmcp import FastMCP, Context
+import httpx
 
-# 创建服务器
-server = Server("demo-server")
+mcp = FastMCP("WeatherService")
 
-# 添加工具
-@server.tool()
-async def add(a: int, b: int) -> int:
-    """两数相加"""
-    return a + b
-
-@server.tool()
+# 定义工具
+@mcp.tool()
 async def get_weather(city: str) -> str:
-    """获取天气信息"""
-    return f"{city}今日晴，气温25°C"
+    """Get current weather for a city."""
+    async with httpx.AsyncClient() as client:
+        resp = await client.get(f"https://api.weather.com/{city}")
+        return resp.text
 
-# 运行服务器
-async def main():
-    async with stdio_server() as (read, write):
-        await server.run(read, write)
+# 定义资源
+@mcp.resource("config://{env}/settings")
+def get_config(env: str) -> str:
+    """Get settings for an environment."""
+    return f'{{"environment": "{env}", "debug": true}}'
+
+# 带上下文的工具
+@mcp.tool()
+async def long_task(ctx: Context):
+    """Execute a long running task."""
+    await ctx.info("Task started")
+    for i in range(10):
+        await ctx.report_progress(i, 10)
+    return "Done"
 
 if __name__ == "__main__":
-    import asyncio
-    asyncio.run(main())
+    mcp.run()
 ```
 
-### 使用FastMCP（推荐）
+### 5.2 TypeScript SDK
 
-```python
-from fastmcp import FastMCP
+```typescript
+import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import { z } from "zod";
 
-# 创建服务器
-mcp = FastMCP("my-service")
+const server = new McpServer({
+  name: "ts-demo-server",
+  version: "1.0.0"
+});
 
-@mcp.tool()
-def calculate(expression: str) -> float:
-    """计算数学表达式"""
-    return eval(expression)
+server.tool(
+  "calculate_bmi",
+  {
+    height: z.number().describe("Height in meters"),
+    weight: z.number().describe("Weight in kg")
+  },
+  async ({ height, weight }) => {
+    const bmi = weight / (height * height);
+    return { content: [{ type: "text", text: `BMI: ${bmi.toFixed(1)}` }] };
+  }
+);
 
-@mcp.resource("greeting://{name}")
-def greet(name: str) -> str:
-    """个性化问候"""
-    return f"你好，{name}！"
-
-# 运行
-mcp.run()
+const transport = new StdioServerTransport();
+await server.connect(transport);
 ```
 
----
-
-## 📡 传输协议
-
-| 协议 | 场景 | 特点 |
-|------|------|------|
-| **stdio** | 本地进程 | 简单、安全、无网络 |
-| **HTTP/SSE** | Web服务 | 支持流式、跨域 |
-| **WebSocket** | 实时交互 | 双向通信 |
-
-### stdio模式
-
-```python
-# 服务器
-from mcp.server.stdio import stdio_server
-
-async with stdio_server() as (read, write):
-    await server.run(read, write)
-```
-
-### HTTP/SSE模式
-
-```python
-from fastmcp import FastMCP
-
-mcp = FastMCP("web-service")
-
-# 使用HTTP传输
-mcp.run(transport="sse", port=8000)
-```
-
----
-
-## 🔌 客户端集成
-
-### Claude Desktop配置
+### 5.3 Claude Desktop 配置
 
 ```json
 {
   "mcpServers": {
-    "my-tools": {
+    "weather": {
       "command": "python",
-      "args": ["path/to/server.py"],
-      "env": {
-        "API_KEY": "xxx"
-      }
+      "args": ["path/to/weather_server.py"]
+    },
+    "docker-server": {
+      "command": "docker",
+      "args": ["run", "-i", "--rm", "mcp/server-image:latest"]
     }
   }
 }
 ```
 
-### 编程方式调用
+### 5.4 MCP Inspector 调试
 
-```python
-from mcp import ClientSession, StdioServerParameters
-from mcp.client.stdio import stdio_client
+```bash
+npx @modelcontextprotocol/inspector node build/index.js
+```
 
-async def main():
-    server_params = StdioServerParameters(
-        command="python",
-        args=["server.py"]
-    )
+**功能**：
+- 模拟 Host 手动调用工具
+- 查看 JSON-RPC 请求/响应报文
+- 排查 Schema 错误
+
+---
+
+## 6. MCP vs OpenAI Function Calling
+
+| 特性 | OpenAI Function Calling | MCP |
+| :--- | :--- | :--- |
+| **本质** | 厂商私有 API 特性 | 开放互操作协议 |
+| **架构** | Client 包含工具执行代码 | Server 封装实现，Client 仅转发 |
+| **状态** | 无状态 | 有状态会话 |
+| **可移植** | 绑定 OpenAI | 支持 Claude, Cursor, Gemini 等 |
+| **生态** | 插件模式 | **操作系统级集成** |
+
+::: tip 关键区别
+Function Calling 将"执行"负担留给开发者（在代码中写 `if tool_name == 'x': ...`）。MCP 将逻辑封装到独立 Server，可**像微服务一样独立部署、独立升级**。
+:::
+
+---
+
+## 7. 安全架构
+
+### 7.1 威胁模型
+
+| 威胁 | 描述 |
+| :--- | :--- |
+| **间接提示注入** | 恶意数据（邮件/网页）中嵌入隐藏指令 |
+| **数据渗漏** | 恶意 Server 诱导模型传递敏感信息 |
+
+### 7.2 防御体系
+
+```mermaid
+flowchart TB
+    subgraph 三阶段防御
+        S1[静态扫描<br/>代码模式匹配]
+        S2[动态沙箱<br/>行为监控]
+        S3[LLM 仲裁<br/>安全模型过滤]
+    end
     
-    async with stdio_client(server_params) as (read, write):
-        async with ClientSession(read, write) as session:
-            # 初始化
-            await session.initialize()
-            
-            # 列出工具
-            tools = await session.list_tools()
-            print(tools)
-            
-            # 调用工具
-            result = await session.call_tool("add", {"a": 1, "b": 2})
-            print(result)  # 3
+    S1 --> S2 --> S3
 ```
+
+| 层面 | 措施 |
+| :--- | :--- |
+| **协议级** | 权限协商、人机回环（HITL） |
+| **传输级** | OAuth 2.1 认证、最小权限 Token |
+| **应用级** | MCP-Guard 三阶段防御框架 |
+
+### 7.3 指令层级
+
+| 层级 | 来源 | 优先级 | 说明 |
+| :--- | :--- | :--- | :--- |
+| **Φ₀** | 系统指令 | 最高 | 定义行为边界 |
+| **Φ₁** | 用户指令 | 次级 | 在 Φ₀ 约束下执行 |
+| **Φ₂** | 数据 | 最低 | 仅作处理对象，禁止执行 |
 
 ---
 
-## 🛡️ 安全最佳实践
+## 8. 生态系统
 
-### 认证与授权
+### 8.1 治理与开放
 
-```python
-from fastmcp import FastMCP
-from fastmcp.auth import BearerAuth
+MCP 由 Anthropic 开发，已捐赠给 **Linux 基金会 Agentic AI Foundation**，成为中立开放标准。
 
-mcp = FastMCP("secure-service")
+**支持厂商**：Google Cloud, Microsoft, Block, Apollo, Zed, Replit, Sourcegraph
 
-# 配置Bearer Token认证
-mcp.auth = BearerAuth(
-    public_key="path/to/public_key.pem"
-)
+### 8.2 主流 Server
 
-@mcp.tool()
-async def sensitive_operation(ctx, data: str) -> str:
-    # 检查权限
-    if "admin" not in ctx.user.roles:
-        raise PermissionError("需要管理员权限")
-    return process(data)
-```
+| Server | 功能 |
+| :--- | :--- |
+| **mcp-server-filesystem** | 文件读写 |
+| **mcp-server-git** | Git 操作 |
+| **mcp-server-postgres** | 数据库查询 |
+| **mcp-server-github** | GitHub API |
+| **mcp-server-slack** | Slack 消息 |
 
-### 输入验证
+### 8.3 操作系统集成
 
-```python
-from pydantic import BaseModel, Field
-
-class SearchParams(BaseModel):
-    query: str = Field(..., min_length=1, max_length=100)
-    limit: int = Field(10, ge=1, le=100)
-
-@mcp.tool()
-def search(params: SearchParams) -> list:
-    """安全的搜索工具"""
-    return do_search(params.query, params.limit)
-```
+| 平台 | 状态 |
+| :--- | :--- |
+| **Windows** | Copilot 已支持调用本地 MCP Server |
+| **macOS/iOS** | 预期集成到 Shortcuts/Siri |
 
 ---
 
-## 🌐 生态系统
+## 9. 采样（Sampling）：反向智能调用
 
-### 主流MCP服务器
+MCP 最具前瞻性的特性之一：**Server 可以"反向"调用 Host 的 LLM 能力**。
 
-| 服务 | 功能 |
-|------|------|
-| **Filesystem** | 文件读写 |
-| **GitHub** | 代码仓库操作 |
-| **Slack** | 消息发送 |
-| **PostgreSQL** | 数据库查询 |
-| **Web Search** | 网络搜索 |
+```mermaid
+flowchart LR
+    S[Server] -->|sampling/createMessage| H[Host]
+    H -->|用户授权| LLM[LLM 推理]
+    LLM -->|结果| S
+```
 
-### 托管平台
+**场景**：IDE 插件 Server 发现复杂代码，希望调用 Host 的高级模型生成注释。
 
-| 平台 | 特点 |
-|------|------|
-| **Composio** | 200+预置工具 |
-| **Zapier MCP** | 连接6000+应用 |
-| **MCP.so** | 社区市场 |
+**意义**：Server 不再是"哑"工具，可利用宿主的推理能力增强自身逻辑。
+
+---
+
+## 📚 学习路线
+
+<div class="learning-path">
+  <div class="path-step step-1">
+    <div class="step-num">1</div>
+    <div class="step-title">快速入门</div>
+    <ul>
+      <li><a href="/llms/mcp/quickstart">5分钟创建 Server</a></li>
+      <li>Claude Desktop 配置</li>
+      <li>Inspector 调试</li>
+    </ul>
+  </div>
+  <div class="path-arrow">→</div>
+  <div class="path-step step-2">
+    <div class="step-num">2</div>
+    <div class="step-title">核心概念</div>
+    <ul>
+      <li><a href="/llms/mcp/concepts">Tools/Resources/Prompts</a></li>
+      <li>协议生命周期</li>
+      <li>传输层选择</li>
+    </ul>
+  </div>
+  <div class="path-arrow">→</div>
+  <div class="path-step step-3">
+    <div class="step-num">3</div>
+    <div class="step-title">高级功能</div>
+    <ul>
+      <li><a href="/llms/mcp/advanced">采样与反向调用</a></li>
+      <li>安全防御</li>
+      <li>生产部署</li>
+    </ul>
+  </div>
+</div>
 
 ---
 
 ## 🔗 章节导航
 
-| 章节 | 内容 |
-|------|------|
-| [快速入门](/llms/mcp/quickstart) | 5分钟创建MCP服务 |
-| [核心概念](/llms/mcp/concepts) | Tools/Resources/Prompts |
-| [高级功能](/llms/mcp/advanced) | 中间件、认证、代理 |
+| 章节 | 内容 | 状态 |
+| :--- | :--- | :--- |
+| [快速入门](/llms/mcp/quickstart) | 5 分钟创建 MCP Server | 📝 |
+| [核心概念](/llms/mcp/concepts) | Tools/Resources/Prompts 详解 | 📝 |
+| [高级功能](/llms/mcp/advanced) | 采样、认证、代理模式 | 📝 |
 
 ---
 
-## 🌐 外部资源
+## 🌐 核心资源
+
+### 官方资源
 
 | 资源 | 说明 |
-|------|------|
-| [MCP官方文档](https://modelcontextprotocol.io/) | 协议规范 |
-| [MCP Python SDK](https://github.com/modelcontextprotocol/python-sdk) | Python实现 |
-| [FastMCP](https://github.com/jlowin/fastmcp) | 简化封装 |
-| [MCP服务器列表](https://github.com/modelcontextprotocol/servers) | 官方服务器集合 |
+| :--- | :--- |
+| [MCP 官方文档](https://modelcontextprotocol.io/) | 协议规范 |
+| [Python SDK](https://github.com/modelcontextprotocol/python-sdk) | Python 实现 |
+| [TypeScript SDK](https://github.com/modelcontextprotocol/typescript-sdk) | TS 实现 |
+| [MCP Inspector](https://github.com/modelcontextprotocol/inspector) | 调试工具 |
+| [官方 Server 集合](https://github.com/modelcontextprotocol/servers) | 预置 Server |
+
+### 参考论文
+
+| 论文 | 主题 |
+| :--- | :--- |
+| [MCP-Guard](https://arxiv.org/html/2508.10991v1) | 安全防御框架 |
+
+---
+
+> **展望**：MCP 将成为未来 AI 互联网的基础协议，构建起一个**万物互联的智能体新世界**。随着 Google、Microsoft、Anthropic 等巨头推动，MCP 正迅速成为行业事实标准。
