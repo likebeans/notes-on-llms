@@ -125,6 +125,14 @@ export default withMermaid(defineConfig({
           text: '多模态',
           items: [
             { text: '概述', link: '/llms/multimodal/' },
+            { text: '视觉编码器', link: '/llms/multimodal/vision-encoder' },
+            { text: '模态连接器', link: '/llms/multimodal/connector' },
+            { text: '多模态架构', link: '/llms/multimodal/architecture' },
+            { text: '数据工程', link: '/llms/multimodal/data' },
+            { text: '扩散模型', link: '/llms/multimodal/diffusion' },
+            { text: 'RAG 与智能体', link: '/llms/multimodal/rag-agent' },
+            { text: '统一架构', link: '/llms/multimodal/unified' },
+            { text: '部署与评测', link: '/llms/multimodal/deployment' },
           ]
         }
       ],
