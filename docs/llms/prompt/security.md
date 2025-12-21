@@ -280,8 +280,8 @@ class RedTeamTester:
 
 ## 🔗 相关阅读
 
-- [Agent安全](/agent/safety) - Agent安全与沙箱
-- [提示词概述](/prompt/) - 提示词技术全景
+- [Agent安全](/llms/agent/safety) - Agent安全与沙箱
+- [提示词概述](/llms/prompt/) - 提示词技术全景
 
 > **相关文章**：
 > - [红队测试手册：promptfoo探索LLM安全](https://dd-ff.blog.csdn.net/article/details/151834721)

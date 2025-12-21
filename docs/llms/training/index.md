@@ -142,13 +142,13 @@ description: 大模型训练与微调技术全景 - 从预训练到对齐
 
 | 章节 | 内容 | 状态 |
 |------|------|------|
-| [数据处理](/training/data) | 数据清洗、格式、质量控制 | 📝 |
-| [SFT监督微调](/training/sft) | 指令微调、模板设计 | 📝 |
-| [LoRA高效微调](/training/lora) | 低秩适配、QLoRA | 📝 |
-| [RLHF对齐](/training/rlhf) | PPO、奖励模型 | 📝 |
-| [DPO直接偏好优化](/training/dpo) | 简化对齐方法 | 📝 |
-| [模型评估](/training/eval) | 评估指标、基准测试 | 📝 |
-| [部署推理](/training/serving) | 量化、推理优化 | 📝 |
+| [数据处理](/llms/training/data) | 数据清洗、格式、质量控制 | 📝 |
+| [SFT监督微调](/llms/training/sft) | 指令微调、模板设计 | 📝 |
+| [LoRA高效微调](/llms/training/lora) | 低秩适配、QLoRA | 📝 |
+| [RLHF对齐](/llms/training/rlhf) | PPO、奖励模型 | 📝 |
+| [DPO直接偏好优化](/llms/training/dpo) | 简化对齐方法 | 📝 |
+| [模型评估](/llms/training/eval) | 评估指标、基准测试 | 📝 |
+| [部署推理](/llms/training/serving) | 量化、推理优化 | 📝 |
 
 ---
 

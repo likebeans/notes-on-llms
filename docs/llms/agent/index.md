@@ -265,12 +265,12 @@ Thought → Action → Observation → Thought → Action → ... → Final Answ
 
 | 章节 | 内容 | 状态 |
 |------|------|------|
-| [工具调用](/agent/tool-calling) | Function Calling、MCP协议 | 📝 |
-| [规划与推理](/agent/planning) | ReAct、Plan-and-Execute | 📝 |
-| [记忆系统](/agent/memory) | 短期/长期记忆、状态管理 | 📝 |
-| [多智能体](/agent/multi-agent) | 协作架构、通信机制 | 📝 |
-| [安全与沙箱](/agent/safety) | 权限控制、沙箱技术 | 📝 |
-| [评估方法](/agent/evaluation) | Agent性能评估 | 📝 |
+| [工具调用](/llms/agent/tool-calling) | Function Calling、MCP协议 | 📝 |
+| [规划与推理](/llms/agent/planning) | ReAct、Plan-and-Execute | 📝 |
+| [记忆系统](/llms/agent/memory) | 短期/长期记忆、状态管理 | 📝 |
+| [多智能体](/llms/agent/multi-agent) | 协作架构、通信机制 | 📝 |
+| [安全与沙箱](/llms/agent/safety) | 权限控制、沙箱技术 | 📝 |
+| [评估方法](/llms/agent/evaluation) | Agent性能评估 | 📝 |
 
 ---
 

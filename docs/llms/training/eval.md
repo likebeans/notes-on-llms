@@ -229,8 +229,8 @@ writer.add_scalar("eval/loss", eval_loss, step)
 
 ## 🔗 相关阅读
 
-- [训练微调概述](/training/) - 了解完整训练流程
-- [Agent评估](/agent/evaluation) - Agent专用评估
+- [训练微调概述](/llms/training/) - 了解完整训练流程
+- [Agent评估](/llms/agent/evaluation) - Agent专用评估
 
 > **外部资源**：
 > - [lm-evaluation-harness](https://github.com/EleutherAI/lm-evaluation-harness)

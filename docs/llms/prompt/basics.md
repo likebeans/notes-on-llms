@@ -207,9 +207,9 @@ def self_consistency(prompt: str, n_samples: int = 5) -> str:
 
 ## 🔗 相关阅读
 
-- [高级提示技术](/prompt/advanced) - ReAct、ToT等
-- [上下文工程](/prompt/context) - 动态上下文管理
-- [提示词概述](/prompt/) - 技术全景
+- [高级提示技术](/llms/prompt/advanced) - ReAct、ToT等
+- [上下文工程](/llms/prompt/context) - 动态上下文管理
+- [提示词概述](/llms/prompt/) - 技术全景
 
 > **外部资源**：
 > - [OpenAI Prompt Engineering Guide](https://platform.openai.com/docs/guides/prompt-engineering)

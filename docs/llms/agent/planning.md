@@ -356,9 +356,9 @@ app = graph.compile()
 
 ## 🔗 相关阅读
 
-- [Agent概述](/agent/) - 了解Agent整体架构
-- [工具调用](/agent/tool-calling) - 行动执行详解
-- [记忆系统](/agent/memory) - 状态管理
+- [Agent概述](/llms/agent/) - 了解Agent整体架构
+- [工具调用](/llms/agent/tool-calling) - 行动执行详解
+- [记忆系统](/llms/agent/memory) - 状态管理
 
 > **相关文章**：
 > - [解码AI智能体的大脑：Function Calling与ReAct深度对决](https://dd-ff.blog.csdn.net/article/details/153210207)

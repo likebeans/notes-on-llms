@@ -228,8 +228,8 @@ def distillation_loss(student_logits, teacher_logits, temperature=2.0):
 
 ## 🔗 相关阅读
 
-- [训练微调概述](/training/) - 了解完整训练流程
-- [LoRA高效微调](/training/lora) - QLoRA结合量化
+- [训练微调概述](/llms/training/) - 了解完整训练流程
+- [LoRA高效微调](/llms/training/lora) - QLoRA结合量化
 
 > **相关文章**：
 > - [压缩巨兽：大语言模型压缩的底层科学](https://dd-ff.blog.csdn.net/article/details/150932519)

@@ -243,10 +243,10 @@ tests:
 
 | 章节 | 内容 |
 |------|------|
-| [基础技术](/prompt/basics) | Zero-shot、Few-shot、CoT |
-| [高级技术](/prompt/advanced) | ReAct、ToT、自我反思 |
-| [上下文工程](/prompt/context) | 动态检索、记忆管理 |
-| [安全测试](/prompt/security) | 红队测试、防御策略 |
+| [基础技术](/llms/prompt/basics) | Zero-shot、Few-shot、CoT |
+| [高级技术](/llms/prompt/advanced) | ReAct、ToT、自我反思 |
+| [上下文工程](/llms/prompt/context) | 动态检索、记忆管理 |
+| [安全测试](/llms/prompt/security) | 红队测试、防御策略 |
 
 ---
 

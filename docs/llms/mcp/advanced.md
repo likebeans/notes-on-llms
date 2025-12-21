@@ -394,9 +394,9 @@ async def traced_tool(data: str) -> str:
 
 ## 🔗 相关阅读
 
-- [MCP快速入门](/mcp/quickstart) - 5分钟创建服务
-- [核心概念](/mcp/concepts) - Tools/Resources/Prompts
-- [MCP概述](/mcp/) - 协议全貌
+- [MCP快速入门](/llms/mcp/quickstart) - 5分钟创建服务
+- [核心概念](/llms/mcp/concepts) - Tools/Resources/Prompts
+- [MCP概述](/llms/mcp/) - 协议全貌
 
 > **外部资源**：
 > - [MCP官方文档](https://modelcontextprotocol.io/)

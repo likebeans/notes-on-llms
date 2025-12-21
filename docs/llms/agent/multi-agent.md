@@ -183,9 +183,9 @@ pro_agent ←→ con_agent → judge → conclusion
 
 ## 🔗 相关阅读
 
-- [Agent概述](/agent/) - Agent整体架构
-- [记忆系统](/agent/memory) - 多Agent状态共享
-- [规划与推理](/agent/planning) - 任务分解协调
+- [Agent概述](/llms/agent/) - Agent整体架构
+- [记忆系统](/llms/agent/memory) - 多Agent状态共享
+- [规划与推理](/llms/agent/planning) - 任务分解协调
 
 > **相关文章**：
 > - [LangGraph多智能体系统权威指南](https://dd-ff.blog.csdn.net/article/details/151153365)

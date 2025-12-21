@@ -281,9 +281,9 @@ MULTI_ROLE_PROMPT = """
 
 ## 🔗 相关阅读
 
-- [基础提示技术](/prompt/basics) - Zero-shot、Few-shot
-- [上下文工程](/prompt/context) - 动态上下文管理
-- [Agent规划](/agent/planning) - ReAct在Agent中的应用
+- [基础提示技术](/llms/prompt/basics) - Zero-shot、Few-shot
+- [上下文工程](/llms/prompt/context) - 动态上下文管理
+- [Agent规划](/llms/agent/planning) - ReAct在Agent中的应用
 
 > **相关论文**：
 > - [ReAct](https://arxiv.org/abs/2210.03629)

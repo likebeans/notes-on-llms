@@ -252,9 +252,9 @@ def validate_preference_data(sample):
 
 ## 🔗 相关阅读
 
-- [训练微调概述](/training/) - 了解完整训练流程
-- [RLHF对齐](/training/rlhf) - 传统强化学习对齐
-- [SFT监督微调](/training/sft) - DPO的前置步骤
+- [训练微调概述](/llms/training/) - 了解完整训练流程
+- [RLHF对齐](/llms/training/rlhf) - 传统强化学习对齐
+- [SFT监督微调](/llms/training/sft) - DPO的前置步骤
 
 > **相关文章**：
 > - [强化学习对齐指南：PPO和DPO实施与评估](https://dd-ff.blog.csdn.net/article/details/153184150)

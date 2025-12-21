@@ -312,6 +312,6 @@ def customer_support(customer_info: str, issue: str) -> str:
 
 ## 🔗 相关阅读
 
-- [MCP快速入门](/mcp/quickstart) - 5分钟创建服务
-- [高级功能](/mcp/advanced) - 中间件、认证
-- [MCP概述](/mcp/) - 协议全貌
+- [MCP快速入门](/llms/mcp/quickstart) - 5分钟创建服务
+- [高级功能](/llms/mcp/advanced) - 中间件、认证
+- [MCP概述](/llms/mcp/) - 协议全貌

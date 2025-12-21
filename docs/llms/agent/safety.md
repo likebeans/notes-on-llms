@@ -358,9 +358,9 @@ def execute_action(state):
 
 ## 🔗 相关阅读
 
-- [Agent概述](/agent/) - Agent整体架构
-- [工具调用](/agent/tool-calling) - 工具执行机制
-- [多智能体](/agent/multi-agent) - 多Agent安全隔离
+- [Agent概述](/llms/agent/) - Agent整体架构
+- [工具调用](/llms/agent/tool-calling) - 工具执行机制
+- [多智能体](/llms/agent/multi-agent) - 多Agent安全隔离
 
 > **相关文章**：
 > - [AI智能体的牢笼：大模型沙箱技术深度解析](https://dd-ff.blog.csdn.net/article/details/151970698)

@@ -282,10 +282,10 @@ def compute_metrics(eval_pred):
 
 ## 🔗 相关阅读
 
-- [训练微调概述](/training/) - 了解完整训练流程
-- [数据处理](/training/data) - 准备高质量训练数据
-- [LoRA高效微调](/training/lora) - 低资源SFT方案
-- [RLHF对齐](/training/rlhf) - SFT之后的对齐
+- [训练微调概述](/llms/training/) - 了解完整训练流程
+- [数据处理](/llms/training/data) - 准备高质量训练数据
+- [LoRA高效微调](/llms/training/lora) - 低资源SFT方案
+- [RLHF对齐](/llms/training/rlhf) - SFT之后的对齐
 
 > **相关文章**：
 > - [从"扩充书库"到"教授技能"](https://dd-ff.blog.csdn.net/article/details/152267590)

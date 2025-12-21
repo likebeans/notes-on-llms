@@ -380,9 +380,9 @@ def update_user_context(state: State, config: dict, store: BaseStore) -> State:
 
 ## 🔗 相关阅读
 
-- [Agent概述](/agent/) - 了解Agent整体架构
-- [规划与推理](/agent/planning) - 任务状态管理
-- [多智能体](/agent/multi-agent) - 多Agent状态共享
+- [Agent概述](/llms/agent/) - 了解Agent整体架构
+- [规划与推理](/llms/agent/planning) - 任务状态管理
+- [多智能体](/llms/agent/multi-agent) - 多Agent状态共享
 
 > **相关文章**：
 > - [精通状态智能体：LangGraph内存机制综合指南](https://dd-ff.blog.csdn.net/article/details/151118407)

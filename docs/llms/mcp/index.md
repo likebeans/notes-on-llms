@@ -323,10 +323,9 @@ def search(params: SearchParams) -> list:
 
 | 章节 | 内容 |
 |------|------|
-| [快速入门](/mcp/quickstart) | 5分钟创建MCP服务 |
-| [核心概念](/mcp/concepts) | Tools/Resources/Prompts |
-| [高级功能](/mcp/advanced) | 中间件、认证、代理 |
-| [最佳实践](/mcp/best-practices) | 生产环境指南 |
+| [快速入门](/llms/mcp/quickstart) | 5分钟创建MCP服务 |
+| [核心概念](/llms/mcp/concepts) | Tools/Resources/Prompts |
+| [高级功能](/llms/mcp/advanced) | 中间件、认证、代理 |
 
 ---
 

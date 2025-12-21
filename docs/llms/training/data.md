@@ -314,9 +314,9 @@ def validate_template_consistency(train_template: str, infer_template: str) -> b
 
 ## 🔗 相关阅读
 
-- [训练微调概述](/training/) - 了解完整训练流程
-- [SFT监督微调](/training/sft) - 如何使用准备好的数据
-- [LoRA高效微调](/training/lora) - 低资源训练方案
+- [训练微调概述](/llms/training/) - 了解完整训练流程
+- [SFT监督微调](/llms/training/sft) - 如何使用准备好的数据
+- [LoRA高效微调](/llms/training/lora) - 低资源训练方案
 
 > **相关文章**：
 > - [垃圾进，垃圾出：打造高质量微调数据集](https://dd-ff.blog.csdn.net/article/details/152254276)

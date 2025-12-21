@@ -268,6 +268,6 @@ def safe_tool(param: str) -> str:
 
 ## 🔗 下一步
 
-- [核心概念](/mcp/concepts) - 深入理解Tools/Resources/Prompts
-- [高级功能](/mcp/advanced) - 中间件、认证、代理
-- [MCP概述](/mcp/) - 了解MCP全貌
+- [核心概念](/llms/mcp/concepts) - 深入理解Tools/Resources/Prompts
+- [高级功能](/llms/mcp/advanced) - 中间件、认证、代理
+- [MCP概述](/llms/mcp/) - 了解MCP全貌

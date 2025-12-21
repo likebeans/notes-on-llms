@@ -307,9 +307,9 @@ class MemoryStore:
 
 ## 🔗 相关阅读
 
-- [基础提示技术](/prompt/basics) - Zero-shot、Few-shot
-- [高级提示技术](/prompt/advanced) - ReAct、ToT
-- [Agent记忆](/agent/memory) - Agent记忆系统
+- [基础提示技术](/llms/prompt/basics) - Zero-shot、Few-shot
+- [高级提示技术](/llms/prompt/advanced) - ReAct、ToT
+- [Agent记忆](/llms/agent/memory) - Agent记忆系统
 
 > **相关文章**：
 > - [LangGraph上下文工程权威指南](https://dd-ff.blog.csdn.net/article/details/151118698)

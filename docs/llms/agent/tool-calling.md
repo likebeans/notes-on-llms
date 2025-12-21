@@ -448,9 +448,9 @@ graph.add_conditional_edges("tools", should_continue)
 
 ## 🔗 相关阅读
 
-- [Agent概述](/agent/) - 了解Agent整体架构
-- [规划与推理](/agent/planning) - ReAct循环详解
-- [安全与沙箱](/agent/safety) - 工具执行安全
+- [Agent概述](/llms/agent/) - 了解Agent整体架构
+- [规划与推理](/llms/agent/planning) - ReAct循环详解
+- [安全与沙箱](/llms/agent/safety) - 工具执行安全
 
 > **相关文章**：
 > - [解码AI智能体的大脑：Function Calling与ReAct深度对决](https://dd-ff.blog.csdn.net/article/details/153210207)
