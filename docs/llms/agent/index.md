@@ -7,6 +7,10 @@ description: 从理论基石到前沿实践的智能体知识体系
 
 > 人工智能正经历从"对话式 AI"向"**代理式 AI（Agentic AI）**"的历史性跨越。AI Agent 通过将 LLM 视为核心认知控制器，并挂载规划、记忆、工具使用等模块，实现了从**被动推理到主动行动**的质变。
 
+::: tip 📖 Agentic Design Patterns
+本系列文档基于 [Agentic Design Patterns](https://github.com/ginobefun/agentic-design-patterns-cn) 整理，涵盖**21个智能体设计模式**，从核心模式到生产模式，系统讲解构建智能体系统的方法论。
+:::
+
 ---
 
 ## 核心公式
@@ -406,14 +410,48 @@ flowchart TB
 
 ## 🔗 章节导航
 
+### 核心设计模式
+
 | 章节 | 内容 | 状态 |
 | :--- | :--- | :--- |
-| [工具调用](/llms/agent/tool-calling) | Function Calling、MCP 协议 | 📝 |
-| [规划与推理](/llms/agent/planning) | CoT、ToT、ReAct、Reflexion | 📝 |
-| [记忆系统](/llms/agent/memory) | 短期/长期记忆、向量检索 | 📝 |
-| [多智能体](/llms/agent/multi-agent) | AutoGen、MetaGPT、LangGraph | 📝 |
-| [安全与沙箱](/llms/agent/safety) | 提示注入防御、权限控制 | 📝 |
-| [评估方法](/llms/agent/evaluation) | AgentBench、GAIA | 📝 |
+| [提示链](/llms/agent/prompt-chain) | Prompt Chaining、顺序编排 | ✅ |
+| [路由](/llms/agent/routing) | 动态任务分发、意图分类 | ✅ |
+| [并行化](/llms/agent/parallelization) | 并发执行、结果聚合 | ✅ |
+| [反思](/llms/agent/reflection) | 自我评估、迭代改进 | ✅ |
+| [工具调用](/llms/agent/tool-calling) | Function Calling、MCP 协议 | ✅ |
+| [规划](/llms/agent/planning) | CoT、ToT、ReAct、Plan-and-Execute | ✅ |
+| [多智能体协作](/llms/agent/multi-agent) | AutoGen、MetaGPT、LangGraph | ✅ |
+
+### 高级设计模式
+
+| 章节 | 内容 | 状态 |
+| :--- | :--- | :--- |
+| [记忆管理](/llms/agent/memory) | 短期/长期记忆、Session/State | ✅ |
+| [推理技术](/llms/agent/reasoning) | CoT、ToT、ReAct、RLVR | ✅ |
+
+### 集成设计模式
+
+| 章节 | 内容 | 状态 |
+| :--- | :--- | :--- |
+| [异常处理与恢复](/llms/agent/exception-handling) | 错误检测、优雅降级、状态恢复 | ✅ |
+| [人机协同](/llms/agent/human-in-the-loop) | 人类监督、干预、反馈学习 | ✅ |
+
+### 生产设计模式
+
+| 章节 | 内容 | 状态 |
+| :--- | :--- | :--- |
+| [智能体间通信](/llms/agent/a2a) | A2A协议、跨框架协作 | ✅ |
+| [资源感知优化](/llms/agent/resource-optimization) | 动态模型切换、成本控制 | ✅ |
+| [护栏与安全](/llms/agent/safety) | 输入/输出护栏、权限控制 | ✅ |
+| [评估与监控](/llms/agent/evaluation-monitoring) | 轨迹评估、性能监控 | ✅ |
+| [优先级排序](/llms/agent/prioritization) | 任务排序、动态重排序 | ✅ |
+| [探索与发现](/llms/agent/exploration) | 自主探索、假设生成 | ✅ |
+
+### 其他资源
+
+| 章节 | 内容 | 状态 |
+| :--- | :--- | :--- |
+| [评估方法](/llms/agent/evaluation) | AgentBench、GAIA、评估框架 | 📝 |
 
 ---
 

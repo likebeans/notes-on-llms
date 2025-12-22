@@ -57,12 +57,30 @@ export default withMermaid(defineConfig({
           text: 'RAG 专区',
           items: [
             { text: '概述', link: '/llms/rag/' },
+          ]
+        },
+        {
+          text: '核心组件',
+          collapsed: false,
+          items: [
             { text: '范式演进', link: '/llms/rag/paradigms' },
             { text: '文档切分', link: '/llms/rag/chunking' },
             { text: 'Embedding', link: '/llms/rag/embedding' },
             { text: '向量数据库', link: '/llms/rag/vector-db' },
+          ]
+        },
+        {
+          text: '检索与优化',
+          collapsed: false,
+          items: [
             { text: '检索策略', link: '/llms/rag/retrieval' },
             { text: '重排序', link: '/llms/rag/rerank' },
+          ]
+        },
+        {
+          text: '生产部署',
+          collapsed: false,
+          items: [
             { text: '评估', link: '/llms/rag/evaluation' },
             { text: '生产实践', link: '/llms/rag/production' },
           ]
@@ -73,12 +91,54 @@ export default withMermaid(defineConfig({
           text: 'Agent 专区',
           items: [
             { text: '概述', link: '/llms/agent/' },
+          ]
+        },
+        {
+          text: '核心设计模式',
+          collapsed: false,
+          items: [
+            { text: '提示链', link: '/llms/agent/prompt-chain' },
+            { text: '路由', link: '/llms/agent/routing' },
+            { text: '并行化', link: '/llms/agent/parallelization' },
+            { text: '反思', link: '/llms/agent/reflection' },
             { text: '工具调用', link: '/llms/agent/tool-calling' },
             { text: '规划', link: '/llms/agent/planning' },
-            { text: '记忆', link: '/llms/agent/memory' },
-            { text: '多智能体', link: '/llms/agent/multi-agent' },
-            { text: '评估', link: '/llms/agent/evaluation' },
-            { text: '安全', link: '/llms/agent/safety' },
+            { text: '多智能体协作', link: '/llms/agent/multi-agent' },
+          ]
+        },
+        {
+          text: '高级设计模式',
+          collapsed: false,
+          items: [
+            { text: '记忆管理', link: '/llms/agent/memory' },
+            { text: '推理技术', link: '/llms/agent/reasoning' },
+          ]
+        },
+        {
+          text: '集成设计模式',
+          collapsed: false,
+          items: [
+            { text: '异常处理与恢复', link: '/llms/agent/exception-handling' },
+            { text: '人机协同', link: '/llms/agent/human-in-the-loop' },
+          ]
+        },
+        {
+          text: '生产设计模式',
+          collapsed: false,
+          items: [
+            { text: '智能体间通信', link: '/llms/agent/a2a' },
+            { text: '资源感知优化', link: '/llms/agent/resource-optimization' },
+            { text: '护栏与安全', link: '/llms/agent/safety' },
+            { text: '评估与监控', link: '/llms/agent/evaluation-monitoring' },
+            { text: '优先级排序', link: '/llms/agent/prioritization' },
+            { text: '探索与发现', link: '/llms/agent/exploration' },
+          ]
+        },
+        {
+          text: '其他资源',
+          collapsed: true,
+          items: [
+            { text: '评估方法', link: '/llms/agent/evaluation' },
           ]
         }
       ],
@@ -87,9 +147,21 @@ export default withMermaid(defineConfig({
           text: 'Prompt 专区',
           items: [
             { text: '概述', link: '/llms/prompt/' },
-            { text: '基础技术', link: '/llms/prompt/basics' },
-            { text: '高级技术', link: '/llms/prompt/advanced' },
+          ]
+        },
+        {
+          text: '基础技术',
+          collapsed: false,
+          items: [
+            { text: '提示工程基础', link: '/llms/prompt/basics' },
             { text: '上下文工程', link: '/llms/prompt/context' },
+          ]
+        },
+        {
+          text: '高级技术',
+          collapsed: false,
+          items: [
+            { text: '高级提示技术', link: '/llms/prompt/advanced' },
             { text: '安全测试', link: '/llms/prompt/security' },
           ]
         }
@@ -99,8 +171,20 @@ export default withMermaid(defineConfig({
           text: 'MCP 专区',
           items: [
             { text: '概述', link: '/llms/mcp/' },
+          ]
+        },
+        {
+          text: '入门指南',
+          collapsed: false,
+          items: [
             { text: '快速入门', link: '/llms/mcp/quickstart' },
             { text: '核心概念', link: '/llms/mcp/concepts' },
+          ]
+        },
+        {
+          text: '进阶内容',
+          collapsed: false,
+          items: [
             { text: '高级功能', link: '/llms/mcp/advanced' },
           ]
         }

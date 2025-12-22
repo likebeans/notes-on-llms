@@ -32,6 +32,40 @@ description: Agent 安全机制 - 从风险识别到沙箱隔离
 
 ---
 
+## 📖 Agentic Design Patterns 视角
+
+> 来源：[Agentic Design Patterns - Guardrails/Safety Patterns](https://github.com/ginobefun/agentic-design-patterns-cn)
+
+### 护栏模式概述
+
+护栏（Guardrails）是确保智能体系统安全、可靠运行的关键机制。
+
+| 护栏类型 | 作用 |
+|----------|------|
+| **输入护栏** | 过滤恶意输入、验证请求合法性 |
+| **输出护栏** | 检查响应质量、防止有害内容 |
+| **执行护栏** | 限制工具调用、控制资源使用 |
+| **行为护栏** | 监控智能体轨迹、检测异常行为 |
+
+### 多层防护体系
+
+```
+用户输入 → 输入验证 → 意图分析 → 执行限制 → 输出审查 → 响应
+              │           │           │           │
+              ▼           ▼           ▼           ▼
+           拦截恶意     防止越权     资源控制     过滤有害
+```
+
+### 与其他模式的关系
+
+| 模式 | 安全关联 |
+|------|----------|
+| [人机协同](/llms/agent/human-in-the-loop) | 高危操作需人工审批 |
+| [异常处理](/llms/agent/exception-handling) | 优雅降级和恢复 |
+| [评估监控](/llms/agent/evaluation-monitoring) | 检测异常行为 |
+
+---
+
 ## 🛡️ 防御策略
 
 ### 1. 输入验证与过滤
