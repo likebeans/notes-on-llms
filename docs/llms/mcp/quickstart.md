@@ -33,6 +33,49 @@ uv add fastmcp
 FastMCP 2.0 超越了基本协议实现，提供了完整的MCP生态工具包：Client、代理、服务器组合、中间件等。
 :::
 
+### 依赖管理（uv推荐）
+
+FastMCP 与 `uv` 深度集成，支持多种依赖管理方式：
+
+```bash
+# 指定Python版本
+fastmcp run server.py --python 3.11
+
+# 添加单个包
+fastmcp run server.py --with pandas
+
+# 添加多个包
+fastmcp run server.py --with pandas --with numpy --with httpx
+
+# 从requirements.txt安装
+fastmcp run server.py --with-requirements requirements.txt
+
+# 指定项目目录
+fastmcp run server.py --project /path/to/project
+```
+
+### fastmcp.json 配置文件（推荐）
+
+```json
+{
+  "$schema": "https://gofastmcp.com/public/schemas/fastmcp.json/v1.json",
+  "source": {
+    "path": "server.py",
+    "entrypoint": "mcp"
+  },
+  "environment": {
+    "type": "uv",
+    "python": ">=3.10",
+    "dependencies": ["pandas", "requests", "httpx"]
+  }
+}
+```
+
+使用配置文件运行：
+```bash
+fastmcp run fastmcp.json
+```
+
 ---
 
 ## 📝 创建第一个MCP服务器
@@ -310,9 +353,47 @@ async def main():
 
 ---
 
+---
+
+## 🔧 安装到客户端
+
+FastMCP 提供 `fastmcp install` 命令快速安装到各种客户端：
+
+```bash
+# 安装到 Claude Desktop
+fastmcp install claude-desktop server.py
+
+# 安装到 Cursor
+fastmcp install cursor server.py
+
+# 安装到 Claude Code
+fastmcp install claude-code server.py
+
+# 带依赖安装
+fastmcp install claude-desktop server.py --with pandas --with requests
+
+# 使用 fastmcp.json 安装
+fastmcp install claude-desktop fastmcp.json
+
+# 生成 MCP JSON 配置
+fastmcp install mcp-json server.py --name "My Server"
+```
+
+### 支持的客户端
+
+| 客户端 | 安装方式 |
+|--------|----------|
+| **Claude Desktop** | 直接修改配置文件 |
+| **Claude Code** | 内置MCP管理系统 |
+| **Cursor** | 通过deeplink确认 |
+| **MCP JSON** | 生成标准JSON配置 |
+
+---
+
 ## 🔗 下一步
 
 - [核心概念](/llms/mcp/concepts) - 深入理解Tools/Resources/Prompts
+- [实战项目](/llms/mcp/practice) - 完整可运行的示例
 - [高级功能](/llms/mcp/advanced) - 中间件、认证、代理
 - [MCP概述](/llms/mcp/) - 了解MCP全貌
 

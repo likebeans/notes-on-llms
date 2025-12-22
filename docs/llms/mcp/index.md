@@ -506,6 +506,16 @@ flowchart LR
   <div class="path-arrow">→</div>
   <div class="path-step step-3">
     <div class="step-num">3</div>
+    <div class="step-title">实战项目</div>
+    <ul>
+      <li><a href="/llms/mcp/practice">任务管理器</a></li>
+      <li><a href="/llms/mcp/practice">天气查询服务</a></li>
+      <li><a href="/llms/mcp/practice">文件助手</a></li>
+    </ul>
+  </div>
+  <div class="path-arrow">→</div>
+  <div class="path-step step-4">
+    <div class="step-num">4</div>
     <div class="step-title">高级功能</div>
     <ul>
       <li><a href="/llms/mcp/advanced">采样与反向调用</a></li>
@@ -521,9 +531,10 @@ flowchart LR
 
 | 章节 | 内容 | 状态 |
 | :--- | :--- | :--- |
-| [快速入门](/llms/mcp/quickstart) | 5 分钟创建 MCP Server | 📝 |
-| [核心概念](/llms/mcp/concepts) | Tools/Resources/Prompts 详解 | 📝 |
-| [高级功能](/llms/mcp/advanced) | 采样、认证、代理模式 | 📝 |
+| [快速入门](/llms/mcp/quickstart) | 5 分钟创建 MCP Server | ✅ |
+| [核心概念](/llms/mcp/concepts) | Tools/Resources/Prompts 详解 | ✅ |
+| [实战项目](/llms/mcp/practice) | 任务管理器、天气服务、文件助手 | ✅ |
+| [高级功能](/llms/mcp/advanced) | 采样、认证、代理模式 | ✅ |
 
 ---
 

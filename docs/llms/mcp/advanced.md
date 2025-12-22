@@ -150,7 +150,11 @@ class ErrorHandlerMiddleware(Middleware):
 
 ## 🔀 服务器组合
 
-### 静态组合（import）
+FastMCP 支持两种服务器组合方式：**静态导入**和**动态挂载**。
+
+### 静态组合（import_server）
+
+一次性导入，组件立即注册到主服务器：
 
 ```python
 from fastmcp import FastMCP
@@ -168,10 +172,12 @@ main_server = FastMCP("main")
 # 导入子服务器的所有组件
 main_server.import_server(math_server, prefix="math")
 
-# 现在可以通过 "math/add" 调用
+# 工具通过 "math_add" 调用（注意是下划线）
 ```
 
 ### 动态组合（mount）
+
+建立"活链接"，请求时实时转发：
 
 ```python
 # 动态挂载（支持运行时更新）
@@ -179,7 +185,26 @@ main_server.mount(math_server, prefix="math")
 
 # 挂载远程服务器
 main_server.mount("http://remote-server:8000", prefix="remote")
+
+# 不带前缀挂载
+main_server.mount(api_server)
 ```
+
+### 直接挂载 vs 代理挂载
+
+| 模式 | 说明 | 使用场景 |
+|------|------|----------|
+| **直接挂载** | 内存中直接访问，不执行子服务器lifespan | 无自定义lifespan时 |
+| **代理挂载** | 通过Client接口通信，执行完整生命周期 | 有自定义lifespan时 |
+
+```python
+# 强制代理模式
+main_server.mount(api_server, prefix="api", as_proxy=True)
+```
+
+::: warning 性能注意
+动态挂载的 `list_tools()` 会受最慢子服务器影响。HTTP代理服务器可能引入300-400ms延迟。对性能敏感时考虑使用 `import_server()`。
+:::
 
 ---
 
@@ -458,10 +483,43 @@ services:
 
 ---
 
+---
+
+## 🔍 调试与检查
+
+### fastmcp inspect
+
+检查服务器组件：
+
+```bash
+# 文本摘要
+fastmcp inspect server.py
+
+# FastMCP JSON格式
+fastmcp inspect server.py --format fastmcp
+
+# MCP协议格式
+fastmcp inspect server.py --format mcp
+
+# 保存到文件
+fastmcp inspect server.py --format fastmcp -o manifest.json
+```
+
+### MCP Inspector
+
+使用官方Inspector工具：
+
+```bash
+npx @modelcontextprotocol/inspector python server.py
+```
+
+---
+
 ## 🔗 相关阅读
 
 - [MCP快速入门](/llms/mcp/quickstart) - 5分钟创建服务
 - [核心概念](/llms/mcp/concepts) - Tools/Resources/Prompts
+- [实战项目](/llms/mcp/practice) - 完整可运行示例
 - [MCP概述](/llms/mcp/) - 协议全貌
 
 > **外部资源**：

@@ -113,7 +113,11 @@ def create_task(task: TaskInput) -> dict:
 
 ### 概念
 
-**资源**提供结构化数据访问，类似REST API的GET端点。
+**资源**提供结构化数据访问，类似REST API的**GET端点**。AI请求资源来加载信息到上下文中。
+
+::: tip 资源的本质
+资源是Server持有的可读取数据，由唯一**URI**标识。用于将信息加载到LLM的上下文窗口中。
+:::
 
 ```python
 # 静态资源
@@ -361,9 +365,68 @@ Sampling 让 Server 不再是"哑"工具，可利用宿主的推理能力增强�
 
 ---
 
+---
+
+## 🔌 服务器生命周期
+
+### Lifespan 上下文管理
+
+FastMCP 支持服务器启动和关闭时的生命周期管理：
+
+```python
+from contextlib import asynccontextmanager
+from fastmcp import FastMCP
+
+@asynccontextmanager
+async def lifespan(server: FastMCP):
+    # 启动时执行
+    print("服务器启动中...")
+    db = await connect_database()
+    
+    yield {"db": db}  # 传递给工具使用
+    
+    # 关闭时执行
+    print("服务器关闭中...")
+    await db.close()
+
+mcp = FastMCP("MyServer", lifespan=lifespan)
+```
+
+### 与 FastAPI 集成时的 Lifespan
+
+```python
+from contextlib import asynccontextmanager
+from fastapi import FastAPI
+from fastmcp import FastMCP
+
+# FastAPI lifespan
+@asynccontextmanager
+async def app_lifespan(app: FastAPI):
+    print("App 启动...")
+    yield
+    print("App 关闭...")
+
+# 创建 MCP
+mcp = FastMCP("Tools")
+mcp_app = mcp.http_app(path='/mcp')
+
+# 组合两个 lifespan
+@asynccontextmanager
+async def combined_lifespan(app: FastAPI):
+    async with app_lifespan(app):
+        async with mcp_app.lifespan(app):
+            yield
+
+app = FastAPI(lifespan=combined_lifespan)
+app.mount("/mcp", mcp_app)
+```
+
+---
+
 ## 🔗 相关阅读
 
 - [MCP快速入门](/llms/mcp/quickstart) - 5分钟创建服务
+- [实战项目](/llms/mcp/practice) - 完整可运行示例
 - [高级功能](/llms/mcp/advanced) - 中间件、认证
 - [MCP概述](/llms/mcp/) - 协议全貌
 
