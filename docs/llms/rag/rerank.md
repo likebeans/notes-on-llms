@@ -121,14 +121,274 @@ for i, doc in enumerate(reranked):
     print("---")
 ```
 
+### Cross-Encoder输出处理：Logits到概率
+
+> 来源：[混合搜索中的分数归一化方法深度解析](https://dd-ff.blog.csdn.net/article/details/156072979)
+
+::: warning 关键注意
+Cross-Encoder（如bge-reranker）输出的是**原始Logits**（对数几率），定义域为(-∞, +∞)。直接将Logits与其他分数（如余弦相似度）混合是**数学谬误**。
+:::
+
+```python
+import numpy as np
+
+class CrossEncoderRerankerWithCalibration:
+    """带概率校准的Cross-Encoder重排序器"""
+    
+    def __init__(self, model_name='BAAI/bge-reranker-v2-m3'):
+        from sentence_transformers import CrossEncoder
+        self.model = CrossEncoder(model_name)
+    
+    def _sigmoid(self, x):
+        """将Logits转换为概率"""
+        return 1 / (1 + np.exp(-np.array(x)))
+    
+    def rerank(self, query: str, documents: list, top_k: int = 5, 
+               return_probabilities: bool = True):
+        """
+        重排序并返回校准后的概率分数
+        
+        Cross-Encoder训练目标是BCEWithLogitsLoss:
+        - Logit > 0 意味着 P(相关) > 0.5
+        - Logit = 8.5  -> P = 0.9998 (高相关)
+        - Logit = -2.3 -> P = 0.0911 (低相关)
+        """
+        if not documents:
+            return []
+        
+        pairs = [(query, doc['text']) for doc in documents]
+        
+        # 获取原始Logits
+        logits = self.model.predict(pairs)
+        
+        # 转换为概率（推荐）
+        if return_probabilities:
+            scores = self._sigmoid(logits)
+        else:
+            scores = logits
+        
+        scored_docs = []
+        for doc, score, logit in zip(documents, scores, logits):
+            doc_copy = doc.copy()
+            doc_copy['rerank_score'] = float(score)
+            doc_copy['raw_logit'] = float(logit)
+            scored_docs.append(doc_copy)
+        
+        ranked_docs = sorted(scored_docs, key=lambda x: x['rerank_score'], reverse=True)
+        return ranked_docs[:top_k]
+
+# 使用示例
+reranker = CrossEncoderRerankerWithCalibration()
+results = reranker.rerank("什么是RAG？", candidates)
+
+for doc in results:
+    print(f"概率: {doc['rerank_score']:.3f} (Logit: {doc['raw_logit']:.2f})")
+    # 概率: 0.998 (Logit: 6.21)  <- 高相关
+    # 概率: 0.124 (Logit: -1.95) <- 低相关
+```
+
+**为什么必须转换为概率？**
+- **分数可比性**：概率值[0,1]可与余弦相似度直接融合
+- **阈值截断**：概率支持设置绝对质量阈值（如P<0.3拒绝回答）
+- **幻觉抑制**：即使所有文档都不相关，也能识别出低概率
+
 ### 开源重排序模型对比
 
 | 模型 | 语言 | 参数量 | MTEB排名 | 特点 |
 |------|------|--------|----------|------|
+| **bge-reranker-v2-m3** | 多语言 | 568M | Top 1 | 最新版本，推荐 |
 | **bge-reranker-large** | 中英 | 560M | Top 3 | 性能优秀，中文友好 |
 | **bge-reranker-base** | 中英 | 278M | Top 10 | 平衡性能与速度 |
-| **jina-reranker-v1-base** | 多语言 | 278M | - | 多语言支持 |
+| **jina-reranker-v2** | 多语言 | 278M | - | 多语言支持 |
 | **ms-marco-cross-encoder** | 英文 | 340M | - | 经典英文模型 |
+
+---
+
+## 🛡️ Rerank修正检索异常
+
+> 来源：[混合检索中短查询高分异常的深度剖析与神经重排序的修正机制](https://dd-ff.blog.csdn.net/article/details/156067548)
+
+### 短查询高分异常问题
+
+::: danger 病态现象
+输入"Hello"、"系统"、"测试"等短查询时，混合检索往往以**极高置信度**返回**完全不相关**的文档。这在RAG中是致命的——噪声上下文直接导致LLM幻觉。
+:::
+
+**根本原因分析**：
+
+| 检索阶段 | 失效机制 | 后果 |
+|----------|----------|------|
+| **BM25** | IDF权重崩溃 + 长度偏置 | 短碎片高分 |
+| **向量检索** | 各向异性 + 枢纽点效应 | 通用文档高分 |
+| **RRF融合** | 盲信排名，放大错误 | 噪声居榜首 |
+
+### Cross-Encoder如何修正
+
+**Bi-Encoder vs Cross-Encoder 对比**：
+
+```
+Bi-Encoder（向量检索）：
+  Query  ────→ [Encoder] ────→ q_vec ─┐
+                                       ├─→ cosine(q, d) → 受几何陷阱影响
+  Doc    ────→ [Encoder] ────→ d_vec ─┘
+
+Cross-Encoder（重排序）：
+  [CLS] Query [SEP] Doc [SEP] ────→ [Transformer] ────→ 相关性分数
+                                    ↑
+                                    逐词交互，消除几何噪声
+```
+
+**修正机制**：
+
+1. **消除几何噪声**：通过自注意力机制逐词分析，识别"Hello"与"用户协议"无语义蕴含关系
+2. **解决长度偏置**：阅读完整上下文，识别文档中的"Hello"若只是孤立词汇则无法回答查询
+3. **分数校准**：输出概率值，支持绝对阈值截断
+
+### 阈值截断与幻觉抑制
+
+```python
+import numpy as np
+
+class ThresholdedReranker:
+    """带阈值截断的重排序器，用于抑制RAG幻觉"""
+    
+    def __init__(self, model_name='BAAI/bge-reranker-v2-m3', 
+                 threshold=0.3, min_results=0):
+        from sentence_transformers import CrossEncoder
+        self.model = CrossEncoder(model_name)
+        self.threshold = threshold
+        self.min_results = min_results  # 最少返回数量（0表示可返回空）
+    
+    def _sigmoid(self, x):
+        return 1 / (1 + np.exp(-np.array(x)))
+    
+    def rerank(self, query: str, documents: list, top_k: int = 5):
+        """
+        重排序并应用阈值截断
+        
+        关键：若所有文档相关性都低于阈值，返回空列表
+        这优于返回噪声——让下游系统知道"无可靠答案"
+        """
+        if not documents:
+            return [], "no_candidates"
+        
+        pairs = [(query, doc['text']) for doc in documents]
+        logits = self.model.predict(pairs)
+        probs = self._sigmoid(logits)
+        
+        scored_docs = []
+        for doc, prob in zip(documents, probs):
+            doc_copy = doc.copy()
+            doc_copy['rerank_score'] = float(prob)
+            scored_docs.append(doc_copy)
+        
+        # 按分数排序
+        scored_docs.sort(key=lambda x: x['rerank_score'], reverse=True)
+        
+        # 阈值过滤
+        filtered = [d for d in scored_docs if d['rerank_score'] >= self.threshold]
+        
+        # 判断结果状态
+        if len(filtered) == 0:
+            if self.min_results > 0:
+                # 强制返回top结果，但标记为低置信
+                return scored_docs[:self.min_results], "low_confidence"
+            else:
+                # 返回空，触发"无法回答"逻辑
+                return [], "no_relevant_docs"
+        
+        return filtered[:top_k], "success"
+
+# 使用示例
+reranker = ThresholdedReranker(threshold=0.3)
+
+# 正常查询
+results, status = reranker.rerank("RAG技术的核心原理是什么？", candidates)
+# status: "success", results: [相关文档...]
+
+# 短查询/无关查询
+results, status = reranker.rerank("Hello", candidates)
+# status: "no_relevant_docs", results: []
+# 下游系统应返回"抱歉，未找到相关信息"而非幻觉回答
+```
+
+::: tip 幻觉抑制的关键
+- **Min-Max归一化失败**：即使全是烂文档，也会制造出1.0分，LLM强行回答
+- **Sigmoid概率胜利**：提供绝对阈值，低于0.3时果断拒绝，避免污染LLM上下文
+:::
+
+### 完整两阶段检索流水线
+
+```python
+class TwoStageRAGRetriever:
+    """生产级两阶段检索器"""
+    
+    def __init__(self, hybrid_retriever, reranker, 
+                 recall_k=100, rerank_k=10, threshold=0.3):
+        self.hybrid_retriever = hybrid_retriever
+        self.reranker = reranker
+        self.recall_k = recall_k
+        self.rerank_k = rerank_k
+        self.threshold = threshold
+    
+    def retrieve(self, query: str):
+        """
+        阶段1：召回（容忍噪声，追求高召回率）
+        阶段2：精排（消除噪声，保证高精度）
+        """
+        # 阶段1：混合检索快速召回
+        candidates = self.hybrid_retriever.retrieve(query, top_k=self.recall_k)
+        
+        if not candidates:
+            return {
+                'documents': [],
+                'status': 'no_candidates',
+                'message': '未检索到任何候选文档'
+            }
+        
+        # 阶段2：Cross-Encoder精排
+        pairs = [(query, doc['text']) for doc in candidates]
+        logits = self.reranker.predict(pairs)
+        probs = 1 / (1 + np.exp(-np.array(logits)))
+        
+        for doc, prob in zip(candidates, probs):
+            doc['rerank_score'] = float(prob)
+        
+        candidates.sort(key=lambda x: x['rerank_score'], reverse=True)
+        
+        # 阈值过滤
+        filtered = [d for d in candidates if d['rerank_score'] >= self.threshold]
+        
+        if not filtered:
+            return {
+                'documents': [],
+                'status': 'low_relevance',
+                'message': '未找到与查询相关的高质量文档',
+                'max_score': candidates[0]['rerank_score'] if candidates else 0
+            }
+        
+        return {
+            'documents': filtered[:self.rerank_k],
+            'status': 'success',
+            'message': f'找到 {len(filtered)} 个相关文档'
+        }
+
+# 集成到RAG系统
+class RAGSystem:
+    def __init__(self, retriever, llm):
+        self.retriever = retriever
+        self.llm = llm
+    
+    def answer(self, query: str):
+        result = self.retriever.retrieve(query)
+        
+        if result['status'] != 'success':
+            # 关键：拒绝回答而非幻觉
+            return f"抱歉，{result['message']}，无法回答您的问题。"
+        
+        context = "\n\n".join([d['text'] for d in result['documents']])
+        return self.llm.generate(query, context)
+```
 
 ---
 
@@ -638,6 +898,8 @@ class DomainAdaptedReranker:
 - [生产实践指南](/llms/rag/production) - 重排序的部署优化
 
 > **相关文章**：
+> - [混合搜索中的分数归一化方法深度解析](https://dd-ff.blog.csdn.net/article/details/156072979)
+> - [混合检索中短查询高分异常的深度剖析与神经重排序的修正机制](https://dd-ff.blog.csdn.net/article/details/156067548)
 > - [高级RAG技术全景：从原理到实战](https://dd-ff.blog.csdn.net/article/details/149396526)
 > - [检索增强生成（RAG）系统综合评估](https://dd-ff.blog.csdn.net/article/details/152823514)
 > - [检索增强生成（RAG）综述：技术范式、核心组件与未来展望](https://dd-ff.blog.csdn.net/article/details/149274498)

@@ -30,6 +30,29 @@ SELECT * FROM embeddings ORDER BY cosine_distance(vector, query_vector) LIMIT 5 
 **规模化处理**：支持百万到亿级向量的存储与毫秒级检索
 :::
 
+### 向量数据库在RAG中的关键作用
+
+向量数据库是RAG系统的**核心基础设施**，直接影响检索质量和系统性能：
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    RAG 系统数据流                            │
+├─────────────────────────────────────────────────────────────┤
+│                                                             │
+│  文档 → [Embedding模型] → 向量 → [向量数据库] ← 查询向量     │
+│                                       ↓                     │
+│                               检索Top-K文档                 │
+│                                       ↓                     │
+│                               [LLM生成答案]                 │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
+```
+
+**检索质量直接决定生成质量**：
+- 若检索器未找到相关信息 → "垃圾进，垃圾出"
+- 向量数据库的索引策略、距离度量选择直接影响Recall@K
+- 检索层失败会在生成层被放大（错误冒泡效应）
+
 ---
 
 ## 🏗️ 向量检索算法原理
@@ -108,6 +131,33 @@ Layer 0: [所有节点] --短距离连接--> [目标区域]
 **📈 中型项目**：Qdrant - 性能好，部署简单  
 **🏢 企业生产**：Milvus - 功能全面，支持集群  
 **☁️ 托管服务**：Pinecone - 免运维，按需付费
+:::
+
+### 选型决策矩阵
+
+| 考量因素 | Chroma | Qdrant | Milvus | Pinecone |
+|----------|--------|--------|--------|----------|
+| **数据规模** | <100万 | <1000万 | 亿级 | 亿级 |
+| **部署复杂度** | ⭐ | ⭐⭐ | ⭐⭐⭐⭐ | ⭐ |
+| **运维成本** | 低 | 中 | 高 | 无（托管） |
+| **混合检索** | ❌ | ✅ | ✅ | ✅ |
+| **元数据过滤** | 基础 | 强大 | 强大 | 强大 |
+| **GPU加速** | ❌ | ✅ | ✅ | ✅ |
+| **价格** | 免费 | 免费/商业 | 免费/商业 | 按量付费 |
+
+### 与RAG评估体系的关联
+
+向量数据库的检索质量直接影响RAG评估中的**检索层指标**：
+
+| 评估指标 | 向量数据库影响因素 |
+|----------|-------------------|
+| **Recall@K** | 索引算法（HNSW参数）、距离度量选择 |
+| **Context Precision** | 检索策略、过滤条件设置 |
+| **MRR** | 排序算法、相似度计算精度 |
+| **检索延迟** | 索引类型、硬件配置、数据规模 |
+
+::: warning 检索失败的代价
+根据RAG三元组理论，低**上下文相关性**意味着RAG管道从源头偏离方向。即使生成器能力再强，检索器未找到相关信息时，也无法生成正确答案。
 :::
 
 ---
@@ -542,15 +592,85 @@ class VectorDBMonitor:
 
 ---
 
-## 🔗 相关阅读
+## � 动态知识与向量更新
+
+### 知识时效性挑战
+
+RAG系统的核心价值之一是接入**动态知识源**，但这给向量数据库带来了独特挑战：
+
+| 挑战 | 描述 | 解决方案 |
+|------|------|----------|
+| **知识更新延迟** | 新文档从入库到可检索的时间差 | 增量索引、实时同步 |
+| **新旧知识冲突** | 同一主题存在过时和最新信息 | 时间戳过滤、版本管理 |
+| **索引重建成本** | 大规模数据变更时的重建开销 | 分区索引、增量更新 |
+
+### 增量更新策略
+
+```python
+class IncrementalVectorUpdater:
+    """增量向量更新管理"""
+    
+    def __init__(self, vector_db):
+        self.db = vector_db
+        self.update_queue = []
+    
+    def add_with_versioning(self, doc_id, vector, metadata):
+        """带版本控制的向量添加"""
+        metadata['version'] = self.get_next_version(doc_id)
+        metadata['timestamp'] = time.time()
+        metadata['is_latest'] = True
+        
+        # 将旧版本标记为非最新
+        self.mark_old_versions(doc_id)
+        
+        # 添加新向量
+        self.db.upsert(
+            ids=[f"{doc_id}_v{metadata['version']}"],
+            embeddings=[vector],
+            metadatas=[metadata]
+        )
+    
+    def search_latest_only(self, query_vector, top_k=10):
+        """仅检索最新版本"""
+        return self.db.query(
+            query_embeddings=[query_vector],
+            n_results=top_k,
+            where={"is_latest": True}  # 过滤条件
+        )
+    
+    def cleanup_old_versions(self, retention_days=30):
+        """清理过期版本"""
+        cutoff = time.time() - (retention_days * 86400)
+        self.db.delete(where={
+            "$and": [
+                {"is_latest": False},
+                {"timestamp": {"$lt": cutoff}}
+            ]
+        })
+```
+
+### 知识更新性能指标
+
+评估向量数据库动态知识能力的关键指标：
+
+- **知识更新延迟**：从"新增文档"到"可检索到该文档"的时间差
+- **新信息优先率**：新旧知识冲突时选择新信息的比例
+- **旧信息过滤率**：能否识别并过滤"已过时的旧信息"
+
+---
+
+## �🔗 相关阅读
 
 - [RAG范式演进](/llms/rag/paradigms) - 了解RAG技术发展脉络
 - [Embedding技术详解](/llms/rag/embedding) - 理解向量化原理
 - [检索策略优化](/llms/rag/retrieval) - 优化检索效果
 - [性能评估方法](/llms/rag/evaluation) - 评估向量检索性能
+- [生产实践指南](/llms/rag/production) - 向量数据库生产部署
 
 > **相关文章**：
 > - [RAGFlow的检索神器-HNSW：高维向量空间中的高效近似最近邻搜索算法](https://dd-ff.blog.csdn.net/article/details/149275016)
+> - [检索增强生成（RAG）系统综合评估：从核心指标到前沿框架](https://dd-ff.blog.csdn.net/article/details/152823514)
+> - [LLM 上下文退化：当越长的输入让AI变得越"笨"](https://dd-ff.blog.csdn.net/article/details/149531324)
 > - [检索增强生成（RAG）综述：技术范式、核心组件与未来展望](https://dd-ff.blog.csdn.net/article/details/149274498)
 
 > **外部资源**：
