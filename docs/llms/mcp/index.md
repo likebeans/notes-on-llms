@@ -9,6 +9,25 @@ description: Model Context Protocol - AI 时代的 USB-C 接口
 
 ---
 
+## MCP 解决的核心问题
+
+想象一个强大的AI助手，可以帮助编程、数据分析或客户支持。但这个助手被**锁在一个房间里**——它很聪明，却无法直接访问你的数据库、文件或工具。如果你想让它使用某些信息，必须手动传递。这就是许多LLM面临的困境。
+
+虽然RAG可以检索信息，各种Agent框架允许工具使用，但存在更深层问题：**每个集成都需要定制代码、特殊提示和专属解决方案**。
+
+| 问题 | 传统方案 | MCP方案 |
+| :--- | :--- | :--- |
+| **集成方式** | 每个数据源需要专属连接器 | 统一标准接口 |
+| **维护成本** | N个数据源 × M个模型 = N×M个适配 | N+M（通过协议连接） |
+| **安全检查** | 每个连接器独立实现 | 协议级统一安全框架 |
+| **可移植性** | 绑定特定模型/厂商 | 模型无关，可自由切换 |
+
+::: tip MCP的本质
+MCP就像AI应用的USB-C接口——正如USB-C为各种设备提供标准连接方式，MCP为AI模型提供连接各种数据源和工具的标准协议。
+:::
+
+---
+
 ## 核心价值
 
 ```mermaid
@@ -405,11 +424,28 @@ flowchart TB
 
 ### 8.1 治理与开放
 
-MCP 由 Anthropic 开发，已捐赠给 **Linux 基金会 Agentic AI Foundation**，成为中立开放标准。
+MCP 由 Anthropic 于 2024 年底开源发布，已捐赠给 **Linux 基金会 Agentic AI Foundation**，成为中立开放标准。
 
 **支持厂商**：Google Cloud, Microsoft, Block, Apollo, Zed, Replit, Sourcegraph
 
-### 8.2 主流 Server
+### 8.2 广泛采用（2025年）
+
+到 2025 年初，MCP 已被广泛采用：
+
+| 平台 | 集成状态 |
+| :--- | :--- |
+| **Cursor** | 原生支持 |
+| **Replit** | 原生支持 |
+| **Zed** | 原生支持 |
+| **Sourcegraph** | 原生支持 |
+| **Claude Desktop** | 原生支持 |
+| **Block/Apollo** | 企业集成 |
+
+::: tip 模型无关性
+MCP 的一大优势是**模型无关**——你可以在不同 LLM 提供商之间切换，而不会丢失对数据源的访问权限，因为协议是标准化的。
+:::
+
+### 8.3 主流 Server
 
 | Server | 功能 |
 | :--- | :--- |
@@ -419,7 +455,7 @@ MCP 由 Anthropic 开发，已捐赠给 **Linux 基金会 Agentic AI Foundation*
 | **mcp-server-github** | GitHub API |
 | **mcp-server-slack** | Slack 消息 |
 
-### 8.3 操作系统集成
+### 8.4 操作系统集成
 
 | 平台 | 状态 |
 | :--- | :--- |
@@ -503,6 +539,14 @@ flowchart LR
 | [MCP Inspector](https://github.com/modelcontextprotocol/inspector) | 调试工具 |
 | [官方 Server 集合](https://github.com/modelcontextprotocol/servers) | 预置 Server |
 
+### FastMCP 资源
+
+| 资源 | 说明 |
+| :--- | :--- |
+| [FastMCP 官方文档](https://gofastmcp.com/) | FastMCP 2.0 文档 |
+| [FastMCP GitHub](https://github.com/jlowin/fastmcp) | 源码仓库 |
+| [FastMCP Cloud](https://fastmcp.cloud) | 云托管服务 |
+
 ### 参考论文
 
 | 论文 | 主题 |
@@ -510,5 +554,20 @@ flowchart LR
 | [MCP-Guard](https://arxiv.org/html/2508.10991v1) | 安全防御框架 |
 
 ---
+
+## 🔮 未来展望
+
+MCP 正在改变我们构建 AI 应用的方式：
+
+| 趋势 | 说明 |
+| :--- | :--- |
+| **标准化** | 成为 AI 集成的事实标准 |
+| **生态繁荣** | 社区贡献大量现成 Server |
+| **能力共享** | 开发者可以共享自定义 MCP Server，为 AI 代理添加新"技能" |
+| **开发效率** | 连接新数据库或 API 从周级工作变为小时级 |
+
+::: tip 核心价值
+MCP 让 AI 从"被动回答问题"转变为"主动使用工具和数据"，真正释放 AI 的潜力。
+:::
 
 > **展望**：MCP 将成为未来 AI 互联网的基础协议，构建起一个**万物互联的智能体新世界**。随着 Google、Microsoft、Anthropic 等巨头推动，MCP 正迅速成为行业事实标准。

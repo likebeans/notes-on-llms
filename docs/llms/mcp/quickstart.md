@@ -9,15 +9,29 @@ description: 5分钟创建你的第一个MCP服务
 
 ## 🚀 环境准备
 
+### FastMCP 版本说明
+
+| 版本 | 说明 |
+|------|------|
+| **FastMCP 1.0** | 已并入官方 MCP Python SDK（2024年） |
+| **FastMCP 2.0** | 活跃维护版本，功能更强大（推荐） |
+
 ### 安装依赖
 
 ```bash
-# 方式1：使用官方SDK
+# 方式1：使用官方SDK（包含FastMCP 1.0）
 pip install mcp
 
-# 方式2：使用FastMCP（推荐，更简单）
+# 方式2：使用FastMCP 2.0（推荐，功能更强大）
 pip install fastmcp
+
+# 或使用uv（更快）
+uv add fastmcp
 ```
+
+::: tip FastMCP 2.0 优势
+FastMCP 2.0 超越了基本协议实现，提供了完整的MCP生态工具包：Client、代理、服务器组合、中间件等。
+:::
 
 ---
 
@@ -266,8 +280,42 @@ def safe_tool(param: str) -> str:
 
 ---
 
+## 🔧 FastMCP 2.0 Client
+
+FastMCP 2.0 不仅是 Server 框架，还提供了完整的 **Client** 实现：
+
+```python
+from fastmcp import Client
+
+async def main():
+    # 连接本地Server
+    async with Client("python server.py") as client:
+        # 调用工具
+        result = await client.call_tool("add", {"a": 1, "b": 2})
+        print(result)
+    
+    # 连接远程Server（HTTP/SSE）
+    async with Client("http://localhost:8000/sse") as client:
+        tools = await client.list_tools()
+        print(tools)
+```
+
+### Client 支持的传输方式
+
+| 传输 | 连接方式 | 适用场景 |
+|------|----------|----------|
+| **Stdio** | `Client("python server.py")` | 本地开发 |
+| **SSE** | `Client("http://host:port/sse")` | 远程服务 |
+| **Websocket** | `Client("ws://host:port/ws")` | 实时通信 |
+
+---
+
 ## 🔗 下一步
 
 - [核心概念](/llms/mcp/concepts) - 深入理解Tools/Resources/Prompts
 - [高级功能](/llms/mcp/advanced) - 中间件、认证、代理
 - [MCP概述](/llms/mcp/) - 了解MCP全貌
+
+> **外部资源**：
+> - [FastMCP 官方文档](https://gofastmcp.com/)
+> - [MCP 官方文档](https://modelcontextprotocol.io/)
