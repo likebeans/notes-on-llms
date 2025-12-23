@@ -31,25 +31,48 @@ description: Direct Preference Optimization - 无需奖励模型的简化对齐
 
 ## 🔬 DPO原理
 
+> 来源：[RLHF之PPO、DPO详解](https://www.zhihu.com/tardis/zm/art/717010380) | [DPO原理深度解析](https://zhuanlan.zhihu.com/p/11913305485)
+
+![PPO vs DPO](https://pic2.zhimg.com/v2-44f397a445692fe8631990b251d10bdf_r.jpg)
+*PPO 和 DPO 的区别*
+
 ### 核心思想
 
-DPO的关键洞察：**奖励函数可以用策略模型和参考模型的对数概率差来表示**
+DPO的关键洞察：**RLHF 的优化目标存在显式解，可以将奖励函数与最优策略建立解析映射**。
 
-```
-r(x, y) = β * log[π(y|x) / π_ref(y|x)] + β * log Z(x)
-```
+### 从 PPO 到 DPO 的数学推导
 
-因此可以跳过奖励模型训练，直接优化偏好：
+**Step 1：PPO 的最优策略形式**
 
-```
-L_DPO = -log σ(β * [log π(y_w|x)/π_ref(y_w|x) - log π(y_l|x)/π_ref(y_l|x)])
+在 KL 正则化约束下，PPO 的最优策略可以写为：
+
+$$\pi^*(y|x) = \frac{1}{Z(x)} \pi_{ref}(y|x) \exp\left(\frac{1}{\beta} r(x,y)\right)$$
+
+其中 $Z(x) = \sum_y \pi_{ref}(y|x) \exp\left(\frac{1}{\beta} r(x,y)\right)$ 是归一化的分区函数。
+
+**Step 2：重参数化奖励函数**
+
+将上式对数化并重排，可以得到奖励函数的形式：
+
+$$r(x,y) = \beta \log \frac{\pi^*(y|x)}{\pi_{ref}(y|x)} + \beta \log Z(x)$$
+
+**Step 3：代入 Bradley-Terry 偏好模型**
+
+偏好数据遵循 Bradley-Terry 模型，代入重参数化后的 $r(x,y)$ 并消去 $Z(x)$，得到：
+
+$$p(y_w \succ y_l | x) = \sigma \left( \beta \log \frac{\pi_\theta(y_w|x)}{\pi_{ref}(y_w|x)} - \beta \log \frac{\pi_\theta(y_l|x)}{\pi_{ref}(y_l|x)} \right)$$
+
+**Step 4：最终 DPO 损失函数**
+
+$$\mathcal{L}_{DPO}(\pi_\theta; \pi_{ref}) = -\mathbb{E}_{(x, y_w, y_l) \sim D}\left[\log \sigma \left(\beta \log \frac{\pi_\theta(y_w|x)}{\pi_{ref}(y_w|x)} - \beta \log \frac{\pi_\theta(y_l|x)}{\pi_{ref}(y_l|x)}\right)\right]$$
 
 其中：
-- y_w: 偏好的（chosen）响应
-- y_l: 不偏好的（rejected）响应
-- β: 温度参数
-- σ: sigmoid函数
-```
+- $y_w$: 偏好的（chosen）响应
+- $y_l$: 不偏好的（rejected）响应
+- $\beta$: 温度参数
+- $\sigma$: sigmoid函数
+
+**DPO 本质**：将 RLHF 巧妙转化为类似 SFT 的监督学习，隐式学习奖励函数。
 
 ### 直观理解
 
@@ -61,6 +84,72 @@ DPO目标：
   │  同时不要偏离参考模型太远             │
   └─────────────────────────────────────┘
 ```
+
+---
+
+## ⚠️ DPO vs PPO 深度分析
+
+> 来源：[DPO vs PPO：深度解读谁是LLM Alignment的未来](https://zhuanlan.zhihu.com/p/11913305485)
+
+虽然 DPO 的推导看似与 PPO 等价，但实际存在几个关键差异：
+
+### 1. Distribution Shift（分布偏移）
+
+DPO 假设参考分布 $\pi_{ref}$ 能准确捕捉偏好数据分布，但实际中常存在偏移：
+
+| 问题 | DPO | PPO |
+|------|-----|-----|
+| **OOD 数据处理** | 可能错误提高 OOD 样本概率 | KL 正则化抑制偏移 |
+| **分布假设** | 依赖 $\pi_{ref}$ 准确性 | 显式约束偏离程度 |
+
+PPO 通过显式 KL 正则化限制 $\pi_\theta$ 偏离 $\pi_{ref}$ 的程度：
+
+$$\max_\pi \mathbb{E}_{x,y \sim \pi_\theta}\left[r(x,y) - \beta D_{KL}(\pi_\theta(y|x) || \pi_{ref}(y|x))\right]$$
+
+### 2. Reward Hacking 风险
+
+DPO 通过隐式建模奖励函数绕过显式奖励建模，但这可能引入额外的 Reward Hacking 问题：
+
+- DPO 的解集 $\Pi_{DPO}$ **包含** PPO 的解集 $\Pi_{PPO}$：$\Pi_{PPO} \subset \Pi_{DPO}$
+- DPO 可能找到符合偏好数据但在实际分布上无意义的解
+- PPO 的显式奖励函数和 KL 正则化可减少 Reward Hacking 风险
+
+### 3. 分区函数缺失
+
+DPO 在推导中省略了分区函数 $Z(x)$ 的显式影响：
+
+**PPO**：$Z(x)$ 的归一化确保 $\pi^*(y|x)$ 是合法概率分布
+
+**DPO**：直接消去 $Z(x)$，假设分布足够一致
+
+当参考分布 $\pi_{ref}(y|x)$ 不够准确时，这种省略可能导致对某些选项赋予不合理的高权重。
+
+::: tip 披萨店类比
+- **PPO** 像严格的朋友：分析每种选择的好坏，结合历史记录，计算综合评分（$Z(x)$ 归一化）
+- **DPO** 像随便的朋友：直接说"A 比 B 好"，但没考虑你对 B 的偏好可能基于伪数据
+:::
+
+### 4. Length Bias（长度偏差）
+
+DPO 可能存在对较短序列的隐性偏好：
+
+$$\log \frac{\pi_\theta(y_w|x)}{\pi_{ref}(y_w|x)} - \log \frac{\pi_\theta(y_l|x)}{\pi_{ref}(y_l|x)} \approx \text{Length}(y_w) - \text{Length}(y_l)$$
+
+**解决方案**：引入长度正则化项
+
+$$\mathcal{L}_{DPO}^{length} = \mathcal{L}_{DPO}(\pi_\theta) + \lambda \mathbb{E}_{(x, y_w, y_l) \sim D}\left[\text{Length}(y_w) - \text{Length}(y_l)\right]$$
+
+### 结论
+
+| 维度 | DPO | PPO |
+|------|-----|-----|
+| **简化程度** | ✅ 无需奖励模型 | ❌ 需要 4 个模型 |
+| **分布鲁棒性** | ❌ 依赖 $\pi_{ref}$ | ✅ KL 正则化 |
+| **Reward Hacking** | ❌ 风险较高 | ✅ 显式约束 |
+| **长度偏差** | ❌ 需额外处理 | ✅ 自然平衡 |
+| **工业应用** | 学术实验为主 | ChatGPT、Claude 等 |
+
+**结论**：DPO 不能完全取代 PPO，至少目前还不能。
 
 ---
 
@@ -169,6 +258,20 @@ trainer = DPOTrainer(
 ---
 
 ## 📊 DPO变体
+
+![Iterative-DPO流程](https://pic3.zhimg.com/v2-d5bf8d5dbb07200a39df63b5762b27f0_r.jpg)
+*Iterative-DPO 流程*
+
+### Iterative-DPO（迭代式DPO）
+
+2024年 Meta 提出的改进版（[Iterative Reasoning Preference Optimization](https://arxiv.org/pdf/2404.19733)），介于 Online 和 Offline 之间：
+
+1. 训练 Reward Model
+2. 将数据分成 m 份
+3. 对每份数据：用当前 LLM 采样 k 个回答 → RM 打分 → 选最高/最低构建 pair 对 → 训练一轮 DPO → 更新 LLM
+4. 重复直到所有数据训练完成
+
+**优势**：每轮训练后基于最新模型重新采样，缓解 DPO 的分布偏移问题。
 
 ### ORPO (Odds Ratio Preference Optimization)
 

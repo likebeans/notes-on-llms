@@ -93,7 +93,35 @@ model = AutoModelForCausalLM.from_pretrained(
 
 ## 🚀 推理优化
 
+> 来源：[FlashAttention 详解](https://zhuanlan.zhihu.com/p/676655352) | [FlashAttention V2](https://zhuanlan.zhihu.com/p/691067658) | [vLLM 官方博客](https://blog.vllm.ai/2023/06/20/vllm.html) | [PagedAttention 论文](https://arxiv.org/pdf/2309.06180)
+
+### FlashAttention
+
+![FlashAttention原理](https://pic2.zhimg.com/v2-4078b99c76f608b79da281d597e2f149_r.jpg)
+*FlashAttention 分块计算原理*
+
+FlashAttention 是一种 IO 感知的注意力计算方法，已广泛应用于 GPT-3/4、Llama2、Falcon2 等 LLM。
+
+**核心技术**：
+
+| 技术 | 说明 |
+|------|------|
+| **Tiling（分块）** | 将 Q、K、V 分成小块放入 SRAM |
+| **Kernel Fusion** | 多个计算步骤合并为单一 CUDA kernel |
+| **Recomputation** | 反向传播时重算中间结果，用计算换存储 |
+| **Online Softmax** | 分块计算 Softmax，无需完整注意力矩阵 |
+
+**效果**：
+- HBM 读写量从 $O(N^2)$ 降到 $O(N)$
+- 训练/推理速度提升 **2-4×**
+
 ### vLLM高性能推理
+
+![vLLM性能对比](https://blog.vllm.ai/assets/figures/perf_a100_n1_light.png)
+*vLLM 吞吐量对比：A100 GPU*
+
+![PagedAttention原理](https://blog.vllm.ai/assets/figures/annimation0.gif)
+*PagedAttention：KV Cache 分块存储*
 
 ```python
 from vllm import LLM, SamplingParams
@@ -124,10 +152,22 @@ for output in outputs:
 
 | 技术 | 说明 |
 |------|------|
-| **PagedAttention** | 类似虚拟内存管理KV Cache |
+| **PagedAttention** | 类似虚拟内存管理KV Cache，显存浪费 < 4% |
 | **Continuous Batching** | 动态批处理，提升吞吐 |
 | **Tensor Parallelism** | 多GPU并行 |
 | **Prefix Caching** | 缓存共享前缀 |
+| **Copy-on-Write** | 并行采样共享 Prompt KV Cache |
+
+**性能对比**：
+
+| 对比 | 吞吐量提升 |
+|------|----------|
+| vs HuggingFace Transformers | **14-24×** |
+| vs HuggingFace TGI | **2.2-3.5×** |
+
+**实际部署数据**（LMSYS）：
+- 日均处理 **3万+** 请求，峰值 **6万**
+- GPU 使用量减少 **50%**
 
 ---
 

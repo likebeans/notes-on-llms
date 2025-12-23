@@ -9,7 +9,7 @@ description: Reinforcement Learning from Human Feedback - 让AI学会人类价�
 
 ## 🎯 核心概念
 
-> 来源：[语言模型对齐技术论述：从基于PPO的RLHF到直接偏好优化](https://dd-ff.blog.csdn.net/article/details/153269912)
+> 来源：[RLHF之PPO、DPO详解](https://www.zhihu.com/tardis/zm/art/717010380) | [DPO原理深度解析](https://zhuanlan.zhihu.com/p/11913305485) | [RLHF技术问答](https://www.zhihu.com/question/658316700)
 
 ### 什么是RLHF？
 
@@ -17,7 +17,19 @@ description: Reinforcement Learning from Human Feedback - 让AI学会人类价�
 **RLHF（Reinforcement Learning from Human Feedback）** 是一种通过人类偏好数据训练奖励模型，再用强化学习优化语言模型的技术，使模型输出更符合人类价值观和期望。
 :::
 
+![强化学习基本框架](https://pic3.zhimg.com/v2-3b375dd479626f33ebc50dd7cba374fc_r.jpg)
+*强化学习基本框架：智能体与环境交互*
+
 ### 为什么需要RLHF？
+
+根据 OpenAI 联合创始人 John Schulman 在 Berkeley EECS 的报告，强化学习在大语言模型上的重要作用：
+
+| 优势 | SFT（监督微调） | 强化学习 |
+|------|----------------|----------|
+| **反馈粒度** | 针对单个 Token | 针对整个输出文本 |
+| **表达多样性** | 要求确切答案 | 兼顾多样性 |
+| **幻觉问题** | 易导致模型强行回答 | 可通过奖励设计让模型学会"拒绝回答" |
+| **多轮对话** | 难以考虑整体对话目标 | 可建模多轮交互的累积奖励 |
 
 | 阶段 | 问题 | RLHF解决方案 |
 |------|------|-------------|
@@ -87,6 +99,12 @@ trainer.train()
 ```
 
 ### 阶段三：PPO强化学习
+
+![PPO算法流程](https://picx.zhimg.com/v2-35d7cb0cc53fc9f0c6756343019c3b0f_r.jpg)
+*PPO 算法实施流程*
+
+![PPO训练流程](https://pic1.zhimg.com/v2-8499b498b656207243ee53b6e297eeb8_r.jpg)
+*PPO 训练流程详解*
 
 ```python
 from trl import PPOTrainer, PPOConfig, AutoModelForCausalLMWithValueHead
