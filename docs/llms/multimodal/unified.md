@@ -23,7 +23,7 @@ flowchart LR
     end
     
     subgraph "阶段3: 统一模型"
-        M4[理解+生成<br/>多模态统一]
+        M4[理解+生成\n多模态统一]
     end
     
     M1 --> M3
@@ -53,8 +53,8 @@ flowchart TB
     end
     
     subgraph "Show-o Backbone"
-        TXT --> AR[自回归建模<br/>Causal Mask]
-        IMG --> FM[Flow Matching<br/>Full Mask]
+        TXT --> AR[自回归建模\nCausal Mask]
+        IMG --> FM[Flow Matching\nFull Mask]
         AR --> TF[共享 Transformer]
         FM --> TF
     end
@@ -136,10 +136,10 @@ flowchart LR
 ```mermaid
 flowchart TB
     subgraph 去噪过程
-        T1[文本 Token<br/>噪声] --> ATTN[双向 Attention]
-        I1[图像 Token<br/>噪声] --> ATTN
-        ATTN --> T2[文本 Token<br/>去噪]
-        ATTN --> I2[图像 Token<br/>去噪]
+        T1[文本 Token\n噪声] --> ATTN[双向 Attention]
+        I1[图像 Token\n噪声] --> ATTN
+        ATTN --> T2[文本 Token\n去噪]
+        ATTN --> I2[图像 Token\n去噪]
     end
 ```
 
@@ -167,13 +167,13 @@ Meta 的 Chameleon 实现真正的原生多模态。
 
 ```mermaid
 flowchart TB
-    IMG[图像] --> VQVAE[VQ-VAE<br/>离散化]
-    VQVAE --> IT[图像 Token<br/>词表 8192]
+    IMG[图像] --> VQVAE[VQ-VAE\n离散化]
+    VQVAE --> IT[图像 Token\n词表 8192]
     
     TXT[文本] --> BPE[BPE Tokenizer]
-    BPE --> TT[文本 Token<br/>词表 65536]
+    BPE --> TT[文本 Token\n词表 65536]
     
-    IT --> MERGE[统一词表<br/>73728]
+    IT --> MERGE[统一词表\n73728]
     TT --> MERGE
     
     MERGE --> AR[自回归 Transformer]
@@ -244,10 +244,10 @@ flowchart TB
         VE --> ROUTER[Router Network]
         AE --> ROUTER
         VDE --> ROUTER
-        ROUTER --> E1[专家 1<br/>图像]
-        ROUTER --> E2[专家 2<br/>音频]
-        ROUTER --> E3[专家 3<br/>视频]
-        ROUTER --> E4[专家 4<br/>通用]
+        ROUTER --> E1[专家 1\n图像]
+        ROUTER --> E2[专家 2\n音频]
+        ROUTER --> E3[专家 3\n视频]
+        ROUTER --> E4[专家 4\n通用]
     end
     
     E1 --> LLM[LLM Backbone]
@@ -260,8 +260,8 @@ flowchart TB
 
 ```mermaid
 flowchart LR
-    S1[阶段1<br/>跨模态对齐] --> S2[阶段2<br/>模态专家训练]
-    S2 --> S3[阶段3<br/>统一 MoE 微调]
+    S1[阶段1\n跨模态对齐] --> S2[阶段2\n模态专家训练]
+    S2 --> S3[阶段3\n统一 MoE 微调]
 ```
 
 | 阶段 | 目标 | 训练内容 |
@@ -289,10 +289,10 @@ flowchart LR
 ```mermaid
 flowchart LR
     subgraph "GPU Ring"
-        G1[GPU 1<br/>Block 1]
-        G2[GPU 2<br/>Block 2]
-        G3[GPU 3<br/>Block 3]
-        G4[GPU 4<br/>Block 4]
+        G1[GPU 1\nBlock 1]
+        G2[GPU 2\nBlock 2]
+        G3[GPU 3\nBlock 3]
+        G4[GPU 4\nBlock 4]
     end
     
     G1 -->|KV 传递| G2

@@ -177,7 +177,7 @@ templates = [
 <div class="compare-box">
   <div class="compare-item">
     <div class="compare-title">传统分类模型</div>
-    <p class="compare-desc">固定类别标签 - 无法泛化到新类别 - 需要大量标注数�?/p>
+    <p class="compare-desc">固定类别标签 - 无法泛化到新类别 - 需要大量标注数�?</p>
   </div>
   <div class="compare-vs">VS</div>
   <div class="compare-item highlight">
@@ -1085,7 +1085,7 @@ flowchart TB
       <li>LLaVA 架构实践</li>
     </ul>
   </div>
-  <div class="path-arrow">�?/div>
+  <div class="path-arrow">�?</div>
   <div class="path-step step-2">
     <div class="step-num">2</div>
     <div class="step-title">生成模型</div>
@@ -1095,7 +1095,7 @@ flowchart TB
       <li>ControlNet/IP-Adapter</li>
     </ul>
   </div>
-  <div class="path-arrow">�?/div>
+  <div class="path-arrow">�?</div>
   <div class="path-step step-3">
     <div class="step-num">3</div>
     <div class="step-title">前沿应用</div>

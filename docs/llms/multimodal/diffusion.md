@@ -14,15 +14,15 @@ description: DiT、Stable Diffusion 3、ControlNet 与 ComfyUI 工程实践
 ```mermaid
 flowchart LR
     subgraph "第一代"
-        SD1[SD 1.5<br/>U-Net]
+        SD1[SD 1.5\nU-Net]
     end
     
     subgraph "第二代"
-        SDXL[SDXL<br/>更大 U-Net]
+        SDXL[SDXL\n更大 U-Net]
     end
     
     subgraph "第三代"
-        SD3[SD3/FLUX<br/>DiT]
+        SD3[SD3/FLUX\nDiT]
     end
     
     SD1 -->|规模扩大| SDXL
@@ -45,11 +45,11 @@ DiT 将 Transformer 引入扩散过程，替代传统 U-Net。
 
 ```mermaid
 flowchart TB
-    NOISE[噪声 Latent<br/>z_t] --> PATCH[Patchify<br/>切分为 Patch]
+    NOISE[噪声 Latent\nz_t] --> PATCH[Patchify\n切分为 Patch]
     PATCH --> PE[+ 位置编码]
     T[时间步 t] --> TE[时间嵌入]
     C[条件 c] --> CE[条件嵌入]
-    PE --> DIT[DiT Blocks<br/>×N]
+    PE --> DIT[DiT Blocks\n×N]
     TE --> DIT
     CE --> DIT
     DIT --> UNPATCH[Unpatchify]
@@ -99,10 +99,10 @@ flowchart TB
     IMG[图像 Latent] --> PE1[Patchify + PE]
     TXT[文本嵌入] --> PE2[Position Embed]
     
-    PE1 --> STREAM1[图像流<br/>独立权重]
-    PE2 --> STREAM2[文本流<br/>独立权重]
+    PE1 --> STREAM1[图像流\n独立权重]
+    PE2 --> STREAM2[文本流\n独立权重]
     
-    STREAM1 --> JA[Joint Attention<br/>信息交换]
+    STREAM1 --> JA[Joint Attention\n信息交换]
     STREAM2 --> JA
     
     JA --> STREAM1
@@ -142,10 +142,10 @@ ControlNet 解决了扩散模型生成"不可控"的痛点。
 
 ```mermaid
 flowchart TB
-    X[输入] --> SD[SD U-Net<br/>冻结]
-    X --> ZC1[Zero Conv<br/>初始化为0]
-    ZC1 --> COPY[Trainable Copy<br/>可训练副本]
-    COPY --> ZC2[Zero Conv<br/>初始化为0]
+    X[输入] --> SD[SD U-Net\n冻结]
+    X --> ZC1[Zero Conv\n初始化为0]
+    ZC1 --> COPY[Trainable Copy\n可训练副本]
+    COPY --> ZC2[Zero Conv\n初始化为0]
     SD --> ADD[+]
     ZC2 --> ADD
     ADD --> OUT[输出]
@@ -192,8 +192,8 @@ IP-Adapter 提出轻量级的图像提示（Image Prompt）适配方法。
 
 ```mermaid
 flowchart TB
-    TXT[文本特征] --> CA1[Text Cross-Attn<br/>原始]
-    IMG[图像特征] --> CA2[Image Cross-Attn<br/>新增]
+    TXT[文本特征] --> CA1[Text Cross-Attn\n原始]
+    IMG[图像特征] --> CA2[Image Cross-Attn\n新增]
     CA1 --> ADD[+]
     CA2 --> ADD
     ADD --> OUT[输出]
@@ -299,9 +299,9 @@ flowchart TB
 
 ```mermaid
 flowchart LR
-    X[输入] --> W[原始权重 W<br/>冻结]
-    X --> A[LoRA A<br/>降维]
-    A --> B[LoRA B<br/>升维]
+    X[输入] --> W[原始权重 W\n冻结]
+    X --> A[LoRA A\n降维]
+    A --> B[LoRA B\n升维]
     W --> ADD[+]
     B --> ADD
     ADD --> OUT[输出]

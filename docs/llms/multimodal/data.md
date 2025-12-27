@@ -95,7 +95,7 @@ def filter_sample(image, text):
   <div class="compare-vs">VS</div>
   <div class="compare-item">
     <div class="compare-title">劣势</div>
-    <p class="compare-desc">�?继承 CLIP 偏见 - �?过滤罕见概念 - �?某些艺术风格被排�?/p>
+    <p class="compare-desc">�?继承 CLIP 偏见 - �?过滤罕见概念 - �?某些艺术风格被排�?</p>
   </div>
 </div>
 

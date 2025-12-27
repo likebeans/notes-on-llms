@@ -17,12 +17,12 @@ ViT 的出现标志着计算机视觉从 CNN 向 Transformer 的彻底转型，�
 
 ```mermaid
 flowchart LR
-    IMG[输入图像<br/>224×224×3] --> PATCH[Patch 切分<br/>16×16]
-    PATCH --> FLAT[展平<br/>768维向量]
-    FLAT --> PROJ[线性投影<br/>E矩阵]
+    IMG[输入图像\n224×224×3] --> PATCH[Patch 切分\n16×16]
+    PATCH --> FLAT[展平\n768维向量]
+    FLAT --> PROJ[线性投影\nE矩阵]
     PROJ --> POS[+ 位置编码]
     POS --> CLS[+ CLS Token]
-    CLS --> ENC[Transformer Encoder<br/>×12层]
+    CLS --> ENC[Transformer Encoder\n×12层]
     ENC --> OUT[图像特征]
 ```
 
@@ -92,7 +92,7 @@ flowchart TB
         TF --> VT[文本特征 v_T]
     end
     
-    VI --> SIM[余弦相似度矩阵<br/>N×N]
+    VI --> SIM[余弦相似度矩阵\nN×N]
     VT --> SIM
     SIM --> LOSS[InfoNCE Loss]
 ```
