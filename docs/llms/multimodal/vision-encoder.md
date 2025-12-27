@@ -33,6 +33,7 @@ flowchart LR
 $$\mathbf{z}_0 = [\mathbf{x}_{cls}; \mathbf{x}_p^1\mathbf{E}; \mathbf{x}_p^2\mathbf{E}; \cdots; \mathbf{x}_p^N\mathbf{E}] + \mathbf{E}_{pos}$$
 
 其中：
+
 - $\mathbf{E} \in \mathbb{R}^{(P^2 \cdot C) \times D}$ 是线性投影矩阵
 - $\mathbf{E}_{pos}$ 是位置编码
 - 对于 $224 \times 224$ 图像，产生 $14 \times 14 = 196$ 个 Patch
@@ -114,6 +115,23 @@ $$\mathcal{L} = \frac{1}{2N} \sum_{i=1}^N (\mathcal{L}_{I \to T, i} + \mathcal{L
 
 其中 $\tau$ 是可学习的温度系数，调节分布尖锐程度。
 
+#### 温度系数 τ 的深度解析
+
+**参数化方式**：CLIP 将温度系数参数化为可学习标量 $\tau = \log(e^{\tau'})$
+
+| 特性 | 说明 |
+| :--- | :--- |
+| **初始值** | $\tau \approx 0.07$（对应约14的倒数） |
+| **训练过程** | 允许模型自适应调节对比学习难度 |
+| **作用机制** | 动态调整logits分布的尖锐程度 |
+| **稳定性** | 防止大规模训练中的梯度消失/爆炸 |
+
+**数学意义**：
+
+- **小 τ**：分布更尖锐 → 学习更难的负样本
+- **大 τ**：分布更平滑 → 学习更容易
+- **可学习**：模型在训练过程中动态调整最优值
+
 ### 训练机制解析
 
 | 元素 | 作用 |
@@ -137,10 +155,62 @@ $$\mathcal{L} = \frac{1}{2N} \sum_{i=1}^N (\mathcal{L}_{I \to T, i} + \mathcal{L
   </div>
 </div>
 
-### Zero-shot 推理
+### Zero-shot 推理与提示工程
+
+#### 提示工程（Prompt Engineering）
+
+**单模板 vs 多模板集成**：
+
+| 方法 | 示例 | ImageNet准确率 |
+| :--- | :--- | :--- |
+| **单模板** | "A photo of a {label}." | ~60% |
+| **多模板集成（80个）** | 见下方示例 | **76.2%** |
+
+**多模板示例**：
 
 ```python
-# CLIP Zero-shot 分类示例
+# CLIP 提示模板集成
+templates = [
+    "a photo of a {}.",
+    "a rendering of a {}.",
+    "a cropped photo of the {}.",
+    "the photo of a {}.",
+    "a photo of a clean {}.",
+    "a photo of a dirty {}.",
+    "a dark photo of the {}.",
+    "a photo of my {}.",
+    "a photo of the cool {}.",
+    "a close-up photo of a {}.",
+    # ... 共80个模板
+]
+
+# 对每个模板计算相似度，然后平均
+def zero_shot_classify(image, labels, templates):
+    image_features = clip.encode_image(image)
+    
+    logits_per_template = []
+    for template in templates:
+        # 为每个类别生成提示
+        texts = [template.format(label) for label in labels]
+        text_features = clip.encode_text(texts)
+        
+        # 计算相似度
+        logits = (image_features @ text_features.T)
+        logits_per_template.append(logits)
+    
+    # 平均所有模板的logits
+    final_logits = torch.stack(logits_per_template).mean(dim=0)
+    probs = final_logits.softmax(dim=-1)
+    
+    return probs
+```
+
+**原理**：不同模板激活语言模型中对同一概念的不同表述，平均后更鲁棒。
+
+#### Zero-shot 分类流程
+
+```python
+# 基础 Zero-shot 分类
 image_features = clip.encode_image(image)
 text_features = clip.encode_text(["a dog", "a cat", "a bird"])
 
@@ -151,18 +221,91 @@ similarity = (image_features @ text_features.T).softmax(dim=-1)
 
 ---
 
-## SigLIP：改进的对比学习
+## CLIP 后续演进：对比学习的优化之路
 
-SigLIP 是 CLIP 的改进版本，使用 Sigmoid Loss 替代 Softmax：
+### ALIGN (Google, 2021)：规模暴力
+
+**核心思想**：数据规模 > 数据质量（在足够大时）
+
+| 特性 | ALIGN | CLIP |
+| :--- | :--- | :--- |
+| **数据规模** | 18亿对 | 4亿对 |
+| **数据质量** | 未清洗Alt-text | 基础过滤 |
+| **清洗策略** | 几乎无 | CLIP过滤 |
+| **结论** | 规模足够大，噪声学习仍有效 | 需要一定过滤 |
+
+**关键发现**：
+
+- 在10亿+规模时，简单双塔架构也能从噪声数据中学到SOTA表征
+- 证明了"数据规模定律"在多模态领域同样适用
+
+### SigLIP (2023)：损失函数革命
+
+**问题**：Softmax在分布式训练中的通信瓶颈
+
+```python
+# Softmax需要全局归一化（All-Reduce）
+loss_i2t = -log(exp(sim(i,t_i)) / sum_j exp(sim(i,t_j)))  # 需要所有GPU的sim
+```
+
+**SigLIP方案**：使用Sigmoid替代Softmax
 
 $$\mathcal{L} = -\frac{1}{N^2} \sum_{i,j} \log \sigma(y_{ij} \cdot z_{ij})$$
 
 其中 $y_{ij} = 1$ 如果 $i = j$，否则 $y_{ij} = -1$。
 
 **优势**：
-- 不需要全局归一化，支持更大 Batch
-- 训练更稳定
-- 负样本利用更高效
+
+- ✅ **消除全局通信**：每个样本对独立计算损失
+- ✅ **支持极大Batch**：32k+（传统Softmax难以达到）
+- ✅ **训练更稳定**：避免指数运算的数值问题
+- ✅ **负样本利用更高效**：所有配对都参与训练
+
+**性能对比**：
+
+| 模型 | Batch Size | ImageNet准确率 |
+| :--- | :--- | :--- |
+| CLIP | 32K | 76.2% |
+| SigLIP | 32K | **78.1%** |
+
+### CoCa (Google, 2022)：理解+生成统一
+
+**核心创新**：解耦解码器架构
+
+```mermaid
+flowchart TB
+    subgraph "CoCa架构"
+        IMG[图像] --> VIT[ViT编码器]
+        VIT --> POOL[池化特征]
+        
+        TXT[文本] --> UNI[单模态文本层]
+        UNI --> MULTI[多模态文本层]
+        
+        POOL --> CONTRA[对比学习头]
+        UNI --> CONTRA
+        
+        POOL --> CROSS[Cross-Attention]
+        MULTI --> CROSS
+        CROSS --> GEN[生成头]
+    end
+```
+
+**双流设计**：
+
+| 模块 | 输入 | 任务 | 损失 |
+| :--- | :--- | :--- | :--- |
+| **单模态文本层** | 仅文本 | 对比学习 | Contrastive Loss |
+| **多模态文本层** | 文本+图像 | 文本生成 | Captioning Loss |
+
+**训练目标**：
+
+$$\mathcal{L}_{total} = \mathcal{L}_{contrastive} + \mathcal{L}_{captioning}$$
+
+**效果**：
+
+- ImageNet零样本：**86.3%**（超越CLIP的76.2%）
+- 同时具备理解和生成能力
+- 一次前向传播计算两种损失
 
 ---
 
