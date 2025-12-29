@@ -1,11 +1,11 @@
 ---
-title: 多模态架�?
-description: Fuyu、Qwen-VL 与原生多模态设计范�?
+title: 多模态架构
+description: Fuyu、Qwen-VL 与原生多模态设计范式
 ---
 
-# 多模态架构演�?
+# 多模态架构演进
 
-> �?编码�?连接�?LLM"的模块化设计，到原生多模态的深度融合，架构范式正在经历根本性变革�?
+> 从"编码器-连接器-LLM"的模块化设计，到原生多模态的深度融合，架构范式正在经历根本性变革。
 
 ---
 
@@ -13,14 +13,14 @@ description: Fuyu、Qwen-VL 与原生多模态设计范�?
 
 ```mermaid
 flowchart TB
-    subgraph "范式1: 模块�?
+    subgraph "范式1: 模块化"
         I1[图像] --> E1[Vision Encoder]
         E1 --> C1[Connector]
         C1 --> L1[LLM]
         T1[文本] --> L1
     end
     
-    subgraph "范式2: 原生多模�?
+    subgraph "范式2: 原生多模态"
         I2[图像 Patch] --> P2[Linear Proj]
         T2[文本 Token] --> P2
         P2 --> L2[统一 Transformer]
@@ -29,14 +29,14 @@ flowchart TB
 
 | 范式 | 代表模型 | 优势 | 劣势 |
 | :--- | :--- | :--- | :--- |
-| **模块�?* | LLaVA, BLIP-2 | 复用预训练组�?| 模态割�?|
-| **原生多模�?* | Fuyu, Chameleon | 深度融合 | 训练成本�?|
+| **模块化** | LLaVA, BLIP-2 | 复用预训练组件 | 模态割裂 |
+| **原生多模态** | Fuyu, Chameleon | 深度融合 | 训练成本高 |
 
 ---
 
 ## Fuyu-8B：纯 Decoder 架构
 
-Fuyu 代表了向原生多模态迈进的重要一步，**完全摒弃独立视觉编码�?*�?
+Fuyu 代表了向原生多模态迈进的重要一步，**完全摒弃独立视觉编码器**。
 
 ### 核心设计
 
@@ -57,7 +57,7 @@ flowchart LR
 
 **问题**：Transformer 如何理解图像的二维空间结构？
 
-**解决方案**：引入特�?Token `<image-newline>`
+**解决方案**：引入特殊 Token `<image-newline>`
 
 ```
 [patch_1] [patch_2] ... [patch_14] <image-newline>
@@ -67,37 +67,37 @@ flowchart LR
 [文本 Token 序列]
 ```
 
-**效果**�?
+**效果**：
 - 模型像处理换行符一样理解图像行结构
-- 天然支持任意分辨率和宽高�?
-- 无需复杂的位置编码插�?
+- 天然支持任意分辨率和宽高比
+- 无需复杂的位置编码插值
 
 ### 架构优势
 
-| 特�?| 传统架构 | Fuyu |
+| 特性 | 传统架构 | Fuyu |
 | :--- | :--- | :--- |
-| **组件数量** | ViT + Connector + LLM | �?LLM |
-| **分辨率支�?* | 需要调�?| 任意分辨�?|
-| **部署复杂�?* | 需维护多个模型 | 单一模型 |
-| **训练统一�?* | 多阶�?| 端到�?|
+| **组件数量** | ViT + Connector + LLM | 仅 LLM |
+| **分辨率支持** | 需要调整 | 任意分辨率 |
+| **部署复杂度** | 需维护多个模型 | 单一模型 |
+| **训练统一性** | 多阶段 | 端到端 |
 
-### 局限�?
+### 局限性
 
 ::: warning 计算成本
-由于没有视觉编码器的压缩，高分辨率图像会产生大量 Token，显著增加推理成本�?
+由于没有视觉编码器的压缩，高分辨率图像会产生大量 Token，显著增加推理成本。
 :::
 
 ---
 
 ## Qwen-VL：多阶段特征融合
 
-Qwen-VL �?编码�?连接�?LLM"框架内进行深度优化�?
+Qwen-VL 在"编码器-连接器-LLM"框架内进行深度优化。
 
 ### DeepStack 融合
 
-**传统方法**：仅使用 ViT 最后一层输�?
+**传统方法**：仅使用 ViT 最后一层输出
 
-**Qwen-VL**：融合多层特�?
+**Qwen-VL**：融合多层特征
 
 ```mermaid
 flowchart TB
@@ -114,23 +114,23 @@ flowchart TB
     PROJ --> LLM
 ```
 
-**优势**�?
-- 低层特征：纹理、边缘细�?
-- 高层特征：语义、对象概�?
-- �?OCR 和文档理解尤为重�?
+**优势**：
+- 低层特征：纹理、边缘细节
+- 高层特征：语义、对象概念
+- 对 OCR 和文档理解尤为重要
 
-### 三阶段训练管�?
+### 三阶段训练管线
 
 ```mermaid
 flowchart LR
     subgraph "Stage 1"
-        D1[海量弱监督数�?br/>1.4B 图文对]
+        D1[海量弱监督数据<br/>1.4B 图文对]
         S1[冻结 LLM - 训练 Adapter]
     end
     
     subgraph "Stage 2"
         D2[高质量多任务数据 - VQA/Caption/OCR]
-        S2[解冻全模�?br/>多任务训练]
+        S2[解冻全模型<br/>多任务训练]
     end
     
     subgraph "Stage 3"
@@ -141,25 +141,25 @@ flowchart LR
     D1 --> S1 --> D2 --> S2 --> D3 --> S3
 ```
 
-| 阶段 | 数据规模 | 训练目标 | LLM 状�?|
+| 阶段 | 数据规模 | 训练目标 | LLM 状态 |
 | :--- | :--- | :--- | :--- |
-| **预训�?* | 1.4B 图文�?| 视觉-语言对齐 | 冻结 |
-| **多任务微�?* | ~100M 样本 | 任务能力 | 解冻 |
+| **预训练** | 1.4B 图文对 | 视觉-语言对齐 | 冻结 |
+| **多任务微调** | ~100M 样本 | 任务能力 | 解冻 |
 | **指令微调** | ~1M 样本 | 对话交互 | 解冻 |
 
 ### 特殊能力
 
 | 能力 | 实现方式 |
 | :--- | :--- |
-| **细粒�?OCR** | 高分辨率输入 + DeepStack |
-| **目标定位** | Bounding Box Token �?|
-| **多图理解** | 图像分隔�?Token |
+| **细粒度 OCR** | 高分辨率输入 + DeepStack |
+| **目标定位** | Bounding Box Token 化 |
+| **多图理解** | 图像分隔符 Token |
 
 ---
 
-## InternLM-XComposer：交织生�?
+## InternLM-XComposer：交织生成
 
-InternLM-XComposer 系列专注�?*图文交织生成**�?
+InternLM-XComposer 系列专注于**图文交织生成**。
 
 ### 架构特点
 
@@ -172,15 +172,15 @@ flowchart TB
     LLM --> OUT[图文交织输出]
 ```
 
-**Partial LoRA**�?
-- 仅在部分 LLM 层插�?LoRA
+**Partial LoRA**：
+- 仅在部分 LLM 层插入 LoRA
 - 平衡视觉适配与语言能力保持
 
 ### 图文交织能力
 
 ```
 用户：请介绍一下这座建筑的历史
-模型：这是埃菲尔铁塔，建�?889�?..
+模型：这是埃菲尔铁塔，建于1889年...
       [生成的历史图片]
       它最初是为巴黎世博会建造的...
       [生成的世博会场景图片]
@@ -188,9 +188,9 @@ flowchart TB
 
 ---
 
-## Chameleon：原生混合模�?
+## Chameleon：原生混合模态
 
-Meta �?Chameleon 实现�?*真正的原生多模�?*�?
+Meta 的 Chameleon 实现了**真正的原生多模态**。
 
 ### 统一 Token 空间
 
@@ -202,29 +202,29 @@ flowchart LR
     BPE --> TT[文本 Token - 65536 词表]
     IT --> MERGE[统一词表 - 73728]
     TT --> MERGE
-    MERGE --> AR[自回�?Transformer]
+    MERGE --> AR[自回归 Transformer]
 ```
 
-### 关键技�?
+### 关键技术
 
-| 技�?| 作用 |
+| 技术 | 作用 |
 | :--- | :--- |
-| **VQ-VAE** | 将图像离散化�?Token |
-| **统一词表** | 图像/文本 Token 无差别处�?|
-| **QK-Norm** | 稳定多模态训�?|
-| **Dropout 复用** | 防止模态偏�?|
+| **VQ-VAE** | 将图像离散化为 Token |
+| **统一词表** | 图像/文本 Token 无差别处理 |
+| **QK-Norm** | 稳定多模态训练 |
+| **Dropout 复用** | 防止模态偏向 |
 
-### 优势与挑�?
+### 优势与挑战
 
 | 优势 | 挑战 |
 | :--- | :--- |
-| �?真正的端到端 | �?VQ-VAE 重建损失 |
-| �?任意模态组合生�?| �?训练极其昂贵 |
-| �?统一架构简�?| �?图像生成质量受限 |
+| ✅ 真正的端到端 | ❌ VQ-VAE 重建损失 |
+| ✅ 任意模态组合生成 | ❌ 训练极其昂贵 |
+| ✅ 统一架构简洁 | ❌ 图像生成质量受限 |
 
 ---
 
-## PaliGemma：Google 的多模态方�?
+## PaliGemma：Google 的多模态方案
 
 ### 架构设计
 
@@ -239,11 +239,11 @@ flowchart LR
 
 ### 特点
 
-| 特�?| 说明 |
+| 特性 | 说明 |
 | :--- | :--- |
-| **视觉编码�?* | SigLIP（改进的 CLIP�?|
+| **视觉编码器** | SigLIP（改进的 CLIP） |
 | **LLM** | Gemma 2B |
-| **连接�?* | 简单线性投�?|
+| **连接器** | 简单线性投影 |
 | **训练数据** | WebLI 多语言数据 |
 
 ---
@@ -252,38 +252,38 @@ flowchart LR
 
 ### 按需求选择
 
-| 需�?| 推荐架构 | 理由 |
+| 需求 | 推荐架构 | 理由 |
 | :--- | :--- | :--- |
-| **快速部�?* | LLaVA | 简单有�?|
+| **快速部署** | LLaVA | 简单有效 |
 | **OCR/文档** | Qwen-VL | DeepStack 细节 |
-| **任意分辨�?* | Fuyu | 原生支持 |
+| **任意分辨率** | Fuyu | 原生支持 |
 | **图文交织** | XComposer | 专门优化 |
-| **统一生成** | Chameleon | 原生多模�?|
+| **统一生成** | Chameleon | 原生多模态 |
 
 ### 性能-效率权衡
 
 ```
-性能 �?
-�?
-�?   �?Qwen-VL-Max
-�? �?GPT-4V
-�?   �?Chameleon
-�? �?LLaVA-1.6
-�?�?Fuyu-8B
+性能 ↑
+│
+│    ★ Qwen-VL-Max
+│  ★ GPT-4V
+│    ★ Chameleon
+│  ★ LLaVA-1.6
+│ ★ Fuyu-8B
 │★ LLaVA-1.5
-�?
-└──────────────────�?效率 �?
+│
+└──────────────────→ 效率 ↑
 ```
 
 ---
 
-## 参考资�?
+## 参考资源
 
 | 论文/项目 | 主题 |
 | :--- | :--- |
-| [Fuyu-8B](https://www.adept.ai/blog/fuyu-8b) | �?Decoder 架构 |
-| [Qwen-VL](https://arxiv.org/abs/2308.12966) | 多阶段融�?|
+| [Fuyu-8B](https://www.adept.ai/blog/fuyu-8b) | 纯 Decoder 架构 |
+| [Qwen-VL](https://arxiv.org/abs/2308.12966) | 多阶段融合 |
 | [InternLM-XComposer](https://arxiv.org/abs/2309.15112) | 图文交织 |
-| [Chameleon](https://arxiv.org/abs/2405.09818) | 原生多模�?|
+| [Chameleon](https://arxiv.org/abs/2405.09818) | 原生多模态 |
 | [PaliGemma](https://arxiv.org/abs/2407.07726) | Google 方案 |
 
