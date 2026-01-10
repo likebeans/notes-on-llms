@@ -248,6 +248,7 @@ export default withMermaid(defineConfig({
         {
           text: '资源库',
           items: [
+            { text: '视频', link: '/resources/videos' },
             { text: '论文', link: '/resources/papers' },
             { text: '博客', link: '/resources/blogs' },
             { text: '开源项目', link: '/resources/repos' },
