@@ -3,6 +3,7 @@ import type { Theme } from 'vitepress'
 import Layout from './Layout.vue'
 import LearningObjectives from './components/article/LearningObjectives.vue'
 import SourceList from './components/article/SourceList.vue'
+import HomePage from './components/home/HomePage.vue'
 import './custom.css'
 
 export default {
@@ -11,5 +12,6 @@ export default {
   enhanceApp({ app }) {
     app.component('LearningObjectives', LearningObjectives)
     app.component('SourceList', SourceList)
+    app.component('HomePage', HomePage)
   },
 } satisfies Theme
