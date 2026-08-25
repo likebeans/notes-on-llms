@@ -69,7 +69,10 @@ export function stringifyFrontmatter(source: string, data: Record<string, unknow
   return source.endsWith('\n') ? output : output.replace(/\n$/, '')
 }
 
-export async function migrateFrontmatter(root = resolve('docs')): Promise<number> {
+export async function migrateFrontmatter(
+  root = resolve('docs'),
+  migratedAt = updatedFor,
+): Promise<number> {
   let migrated = 0
 
   for (const file of await collectPublicMarkdown(root)) {
@@ -89,7 +92,7 @@ export async function migrateFrontmatter(root = resolve('docs')): Promise<number
       description,
       pageType,
       module: module ?? 'site',
-      updated: updatedFor(file),
+      updated: parsed.data.updated ?? migratedAt(file),
       contentStatus: parsed.data.contentStatus ?? 'needs-review',
       tags: parsed.data.tags ?? fallback?.tags ?? (module ? [module] : siteTags(path)),
     }
