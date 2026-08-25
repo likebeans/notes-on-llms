@@ -3,6 +3,8 @@ import { expect, it } from 'vitest'
 
 const readThemeFile = (path: string) => readFileSync(`docs/.vitepress/theme/${path}`, 'utf8')
 
+const withoutComments = (source: string) => source.replace(/\/\*[\s\S]*?\*\/|\/\/[^\n]*/g, '')
+
 const block = (css: string, selector: string) => {
   const match = css.match(new RegExp(`${selector}\\s*\\{([\\s\\S]*?)\\n\\}`, 'm'))
   if (!match) throw new Error(`Missing ${selector} token block`)
@@ -10,10 +12,28 @@ const block = (css: string, selector: string) => {
 }
 
 const declaration = (css: string, name: string) => {
-  const match = css.match(new RegExp(`${name.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&')}\\s*:\\s*([^;]+);`))
+  const match = withoutComments(css).match(new RegExp(`${name.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&')}\\s*:\\s*([^;]+);`))
   if (!match) throw new Error(`Missing ${name} declaration`)
   return match[1].trim()
 }
+
+const activeThemeBinding = (source: string) => withoutComments(source).match(
+  /^\s*import\s+([A-Za-z_$][\w$]*)\s+from\s+['"]vitepress\/theme-without-fonts['"]\s*;?\s*$/m,
+)?.[1]
+
+it('does not treat a commented token as a declaration', () => {
+  expect(() => declaration('/* --nl-paper: #f4f0e7; */', '--nl-paper')).toThrow('Missing --nl-paper declaration')
+})
+
+it('does not treat a comment or string as the active font-free theme import', () => {
+  const inactiveThemeReference = [
+    "// import CommentedTheme from 'vitepress/theme-without-fonts'",
+    "const documentation = 'vitepress/theme-without-fonts'",
+    'export default { extends: DefaultTheme }',
+  ].join('\n')
+
+  expect(activeThemeBinding(inactiveThemeReference)).toBeUndefined()
+})
 
 it('defines the approved research handbook tokens for both colour modes', () => {
   const css = readThemeFile('styles/tokens.css')
@@ -85,7 +105,11 @@ it('loads the focused style layers, font-free theme, and accessible focus treatm
     './styles/article.css',
     './styles/components.css',
   ])
-  expect(readThemeFile('index.ts')).toContain("vitepress/theme-without-fonts")
+  const themeEntry = readThemeFile('index.ts')
+  const themeBinding = activeThemeBinding(themeEntry)
+
+  expect(themeBinding).toBe('DefaultTheme')
+  expect(withoutComments(themeEntry)).toMatch(new RegExp(`\\bextends\\s*:\\s*${themeBinding}\\b`))
   expect(readThemeFile('styles/base.css')).toMatch(/outline:\s*3px solid var\(--nl-blue\)/)
 })
 
