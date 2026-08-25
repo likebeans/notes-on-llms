@@ -1,5 +1,6 @@
 # Dependencies
 node_modules/
+.worktrees/
 
 # VitePress build output
 docs/.vitepress/dist/
