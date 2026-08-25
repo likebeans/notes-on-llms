@@ -1,0 +1,43 @@
+html {
+  background: var(--nl-paper);
+}
+
+body {
+  background: var(--nl-surface);
+  color: var(--nl-ink);
+  text-rendering: optimizeLegibility;
+  transition: background-color 160ms ease, color 160ms ease;
+}
+
+a {
+  text-underline-offset: 0.16em;
+}
+
+:where(a, button, input, select, summary, textarea):focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--nl-blue) 56%, transparent);
+  outline-offset: 3px;
+}
+
+@media (min-width: 900px) {
+  :root {
+    --nl-page-gutter: 2rem;
+  }
+}
+
+@media (max-width: 620px) {
+  :root {
+    --nl-page-gutter: 1rem;
+    --nl-reading-measure: 100%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 1ms !important;
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}

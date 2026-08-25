@@ -1,0 +1,54 @@
+.custom-card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+  gap: 1rem;
+  margin: 1.5rem 0;
+}
+
+.custom-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  min-height: 100%;
+  padding: 1.25rem;
+  border: 1px solid var(--nl-line) !important;
+  border-radius: 0.35rem !important;
+  background: var(--nl-surface);
+  color: var(--nl-ink) !important;
+  text-decoration: none !important;
+  transition: border-color 160ms ease, background-color 160ms ease, box-shadow 160ms ease;
+}
+
+.custom-card:hover {
+  border-color: var(--nl-blue) !important;
+  background: var(--nl-paper);
+  box-shadow: 0 0.5rem 1.25rem color-mix(in srgb, var(--nl-ink) 8%, transparent);
+}
+
+.custom-card h3 {
+  margin: 0 !important;
+  color: var(--nl-ink);
+  font-size: 1.05rem;
+  line-height: 1.35;
+}
+
+.custom-card p {
+  margin: 0 !important;
+  color: var(--nl-muted);
+}
+
+@media (min-width: 900px) {
+  .custom-card-grid {
+    gap: 1.25rem;
+  }
+}
+
+@media (max-width: 620px) {
+  .custom-card-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .custom-card {
+    padding: 1rem;
+  }
+}

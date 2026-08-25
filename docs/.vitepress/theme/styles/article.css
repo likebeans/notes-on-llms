@@ -1,0 +1,81 @@
+.VPDoc .content {
+  max-width: var(--nl-reading-measure);
+}
+
+.vp-doc {
+  line-height: 1.7;
+}
+
+.vp-doc table {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
+  border: 1px solid var(--nl-line);
+  border-radius: 0.4rem;
+  box-shadow: none;
+}
+
+.vp-doc th,
+.vp-doc td {
+  border-color: var(--nl-line);
+}
+
+.vp-doc th {
+  background: var(--nl-paper);
+  color: var(--nl-ink);
+}
+
+.vp-doc tr:nth-child(2n) {
+  background: color-mix(in srgb, var(--nl-paper) 64%, transparent);
+}
+
+.vp-doc div[class*='language-'],
+.vp-doc div[class*='language-'] pre {
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+.vp-doc .mermaid {
+  overflow-x: auto;
+  margin: 1.5rem 0;
+  padding: 1rem;
+  border: 1px solid var(--nl-line);
+  background: var(--nl-paper);
+}
+
+.vp-doc .mermaid svg {
+  display: block;
+  min-width: 36rem;
+  max-width: none;
+  margin-inline: auto;
+}
+
+@media (min-width: 900px) {
+  .VPDoc .content {
+    padding-inline: var(--nl-page-gutter);
+  }
+}
+
+@media (max-width: 620px) {
+  .VPDoc .content {
+    padding-inline: var(--nl-page-gutter);
+  }
+
+  .vp-doc table {
+    font-size: 0.875rem;
+  }
+
+  .vp-doc th,
+  .vp-doc td {
+    min-width: 8rem;
+  }
+
+  .vp-doc .mermaid {
+    padding: 0.75rem;
+  }
+
+  .vp-doc .mermaid svg {
+    min-width: 32rem;
+  }
+}

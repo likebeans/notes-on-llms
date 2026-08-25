@@ -1,0 +1,9 @@
+.VPHome {
+  background: var(--nl-paper);
+}
+
+.VPHome .VPHero .name {
+  background: none;
+  color: var(--nl-blue);
+  -webkit-text-fill-color: currentColor;
+}
