@@ -1,6 +1,17 @@
 ---
 title: DPO 直接偏好优化
 description: Direct Preference Optimization - 无需奖励模型的简化对齐
+pageType: article
+module: training
+updated: '2025-12-27'
+contentStatus: needs-review
+tags:
+  - training
+level: advanced
+prerequisites:
+  - /guide/prerequisites
+reviewed: '2026-08-25'
+techVersion: 待复核（2026-08）
 ---
 
 # DPO 直接偏好优化

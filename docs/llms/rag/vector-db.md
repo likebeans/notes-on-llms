@@ -1,6 +1,17 @@
 ---
 title: 向量数据库详解
 description: 向量数据库原理、选型与高性能检索实现
+pageType: article
+module: rag
+updated: '2025-12-27'
+contentStatus: needs-review
+tags:
+  - rag
+level: intermediate
+prerequisites:
+  - /llms/prompt/
+reviewed: '2026-08-25'
+techVersion: 待复核（2026-08）
 ---
 
 # 向量数据库详解

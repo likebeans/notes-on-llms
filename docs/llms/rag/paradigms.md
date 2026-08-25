@@ -1,6 +1,17 @@
 ---
 title: RAG 范式演进
 description: 从 Naive RAG 到 Agentic RAG 的技术演进历程
+pageType: article
+module: rag
+updated: '2025-12-27'
+contentStatus: needs-review
+tags:
+  - rag
+level: intermediate
+prerequisites:
+  - /llms/prompt/
+reviewed: '2026-08-25'
+techVersion: 待复核（2026-08）
 ---
 
 # RAG 范式演进

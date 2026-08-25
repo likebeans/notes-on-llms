@@ -1,6 +1,18 @@
 ---
 title: 并行化模式
 description: Parallelization - 智能体的效率加速器
+pageType: article
+module: agent
+updated: '2025-12-27'
+contentStatus: needs-review
+tags:
+  - agent
+level: advanced
+prerequisites:
+  - /llms/prompt/
+  - /llms/rag/
+reviewed: '2026-08-25'
+techVersion: 待复核（2026-08）
 ---
 
 # 并行化模式（Parallelization）

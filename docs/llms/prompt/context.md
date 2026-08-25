@@ -1,6 +1,16 @@
 ---
 title: 上下文工程
 description: Context Engineering - 从提示词到上下文管理
+pageType: article
+module: prompt
+updated: '2025-12-27'
+contentStatus: needs-review
+tags:
+  - prompt
+level: beginner
+prerequisites: []
+reviewed: '2026-08-25'
+techVersion: 待复核（2026-08）
 ---
 
 # 上下文工程

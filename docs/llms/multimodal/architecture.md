@@ -1,6 +1,17 @@
 ---
 title: 多模态架构
 description: Fuyu、Qwen-VL 与原生多模态设计范式
+pageType: article
+module: multimodal
+updated: '2025-12-29'
+contentStatus: needs-review
+tags:
+  - multimodal
+level: advanced
+prerequisites:
+  - /guide/prerequisites
+reviewed: '2026-08-25'
+techVersion: 待复核（2026-08）
 ---
 
 # 多模态架构演进

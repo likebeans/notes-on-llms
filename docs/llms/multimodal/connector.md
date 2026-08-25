@@ -1,6 +1,17 @@
 ---
 title: 模态连接器
 description: LLaVA 线性投影与 BLIP-2 Q-Former 架构详解
+pageType: article
+module: multimodal
+updated: '2025-12-29'
+contentStatus: needs-review
+tags:
+  - multimodal
+level: advanced
+prerequisites:
+  - /guide/prerequisites
+reviewed: '2026-08-25'
+techVersion: 待复核（2026-08）
 ---
 
 # 模态连接器：LLM 与视觉的桥梁

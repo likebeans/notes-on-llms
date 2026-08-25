@@ -1,6 +1,17 @@
 ---
 title: 文档切分策略
 description: RAG 系统中的文档切分技术详解 - 15种实战策略
+pageType: article
+module: rag
+updated: '2025-12-27'
+contentStatus: needs-review
+tags:
+  - rag
+level: intermediate
+prerequisites:
+  - /llms/prompt/
+reviewed: '2026-08-25'
+techVersion: 待复核（2026-08）
 ---
 
 # 文档切分策略

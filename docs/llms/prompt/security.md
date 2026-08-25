@@ -1,6 +1,16 @@
 ---
 title: 提示词安全
 description: 红队测试、防御策略与安全最佳实践
+pageType: article
+module: prompt
+updated: '2025-12-27'
+contentStatus: needs-review
+tags:
+  - prompt
+level: beginner
+prerequisites: []
+reviewed: '2026-08-25'
+techVersion: 待复核（2026-08）
 ---
 
 # 提示词安全

@@ -1,6 +1,16 @@
 ---
 title: 前置知识
 description: 学习大模型应用开发需要的基础知识
+pageType: article
+module: site
+updated: '2026-01-10'
+contentStatus: needs-review
+tags:
+  - guide
+level: intermediate
+prerequisites: []
+reviewed: '2026-08-25'
+techVersion: 待复核（2026-08）
 ---
 
 # 前置知识
@@ -73,32 +83,32 @@ description: 学习大模型应用开发需要的基础知识
 
 <div class="custom-card-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin: 1rem 0;">
 
-  <a href="/llms/rag/" class="custom-card" style="padding: 1rem; border: 1px solid #e1e4e8; border-radius: 6px; text-decoration: none; color: inherit;">
+  <a href="../llms/rag/" class="custom-card" style="padding: 1rem; border: 1px solid #e1e4e8; border-radius: 6px; text-decoration: none; color: inherit;">
     <h3 style="margin: 0 0 0.5rem 0; font-size: 1.1rem;">🔍 RAG 检索增强</h3>
     <p style="margin: 0; font-size: 0.9rem; color: #586069;">检索增强生成技术，解决知识滞后和幻觉问题</p>
   </a>
 
-  <a href="/llms/agent/" class="custom-card" style="padding: 1rem; border: 1px solid #e1e4e8; border-radius: 6px; text-decoration: none; color: inherit;">
+  <a href="../llms/agent/" class="custom-card" style="padding: 1rem; border: 1px solid #e1e4e8; border-radius: 6px; text-decoration: none; color: inherit;">
     <h3 style="margin: 0 0 0.5rem 0; font-size: 1.1rem;">🤖 Agent 智能体</h3>
     <p style="margin: 0; font-size: 0.9rem; color: #586069;">规划、工具使用和复杂任务执行能力</p>
   </a>
 
-  <a href="/llms/training/" class="custom-card" style="padding: 1rem; border: 1px solid #e1e4e8; border-radius: 6px; text-decoration: none; color: inherit;">
+  <a href="../llms/training/" class="custom-card" style="padding: 1rem; border: 1px solid #e1e4e8; border-radius: 6px; text-decoration: none; color: inherit;">
     <h3 style="margin: 0 0 0.5rem 0; font-size: 1.1rem;">⚙️ 训练与微调</h3>
     <p style="margin: 0; font-size: 0.9rem; color: #586069;">SFT、DPO、RLHF、LoRA 等模型定制技术</p>
   </a>
 
-  <a href="/llms/multimodal/" class="custom-card" style="padding: 1rem; border: 1px solid #e1e4e8; border-radius: 6px; text-decoration: none; color: inherit;">
+  <a href="../llms/multimodal/" class="custom-card" style="padding: 1rem; border: 1px solid #e1e4e8; border-radius: 6px; text-decoration: none; color: inherit;">
     <h3 style="margin: 0 0 0.5rem 0; font-size: 1.1rem;">👁️ 多模态</h3>
     <p style="margin: 0; font-size: 0.9rem; color: #586069;">视觉与语言的融合，GPT-4V、LLaVA 等</p>
   </a>
 
-  <a href="/llms/prompt/" class="custom-card" style="padding: 1rem; border: 1px solid #e1e4e8; border-radius: 6px; text-decoration: none; color: inherit;">
+  <a href="../llms/prompt/" class="custom-card" style="padding: 1rem; border: 1px solid #e1e4e8; border-radius: 6px; text-decoration: none; color: inherit;">
     <h3 style="margin: 0 0 0.5rem 0; font-size: 1.1rem;">✨ Prompt 工程</h3>
     <p style="margin: 0; font-size: 0.9rem; color: #586069;">掌握与大模型高效沟通的艺术</p>
   </a>
 
-  <a href="/llms/mcp/" class="custom-card" style="padding: 1rem; border: 1px solid #e1e4e8; border-radius: 6px; text-decoration: none; color: inherit;">
+  <a href="../llms/mcp/" class="custom-card" style="padding: 1rem; border: 1px solid #e1e4e8; border-radius: 6px; text-decoration: none; color: inherit;">
     <h3 style="margin: 0 0 0.5rem 0; font-size: 1.1rem;">🔌 MCP 协议</h3>
     <p style="margin: 0; font-size: 0.9rem; color: #586069;">Model Context Protocol，标准化上下文协议</p>
   </a>

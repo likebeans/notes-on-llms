@@ -1,6 +1,18 @@
 ---
 title: AI Agent 全景
 description: 从理论基石到前沿实践的智能体知识体系
+pageType: article
+module: agent
+updated: '2025-12-27'
+contentStatus: needs-review
+tags:
+  - agent
+level: advanced
+prerequisites:
+  - /llms/prompt/
+  - /llms/rag/
+reviewed: '2026-08-25'
+techVersion: 待复核（2026-08）
 ---
 
 # AI Agent 全景
@@ -379,9 +391,9 @@ flowchart TB
     <div class="step-num">1</div>
     <div class="step-title">基础概念</div>
     <ul>
-      <li><a href="/llms/agent/tool-calling">工具调用</a></li>
-      <li><a href="/llms/agent/planning">规划与推理</a></li>
-      <li><a href="/llms/agent/memory">记忆系统</a></li>
+      <li><a href="./tool-calling">工具调用</a></li>
+      <li><a href="./planning">规划与推理</a></li>
+      <li><a href="./memory">记忆系统</a></li>
     </ul>
   </div>
   <div class="path-arrow">→</div>
@@ -391,7 +403,7 @@ flowchart TB
     <ul>
       <li>LangGraph</li>
       <li>AutoGen</li>
-      <li><a href="/llms/agent/multi-agent">多智能体</a></li>
+      <li><a href="./multi-agent">多智能体</a></li>
     </ul>
   </div>
   <div class="path-arrow">→</div>
@@ -399,8 +411,8 @@ flowchart TB
     <div class="step-num">3</div>
     <div class="step-title">生产部署</div>
     <ul>
-      <li><a href="/llms/agent/safety">安全与沙箱</a></li>
-      <li><a href="/llms/agent/evaluation">评估方法</a></li>
+      <li><a href="./safety">安全与沙箱</a></li>
+      <li><a href="./evaluation">评估方法</a></li>
       <li>可观测性</li>
     </ul>
   </div>

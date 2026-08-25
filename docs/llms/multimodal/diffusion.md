@@ -1,6 +1,17 @@
 ---
 title: 扩散模型
 description: DiT、Stable Diffusion 3、ControlNet 与 ComfyUI 工程实践
+pageType: article
+module: multimodal
+updated: '2025-12-29'
+contentStatus: needs-review
+tags:
+  - multimodal
+level: advanced
+prerequisites:
+  - /guide/prerequisites
+reviewed: '2026-08-25'
+techVersion: 待复核（2026-08）
 ---
 
 # 扩散模型：生成式多模态革命

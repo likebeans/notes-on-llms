@@ -1,6 +1,18 @@
 ---
 title: 资源感知优化
 description: Resource-Aware Optimization - 在资源约束下高效运行
+pageType: article
+module: agent
+updated: '2025-12-27'
+contentStatus: needs-review
+tags:
+  - agent
+level: advanced
+prerequisites:
+  - /llms/prompt/
+  - /llms/rag/
+reviewed: '2026-08-25'
+techVersion: 待复核（2026-08）
 ---
 
 # 资源感知优化

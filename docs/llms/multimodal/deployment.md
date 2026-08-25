@@ -1,6 +1,17 @@
 ---
 title: 部署与评测
 description: vLLM、TensorRT 推理优化与 MMBench、HallusionBench 评测
+pageType: article
+module: multimodal
+updated: '2025-12-29'
+contentStatus: needs-review
+tags:
+  - multimodal
+level: advanced
+prerequisites:
+  - /guide/prerequisites
+reviewed: '2026-08-25'
+techVersion: 待复核（2026-08）
 ---
 
 # 多模态部署与评测

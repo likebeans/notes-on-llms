@@ -1,3 +1,18 @@
+---
+title: CSDN 专栏文章列表
+description: CSDN 专栏文章索引
+pageType: article
+module: rag
+updated: '2025-12-27'
+contentStatus: needs-review
+tags:
+  - rag
+level: intermediate
+prerequisites:
+  - /llms/prompt/
+reviewed: '2026-08-25'
+techVersion: 待复核（2026-08）
+---
 # CSDN 专栏文章列表
 
 > 共 50 篇文章

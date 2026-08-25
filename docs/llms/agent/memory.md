@@ -1,6 +1,18 @@
 ---
 title: 记忆系统
 description: Agent 记忆与状态管理 - 短期/长期记忆机制
+pageType: article
+module: agent
+updated: '2025-12-27'
+contentStatus: needs-review
+tags:
+  - agent
+level: advanced
+prerequisites:
+  - /llms/prompt/
+  - /llms/rag/
+reviewed: '2026-08-25'
+techVersion: 待复核（2026-08）
 ---
 
 # 记忆系统

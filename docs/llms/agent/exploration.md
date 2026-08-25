@@ -1,6 +1,18 @@
 ---
 title: 探索与发现
 description: Exploration and Discovery - 主动寻找新信息和可能性
+pageType: article
+module: agent
+updated: '2025-12-27'
+contentStatus: needs-review
+tags:
+  - agent
+level: advanced
+prerequisites:
+  - /llms/prompt/
+  - /llms/rag/
+reviewed: '2026-08-25'
+techVersion: 待复核（2026-08）
 ---
 
 # 探索与发现

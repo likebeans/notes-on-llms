@@ -1,6 +1,18 @@
 ---
 title: 多智能体系统
 description: 多智能体协作架构 - 从单Agent到Multi-Agent
+pageType: article
+module: agent
+updated: '2025-12-27'
+contentStatus: needs-review
+tags:
+  - agent
+level: advanced
+prerequisites:
+  - /llms/prompt/
+  - /llms/rag/
+reviewed: '2026-08-25'
+techVersion: 待复核（2026-08）
 ---
 
 # 多智能体系统

@@ -1,6 +1,18 @@
 ---
 title: 评估与监控
 description: Evaluation and Monitoring - 确保智能体可靠运行的关键
+pageType: article
+module: agent
+updated: '2025-12-27'
+contentStatus: needs-review
+tags:
+  - agent
+level: advanced
+prerequisites:
+  - /llms/prompt/
+  - /llms/rag/
+reviewed: '2026-08-25'
+techVersion: 待复核（2026-08）
 ---
 
 # 评估与监控

@@ -1,6 +1,18 @@
 ---
 title: 提示链模式
 description: Prompt Chaining - 智能体设计的基础模式
+pageType: article
+module: agent
+updated: '2025-12-27'
+contentStatus: needs-review
+tags:
+  - agent
+level: advanced
+prerequisites:
+  - /llms/prompt/
+  - /llms/rag/
+reviewed: '2026-08-25'
+techVersion: 待复核（2026-08）
 ---
 
 # 提示链模式（Prompt Chaining）

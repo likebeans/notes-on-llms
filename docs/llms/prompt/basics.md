@@ -1,6 +1,16 @@
 ---
 title: 基础提示技术
 description: Zero-shot、Few-shot、思维链等核心技术
+pageType: article
+module: prompt
+updated: '2025-12-27'
+contentStatus: needs-review
+tags:
+  - prompt
+level: beginner
+prerequisites: []
+reviewed: '2026-08-25'
+techVersion: 待复核（2026-08）
 ---
 
 # 基础提示技术

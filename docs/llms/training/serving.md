@@ -1,6 +1,17 @@
 ---
 title: 部署与推理优化
 description: 模型压缩、量化与高效推理
+pageType: article
+module: training
+updated: '2025-12-27'
+contentStatus: needs-review
+tags:
+  - training
+level: advanced
+prerequisites:
+  - /guide/prerequisites
+reviewed: '2026-08-25'
+techVersion: 待复核（2026-08）
 ---
 
 # 部署与推理优化

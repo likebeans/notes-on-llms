@@ -1,6 +1,18 @@
 ---
 title: 工具调用详解
 description: Agent 工具调用机制 - Function Calling与MCP协议
+pageType: article
+module: agent
+updated: '2025-12-27'
+contentStatus: needs-review
+tags:
+  - agent
+level: advanced
+prerequisites:
+  - /llms/prompt/
+  - /llms/rag/
+reviewed: '2026-08-25'
+techVersion: 待复核（2026-08）
 ---
 
 # 工具调用详解

@@ -1,6 +1,18 @@
 ---
 title: Agent 评估方法
 description: Agent 性能评估 - 从指标设计到评估框架
+pageType: article
+module: agent
+updated: '2025-12-27'
+contentStatus: needs-review
+tags:
+  - agent
+level: advanced
+prerequisites:
+  - /llms/prompt/
+  - /llms/rag/
+reviewed: '2026-08-25'
+techVersion: 待复核（2026-08）
 ---
 
 # Agent 评估方法

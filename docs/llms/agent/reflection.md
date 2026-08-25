@@ -1,6 +1,18 @@
 ---
 title: 反思模式
 description: Reflection - 智能体的自我改进机制
+pageType: article
+module: agent
+updated: '2025-12-27'
+contentStatus: needs-review
+tags:
+  - agent
+level: advanced
+prerequisites:
+  - /llms/prompt/
+  - /llms/rag/
+reviewed: '2026-08-25'
+techVersion: 待复核（2026-08）
 ---
 
 # 反思模式（Reflection）

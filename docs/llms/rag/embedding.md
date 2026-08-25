@@ -1,6 +1,17 @@
 ---
 title: Embedding 技术详解
 description: 从原理到实践，掌握文本向量化的核心技术
+pageType: article
+module: rag
+updated: '2025-12-27'
+contentStatus: needs-review
+tags:
+  - rag
+level: intermediate
+prerequisites:
+  - /llms/prompt/
+reviewed: '2026-08-25'
+techVersion: 待复核（2026-08）
 ---
 
 # Embedding 技术详解

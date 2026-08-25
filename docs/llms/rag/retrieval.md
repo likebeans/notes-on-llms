@@ -1,6 +1,17 @@
 ---
 title: 检索策略优化
 description: RAG系统中的检索技术与策略详解
+pageType: article
+module: rag
+updated: '2025-12-27'
+contentStatus: needs-review
+tags:
+  - rag
+level: intermediate
+prerequisites:
+  - /llms/prompt/
+reviewed: '2026-08-25'
+techVersion: 待复核（2026-08）
 ---
 
 # 检索策略优化

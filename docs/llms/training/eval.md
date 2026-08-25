@@ -1,6 +1,17 @@
 ---
 title: 模型评估
 description: LLM评估方法、指标与基准测试
+pageType: article
+module: training
+updated: '2025-12-27'
+contentStatus: needs-review
+tags:
+  - training
+level: advanced
+prerequisites:
+  - /guide/prerequisites
+reviewed: '2026-08-25'
+techVersion: 待复核（2026-08）
 ---
 
 # 模型评估

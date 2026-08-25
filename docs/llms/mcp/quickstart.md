@@ -1,6 +1,17 @@
 ---
 title: MCP快速入门
 description: 5分钟创建你的第一个MCP服务
+pageType: article
+module: mcp
+updated: '2025-12-27'
+contentStatus: needs-review
+tags:
+  - mcp
+level: intermediate
+prerequisites:
+  - /llms/agent/tool-calling
+reviewed: '2026-08-25'
+techVersion: 待复核（2026-08）
 ---
 
 # MCP快速入门

@@ -1,6 +1,17 @@
 ---
 title: RAG 生产实践指南
 description: RAG 系统生产环境部署、优化与运维实践
+pageType: article
+module: rag
+updated: '2025-12-27'
+contentStatus: needs-review
+tags:
+  - rag
+level: intermediate
+prerequisites:
+  - /llms/prompt/
+reviewed: '2026-08-25'
+techVersion: 待复核（2026-08）
 ---
 
 # RAG 生产实践指南

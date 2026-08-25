@@ -1,6 +1,17 @@
 ---
 title: 视觉编码器
 description: ViT、CLIP 与视觉表征的数学原理
+pageType: article
+module: multimodal
+updated: '2025-12-29'
+contentStatus: needs-review
+tags:
+  - multimodal
+level: advanced
+prerequisites:
+  - /guide/prerequisites
+reviewed: '2026-08-25'
+techVersion: 待复核（2026-08）
 ---
 
 # 视觉编码器：从像素到语义

@@ -1,6 +1,18 @@
 ---
 title: 推理技术
 description: Reasoning Techniques - 让智能体进行多步逻辑推理
+pageType: article
+module: agent
+updated: '2025-12-27'
+contentStatus: needs-review
+tags:
+  - agent
+level: advanced
+prerequisites:
+  - /llms/prompt/
+  - /llms/rag/
+reviewed: '2026-08-25'
+techVersion: 待复核（2026-08）
 ---
 
 # 推理技术

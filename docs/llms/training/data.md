@@ -1,6 +1,17 @@
 ---
 title: 训练数据处理
 description: 高质量微调数据的准备与处理
+pageType: article
+module: training
+updated: '2025-12-27'
+contentStatus: needs-review
+tags:
+  - training
+level: advanced
+prerequisites:
+  - /guide/prerequisites
+reviewed: '2026-08-25'
+techVersion: 待复核（2026-08）
 ---
 
 # 训练数据处理

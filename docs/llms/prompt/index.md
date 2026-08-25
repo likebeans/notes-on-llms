@@ -1,6 +1,16 @@
 ---
 title: 提示工程全景
 description: 从上下文学习机制到多模态认知架构与安全防御体系
+pageType: article
+module: prompt
+updated: '2025-12-27'
+contentStatus: needs-review
+tags:
+  - prompt
+level: beginner
+prerequisites: []
+reviewed: '2026-08-25'
+techVersion: 待复核（2026-08）
 ---
 
 # 提示工程全景
@@ -502,7 +512,7 @@ response2 = client.chat.completions.create(
     <div class="step-num">1</div>
     <div class="step-title">基础技术</div>
     <ul>
-      <li><a href="/llms/prompt/basics">Zero/Few-shot</a></li>
+      <li><a href="./basics">Zero/Few-shot</a></li>
       <li>CRISPE 框架</li>
       <li>ICL 机制</li>
     </ul>
@@ -512,7 +522,7 @@ response2 = client.chat.completions.create(
     <div class="step-num">2</div>
     <div class="step-title">高级技术</div>
     <ul>
-      <li><a href="/llms/prompt/advanced">CoT/ToT/GoT</a></li>
+      <li><a href="./advanced">CoT/ToT/GoT</a></li>
       <li>自洽性</li>
       <li>ReAct</li>
     </ul>
@@ -522,8 +532,8 @@ response2 = client.chat.completions.create(
     <div class="step-num">3</div>
     <div class="step-title">安全与前沿</div>
     <ul>
-      <li><a href="/llms/prompt/security">安全防御</a></li>
-      <li><a href="/llms/prompt/context">上下文工程</a></li>
+      <li><a href="./security">安全防御</a></li>
+      <li><a href="./context">上下文工程</a></li>
       <li>APE 自动化</li>
     </ul>
   </div>

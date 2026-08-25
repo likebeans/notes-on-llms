@@ -1,6 +1,18 @@
 ---
 title: 智能体间通信
 description: A2A协议 - 跨框架智能体协作的开放标准
+pageType: article
+module: agent
+updated: '2025-12-27'
+contentStatus: needs-review
+tags:
+  - agent
+level: advanced
+prerequisites:
+  - /llms/prompt/
+  - /llms/rag/
+reviewed: '2026-08-25'
+techVersion: 待复核（2026-08）
 ---
 
 # 智能体间通信（A2A）

@@ -1,6 +1,17 @@
-﻿---
+---
 title: LLM 训练全景
 description: 大语言模型全栈技术深度综述：从架构原理到工程实践
+pageType: article
+module: training
+updated: '2025-12-23'
+contentStatus: needs-review
+tags:
+  - training
+level: advanced
+prerequisites:
+  - /guide/prerequisites
+reviewed: '2026-08-25'
+techVersion: 待复核（2026-08）
 ---
 
 # LLM 训练全景：从架构原理到工程实践
@@ -1085,9 +1096,9 @@ python -m vllm.entrypoints.openai.api_server --model lmsys/vicuna-7b-v1.3
     <div class="step-num">1</div>
     <div class="step-title">基础入门</div>
     <ul>
-      <li><a href="/llms/training/data">数据处理</a></li>
-      <li><a href="/llms/training/sft">SFT 监督微调</a></li>
-      <li><a href="/llms/training/lora">LoRA 高效微调</a></li>
+      <li><a href="./data">数据处理</a></li>
+      <li><a href="./sft">SFT 监督微调</a></li>
+      <li><a href="./lora">LoRA 高效微调</a></li>
     </ul>
   </div>
   <div class="path-arrow"></div>
@@ -1095,9 +1106,9 @@ python -m vllm.entrypoints.openai.api_server --model lmsys/vicuna-7b-v1.3
     <div class="step-num">2</div>
     <div class="step-title">对齐技术</div>
     <ul>
-      <li><a href="/llms/training/rlhf">RLHF 对齐</a></li>
-      <li><a href="/llms/training/dpo">DPO 直接偏好</a></li>
-      <li><a href="/llms/training/eval">模型评估</a></li>
+      <li><a href="./rlhf">RLHF 对齐</a></li>
+      <li><a href="./dpo">DPO 直接偏好</a></li>
+      <li><a href="./eval">模型评估</a></li>
     </ul>
   </div>
   <div class="path-arrow"></div>
@@ -1105,7 +1116,7 @@ python -m vllm.entrypoints.openai.api_server --model lmsys/vicuna-7b-v1.3
     <div class="step-num">3</div>
     <div class="step-title">生产部署</div>
     <ul>
-      <li><a href="/llms/training/serving">推理优化</a></li>
+      <li><a href="./serving">推理优化</a></li>
       <li>量化与蒸馏</li>
       <li>分布式推理</li>
     </ul>

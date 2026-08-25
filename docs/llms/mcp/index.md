@@ -1,6 +1,17 @@
 ---
 title: MCP 协议全景
 description: Model Context Protocol - AI 时代的 USB-C 接口
+pageType: article
+module: mcp
+updated: '2025-12-27'
+contentStatus: needs-review
+tags:
+  - mcp
+level: intermediate
+prerequisites:
+  - /llms/agent/tool-calling
+reviewed: '2026-08-25'
+techVersion: 待复核（2026-08）
 ---
 
 # MCP 协议全景
@@ -488,7 +499,7 @@ flowchart LR
     <div class="step-num">1</div>
     <div class="step-title">快速入门</div>
     <ul>
-      <li><a href="/llms/mcp/quickstart">5分钟创建 Server</a></li>
+      <li><a href="./quickstart">5分钟创建 Server</a></li>
       <li>Claude Desktop 配置</li>
       <li>Inspector 调试</li>
     </ul>
@@ -498,7 +509,7 @@ flowchart LR
     <div class="step-num">2</div>
     <div class="step-title">核心概念</div>
     <ul>
-      <li><a href="/llms/mcp/concepts">Tools/Resources/Prompts</a></li>
+      <li><a href="./concepts">Tools/Resources/Prompts</a></li>
       <li>协议生命周期</li>
       <li>传输层选择</li>
     </ul>
@@ -508,9 +519,9 @@ flowchart LR
     <div class="step-num">3</div>
     <div class="step-title">实战项目</div>
     <ul>
-      <li><a href="/llms/mcp/practice">任务管理器</a></li>
-      <li><a href="/llms/mcp/practice">天气查询服务</a></li>
-      <li><a href="/llms/mcp/practice">文件助手</a></li>
+      <li><a href="./practice">任务管理器</a></li>
+      <li><a href="./practice">天气查询服务</a></li>
+      <li><a href="./practice">文件助手</a></li>
     </ul>
   </div>
   <div class="path-arrow">→</div>
@@ -518,7 +529,7 @@ flowchart LR
     <div class="step-num">4</div>
     <div class="step-title">高级功能</div>
     <ul>
-      <li><a href="/llms/mcp/advanced">采样与反向调用</a></li>
+      <li><a href="./advanced">采样与反向调用</a></li>
       <li>安全防御</li>
       <li>生产部署</li>
     </ul>

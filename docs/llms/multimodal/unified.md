@@ -1,6 +1,17 @@
 ---
 title: 统一架构
 description: Show-o、Chameleon、Uni-MoE 与理解-生成一体化
+pageType: article
+module: multimodal
+updated: '2025-12-29'
+contentStatus: needs-review
+tags:
+  - multimodal
+level: advanced
+prerequisites:
+  - /guide/prerequisites
+reviewed: '2026-08-25'
+techVersion: 待复核（2026-08）
 ---
 
 # 前沿统一架构

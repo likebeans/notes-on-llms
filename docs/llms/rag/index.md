@@ -1,6 +1,17 @@
-﻿---
+---
 title: RAG 技术全景
 description: 检索增强生成（RAG）技术深度综述：从架构原理到工程实践
+pageType: article
+module: rag
+updated: '2025-12-22'
+contentStatus: needs-review
+tags:
+  - rag
+level: intermediate
+prerequisites:
+  - /llms/prompt/
+reviewed: '2026-08-25'
+techVersion: 待复核（2026-08）
 ---
 
 # RAG 技术全景：从架构原理到工程实践
@@ -570,9 +581,9 @@ Google明确表示，AI Overviews是由"顶级的网络搜索结果"支持的。
     <div class="step-num">1</div>
     <div class="step-title">入门基础</div>
     <ul>
-      <li><a href="/llms/rag/paradigms">RAG 范式演进</a></li>
-      <li><a href="/llms/rag/embedding">Embedding 原理</a></li>
-      <li><a href="/llms/rag/vector-db">向量数据库入门</a></li>
+      <li><a href="./paradigms">RAG 范式演进</a></li>
+      <li><a href="./embedding">Embedding 原理</a></li>
+      <li><a href="./vector-db">向量数据库入门</a></li>
     </ul>
   </div>
   <div class="path-arrow"></div>
@@ -580,9 +591,9 @@ Google明确表示，AI Overviews是由"顶级的网络搜索结果"支持的。
     <div class="step-num">2</div>
     <div class="step-title">核心技术</div>
     <ul>
-      <li><a href="/llms/rag/chunking">分块策略</a></li>
-      <li><a href="/llms/rag/retrieval">混合检索</a></li>
-      <li><a href="/llms/rag/rerank">Rerank 重排序</a></li>
+      <li><a href="./chunking">分块策略</a></li>
+      <li><a href="./retrieval">混合检索</a></li>
+      <li><a href="./rerank">Rerank 重排序</a></li>
     </ul>
   </div>
   <div class="path-arrow"></div>
@@ -590,8 +601,8 @@ Google明确表示，AI Overviews是由"顶级的网络搜索结果"支持的。
     <div class="step-num">3</div>
     <div class="step-title">高级进阶</div>
     <ul>
-      <li><a href="/llms/rag/production">GraphRAG & Agentic</a></li>
-      <li><a href="/llms/rag/evaluation">RAGAs 评估体系</a></li>
+      <li><a href="./production">GraphRAG & Agentic</a></li>
+      <li><a href="./evaluation">RAGAs 评估体系</a></li>
     </ul>
   </div>
 </div>

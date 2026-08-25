@@ -1,6 +1,17 @@
 ---
 title: 重排序技术详解
 description: RAG系统中的检索结果重排序与精排技术
+pageType: article
+module: rag
+updated: '2025-12-27'
+contentStatus: needs-review
+tags:
+  - rag
+level: intermediate
+prerequisites:
+  - /llms/prompt/
+reviewed: '2026-08-25'
+techVersion: 待复核（2026-08）
 ---
 
 # 重排序技术详解

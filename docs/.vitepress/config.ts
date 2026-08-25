@@ -6,6 +6,12 @@ export default withMermaid(defineConfig({
   description: '大模型学习笔记 - RAG, Agent, 训练微调',
   
   base: '/notes-on-llms/',
+
+  srcExclude: [
+    'superpowers/**',
+    '开发计划.md',
+    ...(process.env.NODE_ENV === 'production' ? ['_drafts/**', '**/*.draft.md'] : [])
+  ],
   
   lang: 'zh-CN',
   

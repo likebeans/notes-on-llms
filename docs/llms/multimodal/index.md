@@ -1,6 +1,17 @@
 ---
 title: 多模态大模型全景
 description: 从视觉编码到统一生成，多模态 AI 的完整技术图谱
+pageType: article
+module: multimodal
+updated: '2025-12-29'
+contentStatus: needs-review
+tags:
+  - multimodal
+level: advanced
+prerequisites:
+  - /guide/prerequisites
+reviewed: '2026-08-25'
+techVersion: 待复核（2026-08）
 ---
 
 # 多模态大模型全景

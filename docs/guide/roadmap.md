@@ -1,6 +1,12 @@
 ---
 title: 学习路线图
 description: 大模型应用开发学习路线规划
+pageType: path
+module: site
+updated: '2026-01-10'
+contentStatus: needs-review
+tags:
+  - guide
 ---
 
 # 学习路线图
@@ -192,37 +198,37 @@ graph LR
 
 <div class="custom-card-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem; margin: 1rem 0;">
 
-  <a href="/llms/prompt/" class="custom-card" style="padding: 1rem; border: 1px solid #e1e4e8; border-radius: 6px; text-decoration: none; color: inherit;">
+  <a href="../llms/prompt/" class="custom-card" style="padding: 1rem; border: 1px solid #e1e4e8; border-radius: 6px; text-decoration: none; color: inherit;">
     <h3 style="margin: 0 0 0.5rem 0; font-size: 1.1rem;">✨ Prompt 工程</h3>
     <p style="margin: 0 0 0.5rem 0; font-size: 0.9rem; color: #586069;">Zero-shot、Few-shot、CoT、ToT 等提示技术</p>
     <span style="font-size: 0.85rem; color: #0366d6;">难度：⭐ | 建议：第 1 阶段</span>
   </a>
 
-  <a href="/llms/rag/" class="custom-card" style="padding: 1rem; border: 1px solid #e1e4e8; border-radius: 6px; text-decoration: none; color: inherit;">
+  <a href="../llms/rag/" class="custom-card" style="padding: 1rem; border: 1px solid #e1e4e8; border-radius: 6px; text-decoration: none; color: inherit;">
     <h3 style="margin: 0 0 0.5rem 0; font-size: 1.1rem;">🔍 RAG 检索增强</h3>
     <p style="margin: 0 0 0.5rem 0; font-size: 0.9rem; color: #586069;">文档处理、向量检索、重排序、评估优化</p>
     <span style="font-size: 0.85rem; color: #0366d6;">难度：⭐⭐ | 建议：第 2 阶段</span>
   </a>
 
-  <a href="/llms/agent/" class="custom-card" style="padding: 1rem; border: 1px solid #e1e4e8; border-radius: 6px; text-decoration: none; color: inherit;">
+  <a href="../llms/agent/" class="custom-card" style="padding: 1rem; border: 1px solid #e1e4e8; border-radius: 6px; text-decoration: none; color: inherit;">
     <h3 style="margin: 0 0 0.5rem 0; font-size: 1.1rem;">🤖 Agent 智能体</h3>
     <p style="margin: 0 0 0.5rem 0; font-size: 0.9rem; color: #586069;">工具调用、规划推理、记忆机制、多智能体</p>
     <span style="font-size: 0.85rem; color: #0366d6;">难度：⭐⭐⭐ | 建议：第 3 阶段</span>
   </a>
 
-  <a href="/llms/mcp/" class="custom-card" style="padding: 1rem; border: 1px solid #e1e4e8; border-radius: 6px; text-decoration: none; color: inherit;">
+  <a href="../llms/mcp/" class="custom-card" style="padding: 1rem; border: 1px solid #e1e4e8; border-radius: 6px; text-decoration: none; color: inherit;">
     <h3 style="margin: 0 0 0.5rem 0; font-size: 1.1rem;">🔌 MCP 协议</h3>
     <p style="margin: 0 0 0.5rem 0; font-size: 0.9rem; color: #586069;">Model Context Protocol，标准化上下文协议</p>
     <span style="font-size: 0.85rem; color: #0366d6;">难度：⭐⭐ | 建议：第 3-4 阶段</span>
   </a>
 
-  <a href="/llms/training/" class="custom-card" style="padding: 1rem; border: 1px solid #e1e4e8; border-radius: 6px; text-decoration: none; color: inherit;">
+  <a href="../llms/training/" class="custom-card" style="padding: 1rem; border: 1px solid #e1e4e8; border-radius: 6px; text-decoration: none; color: inherit;">
     <h3 style="margin: 0 0 0.5rem 0; font-size: 1.1rem;">⚙️ 训练与微调</h3>
     <p style="margin: 0 0 0.5rem 0; font-size: 0.9rem; color: #586069;">SFT、LoRA、DPO、RLHF、推理优化</p>
     <span style="font-size: 0.85rem; color: #0366d6;">难度：⭐⭐⭐⭐ | 建议：算法工程师路径</span>
   </a>
 
-  <a href="/llms/multimodal/" class="custom-card" style="padding: 1rem; border: 1px solid #e1e4e8; border-radius: 6px; text-decoration: none; color: inherit;">
+  <a href="../llms/multimodal/" class="custom-card" style="padding: 1rem; border: 1px solid #e1e4e8; border-radius: 6px; text-decoration: none; color: inherit;">
     <h3 style="margin: 0 0 0.5rem 0; font-size: 1.1rem;">👁️ 多模态</h3>
     <p style="margin: 0 0 0.5rem 0; font-size: 0.9rem; color: #586069;">视觉编码、多模态 RAG、统一架构</p>
     <span style="font-size: 0.85rem; color: #0366d6;">难度：⭐⭐⭐ | 建议：进阶探索</span>

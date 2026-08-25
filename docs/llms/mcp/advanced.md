@@ -1,6 +1,17 @@
 ---
 title: MCP高级功能
 description: 中间件、认证、代理与生产级特性
+pageType: article
+module: mcp
+updated: '2025-12-27'
+contentStatus: needs-review
+tags:
+  - mcp
+level: intermediate
+prerequisites:
+  - /llms/agent/tool-calling
+reviewed: '2026-08-25'
+techVersion: 待复核（2026-08）
 ---
 
 # MCP高级功能

@@ -1,6 +1,17 @@
 ---
 title: 数据工程
 description: LAION-5B 清洗、ShareGPT4V 合成与动态分辨率处理
+pageType: article
+module: multimodal
+updated: '2025-12-29'
+contentStatus: needs-review
+tags:
+  - multimodal
+level: advanced
+prerequisites:
+  - /guide/prerequisites
+reviewed: '2026-08-25'
+techVersion: 待复核（2026-08）
 ---
 
 # 多模态数据工程

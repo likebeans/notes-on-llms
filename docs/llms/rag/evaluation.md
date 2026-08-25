@@ -1,6 +1,17 @@
 ---
 title: RAG 评估方法详解
 description: RAG 系统评估指标、框架与实战方法
+pageType: article
+module: rag
+updated: '2025-12-27'
+contentStatus: needs-review
+tags:
+  - rag
+level: intermediate
+prerequisites:
+  - /llms/prompt/
+reviewed: '2026-08-25'
+techVersion: 待复核（2026-08）
 ---
 
 # RAG 评估方法详解

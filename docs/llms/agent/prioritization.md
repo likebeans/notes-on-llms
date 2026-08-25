@@ -1,6 +1,18 @@
 ---
 title: 优先级排序
 description: Prioritization - 在复杂环境中高效决策
+pageType: article
+module: agent
+updated: '2025-12-27'
+contentStatus: needs-review
+tags:
+  - agent
+level: advanced
+prerequisites:
+  - /llms/prompt/
+  - /llms/rag/
+reviewed: '2026-08-25'
+techVersion: 待复核（2026-08）
 ---
 
 # 优先级排序

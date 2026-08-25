@@ -1,6 +1,17 @@
 ---
 title: RAG 与智能体
 description: ColPali 视觉 RAG、RT-2 具身智能与多模态 Agent
+pageType: article
+module: multimodal
+updated: '2025-12-29'
+contentStatus: needs-review
+tags:
+  - multimodal
+level: advanced
+prerequisites:
+  - /guide/prerequisites
+reviewed: '2026-08-25'
+techVersion: 待复核（2026-08）
 ---
 
 # 多模态 RAG 与智能体

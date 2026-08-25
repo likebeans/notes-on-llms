@@ -1,6 +1,17 @@
 ---
 title: RLHF 人类反馈强化学习
 description: Reinforcement Learning from Human Feedback - 让AI学会人类价值观
+pageType: article
+module: training
+updated: '2025-12-27'
+contentStatus: needs-review
+tags:
+  - training
+level: advanced
+prerequisites:
+  - /guide/prerequisites
+reviewed: '2026-08-25'
+techVersion: 待复核（2026-08）
 ---
 
 # RLHF 人类反馈强化学习

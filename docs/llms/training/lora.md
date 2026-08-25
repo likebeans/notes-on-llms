@@ -1,6 +1,17 @@
 ---
 title: LoRA 高效微调
 description: Low-Rank Adaptation - 用1%参数达到全量微调效果
+pageType: article
+module: training
+updated: '2025-12-27'
+contentStatus: needs-review
+tags:
+  - training
+level: advanced
+prerequisites:
+  - /guide/prerequisites
+reviewed: '2026-08-25'
+techVersion: 待复核（2026-08）
 ---
 
 # LoRA 高效微调

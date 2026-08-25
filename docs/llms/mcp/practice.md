@@ -1,6 +1,17 @@
 ---
 title: MCP实战项目
 description: 从零开始构建完整的MCP服务
+pageType: article
+module: mcp
+updated: '2025-12-27'
+contentStatus: needs-review
+tags:
+  - mcp
+level: intermediate
+prerequisites:
+  - /llms/agent/tool-calling
+reviewed: '2026-08-25'
+techVersion: 待复核（2026-08）
 ---
 
 # MCP实战项目

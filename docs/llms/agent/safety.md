@@ -1,6 +1,18 @@
 ---
 title: 安全与沙箱
 description: Agent 安全机制 - 从风险识别到沙箱隔离
+pageType: article
+module: agent
+updated: '2025-12-27'
+contentStatus: needs-review
+tags:
+  - agent
+level: advanced
+prerequisites:
+  - /llms/prompt/
+  - /llms/rag/
+reviewed: '2026-08-25'
+techVersion: 待复核（2026-08）
 ---
 
 # 安全与沙箱

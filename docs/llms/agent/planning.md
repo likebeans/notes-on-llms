@@ -1,6 +1,18 @@
 ---
 title: 规划与推理
 description: Agent 规划与推理机制 - ReAct、Plan-and-Execute
+pageType: article
+module: agent
+updated: '2025-12-27'
+contentStatus: needs-review
+tags:
+  - agent
+level: advanced
+prerequisites:
+  - /llms/prompt/
+  - /llms/rag/
+reviewed: '2026-08-25'
+techVersion: 待复核（2026-08）
 ---
 
 # 规划与推理
