@@ -14,7 +14,7 @@ a {
 }
 
 :where(a, button, input, select, summary, textarea):focus-visible {
-  outline: 3px solid color-mix(in srgb, var(--nl-blue) 56%, transparent);
+  outline: 3px solid var(--nl-blue);
   outline-offset: 3px;
 }
 
