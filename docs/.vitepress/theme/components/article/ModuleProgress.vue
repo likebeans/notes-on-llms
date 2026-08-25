@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { MODULE_DEFINITIONS } from '../../../config/modules'
-import { normalizeUrl } from '../../../content/selectors'
 import type { ModuleKey } from '../../../content/model'
+import { findModuleStep } from './moduleProgress'
 
 const props = defineProps<{
   module: ModuleKey
@@ -12,14 +12,17 @@ const props = defineProps<{
 const definition = computed(() => (
   props.module === 'site' ? undefined : MODULE_DEFINITIONS[props.module]
 ))
-const currentIndex = computed(() => definition.value?.items.findIndex(
-  item => normalizeUrl(item.link) === normalizeUrl(props.currentUrl),
-) ?? -1)
-const currentStep = computed(() => Math.max(0, currentIndex.value) + 1)
+const currentStep = computed(() => (
+  definition.value ? findModuleStep(definition.value.items, props.currentUrl) : undefined
+))
 </script>
 
 <template>
-  <section v-if="definition" class="nl-module-progress" :aria-label="`${definition.title} 学习进度`">
+  <section
+    v-if="definition && currentStep !== undefined"
+    class="nl-module-progress"
+    :aria-label="`${definition.title} 学习进度`"
+  >
     <p>{{ definition.title }} 学习路径</p>
     <div
       class="nl-module-progress-track"
