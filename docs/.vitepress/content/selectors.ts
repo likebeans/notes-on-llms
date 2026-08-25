@@ -6,7 +6,7 @@ export interface AdjacentArticles {
 }
 
 export const normalizeUrl = (url: string): string => {
-  const path = url.replace(/^\/+/, '').replace(/\/+$/, '')
+  const path = url.replace(/\/+$/, '').replace(/\.html$/, '').replace(/\/index$/, '').replace(/^\/+/, '')
   return path ? `/${path}` : '/'
 }
 

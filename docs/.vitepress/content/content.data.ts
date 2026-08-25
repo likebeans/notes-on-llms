@@ -1,5 +1,6 @@
 import { createContentLoader } from 'vitepress'
 import { assertValidFrontmatter, isDraft, type ContentIndexItem } from './model'
+import { normalizeUrl } from './selectors'
 
 declare const data: ContentIndexItem[]
 export { data }
@@ -8,7 +9,10 @@ export default createContentLoader('**/*.md', {
   includeSrc: true,
   transform(raw): ContentIndexItem[] {
     return raw
-      .filter(page => !page.url.startsWith('/superpowers/') && page.url !== '/开发计划')
+      .filter(page => {
+        const url = normalizeUrl(page.url)
+        return url !== '/superpowers' && !url.startsWith('/superpowers/') && url !== '/开发计划'
+      })
       .map(page => {
         assertValidFrontmatter(page.frontmatter, page.url)
         const source = page.src ?? ''

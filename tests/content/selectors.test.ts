@@ -1,6 +1,12 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import type { ContentIndexItem } from '../../docs/.vitepress/content/model'
 import { findAdjacentArticle, normalizeUrl, selectRecentUpdates } from '../../docs/.vitepress/content/selectors'
+
+vi.mock('vitepress', () => ({
+  createContentLoader: (_pattern: string, options: unknown) => options
+}))
+
+import loader from '../../docs/.vitepress/content/content.data'
 
 const page = (overrides: Partial<ContentIndexItem>): ContentIndexItem => ({
   title: '文章',
@@ -32,6 +38,8 @@ describe('normalizeUrl', () => {
   it('normalizes leading and trailing slashes while preserving root', () => {
     expect(normalizeUrl('/llms/rag/')).toBe('/llms/rag')
     expect(normalizeUrl('llms/rag/')).toBe('/llms/rag')
+    expect(normalizeUrl('/llms/rag/index.html')).toBe('/llms/rag')
+    expect(normalizeUrl('/llms/rag/retrieval.html')).toBe('/llms/rag/retrieval')
     expect(normalizeUrl('/')).toBe('/')
   })
 })
@@ -64,5 +72,42 @@ describe('findAdjacentArticle', () => {
     ]
     expect(findAdjacentArticle(unordered, '/llms/rag/ordered').next?.title).toBe('未排序 A')
     expect(findAdjacentArticle(unordered, '/llms/rag/a').previous?.title).toBe('有序')
+  })
+
+  it('does not mutate the input collection', () => {
+    const input = [...pages]
+    const before = input.map(item => ({ ...item }))
+    selectRecentUpdates(input, 2)
+    findAdjacentArticle(input, '/llms/rag/')
+    expect(input).toEqual(before)
+  })
+})
+
+describe('content loader transform', () => {
+  it('filters internal and draft pages, validates public metadata, and derives metrics', () => {
+    type RawPage = { url: string; src: string; frontmatter: Record<string, unknown> }
+    const article = (url: string, frontmatter: Record<string, unknown>, src: string): RawPage => ({ url, frontmatter, src })
+    const publicFrontmatter = {
+      title: '公开文章', description: '描述', pageType: 'article', module: 'rag', level: 'beginner',
+      prerequisites: [], updated: '2026-08-25', reviewed: '2026-08-25', contentStatus: 'verified',
+      techVersion: '2026', tags: ['test']
+    }
+    const transform = (loader as unknown as { transform(raw: RawPage[]): ContentIndexItem[] }).transform
+    const longSource = `---\nignored: true\n---\n${'word '.repeat(700)}`
+    const raw: RawPage[] = [
+      article('/开发计划.html', {}, 'invalid internal content'),
+      article('/superpowers/internal.html', {}, 'invalid internal content'),
+      article('/llms/rag/draft.html', { ...publicFrontmatter, title: '草稿', contentStatus: 'draft' }, 'draft'),
+      article('/llms/rag/long.html', publicFrontmatter, longSource),
+      article('/llms/rag/references/index.html', { ...publicFrontmatter, title: '参考资料' }, '正文\n\n## 参考资料\n- 第一项\n* 第二项')
+    ]
+
+    const result = transform(raw)
+    expect(result.map(item => item.title)).toEqual(['公开文章', '参考资料'])
+    expect(result[0]).toMatchObject({ url: '/llms/rag/long', readingTime: 2, sourceCount: 0 })
+    expect(result[1]).toMatchObject({ url: '/llms/rag/references/', readingTime: 1, sourceCount: 2 })
+    expect(() => transform([
+      article('/llms/rag/invalid.html', { ...publicFrontmatter, reviewed: undefined }, 'invalid public metadata')
+    ])).toThrow('/llms/rag/invalid.html: reviewed is required for a published article')
   })
 })
