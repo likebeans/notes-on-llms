@@ -1,0 +1,22 @@
+export const mermaid = {
+  theme: 'base',
+  themeVariables: {
+    primaryColor: '#e0e7ff',
+    primaryTextColor: '#1e293b',
+    primaryBorderColor: '#6366f1',
+    secondaryColor: '#fef3c7',
+    secondaryTextColor: '#1e293b',
+    secondaryBorderColor: '#f59e0b',
+    tertiaryColor: '#dcfce7',
+    tertiaryTextColor: '#1e293b',
+    tertiaryBorderColor: '#22c55e',
+    lineColor: '#6366f1',
+    textColor: '#1e293b',
+    fontSize: '14px',
+    fontFamily: 'system-ui, -apple-system, sans-serif',
+    clusterBkg: '#f1f5f9',
+    clusterBorder: '#cbd5e1',
+    titleColor: '#1e293b',
+    edgeLabelBackground: '#ffffff',
+  },
+}
