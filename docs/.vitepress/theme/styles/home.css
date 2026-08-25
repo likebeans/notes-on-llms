@@ -1,3 +1,4 @@
+.VPPage:has(.nl-home-page), .VPDoc:has(.nl-home-page) .container, .VPDoc:has(.nl-home-page) .content, .VPDoc:has(.nl-home-page) .content-container { max-width: none; width: 100%; }
 .nl-home-page { width: min(100%, 76rem); margin: 0 auto; padding: 2rem var(--nl-page-gutter) 5rem; }
 .nl-home-hero { display: grid; grid-template-columns: minmax(0, 1fr) minmax(15rem, 20rem); gap: 3rem; align-items: end; padding: 3.5rem 0 4rem; border-bottom: 1px solid var(--nl-line); }
 .nl-home-eyebrow { margin: 0; color: var(--nl-muted); font-size: 0.78rem; font-weight: 700; line-height: 1.2; text-transform: uppercase; }
