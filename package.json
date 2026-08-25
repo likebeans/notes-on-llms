@@ -7,7 +7,9 @@
   "scripts": {
     "docs:dev": "vitepress dev docs",
     "docs:build": "vitepress build docs",
-    "docs:preview": "vitepress preview docs"
+    "docs:preview": "vitepress preview docs",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "keywords": [
     "llm",
@@ -19,9 +21,12 @@
   "author": "likebeans",
   "license": "MIT",
   "devDependencies": {
+    "gray-matter": "4.0.3",
     "mermaid": "^11.12.2",
+    "tsx": "4.20.5",
     "vitepress": "^1.5.0",
     "vitepress-plugin-mermaid": "^2.0.17",
+    "vitest": "3.2.4",
     "vue": "^3.5.13"
   }
 }
