@@ -3,7 +3,7 @@ title: 工具调用详解
 description: Agent 工具调用机制 - Function Calling与MCP协议
 pageType: article
 module: agent
-updated: '2025-12-27'
+updated: '2026-08-26'
 contentStatus: needs-review
 tags:
   - agent
@@ -11,13 +11,24 @@ level: advanced
 prerequisites:
   - /llms/prompt/
   - /llms/rag/
-reviewed: '2026-08-25'
-techVersion: 待复核（2026-08）
+reviewed: '2026-08-26'
+techVersion: 2026-08（工具调用，部分平台 API 细节待复核）
 ---
 
 # 工具调用详解
 
 > 让AI从"聊天"变成"做事"的核心能力
+
+## 2026 阅读提示
+
+工具调用不是让模型“更聪明”的魔法，而是让模型在受控边界内产生可执行动作。评估工具调用时，重点不只是模型能不能生成 JSON，而是整条链路是否安全、可恢复、可审计：
+
+1. 工具 schema 是否足够窄，能拒绝未知参数、危险默认值和越权操作？
+2. 工具结果是否会被二次校验，而不是直接相信外部系统或模型解释？
+3. 失败时系统能否重试、降级、请求人工确认或安全停止？
+4. 每一次调用是否留下 trace：用户目标、工具名、参数、结果、错误和最终回答？
+
+如果一个 Agent 出问题，常见根因并不是“模型不会调用工具”，而是工具权限太宽、参数校验太松、完成条件不清、或错误恢复完全依赖模型临场发挥。读下面的流程时，建议把每一步都映射到日志和测试用例。
 
 ## 🎯 核心概念
 

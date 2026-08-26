@@ -13,7 +13,7 @@ import SiteIntroduction from './SiteIntroduction.vue'
         <p class="nl-home-eyebrow">研究手册 · 知识地图</p>
         <h1 id="home-title">从模型原理到可运行的智能系统</h1>
         <p class="nl-home-lede">
-          Notes on LLMs 是一份持续核验的大模型研究手册：用一张可追溯的知识地图，连接概念、工程选择与实践问题。
+          Notes on LLMs 是一份持续核验的大模型研究手册：把每篇笔记放进“场景、机制、评估、风险”的框架里，连接概念、工程选择与实践问题。
         </p>
         <div class="nl-home-actions" aria-label="开始学习">
           <a class="nl-home-action nl-home-action-primary" :href="withBase('/guide/roadmap')">查看学习路线</a>

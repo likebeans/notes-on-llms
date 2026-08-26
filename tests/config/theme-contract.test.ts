@@ -6,7 +6,7 @@ const readThemeFile = (path: string) => readFileSync(`docs/.vitepress/theme/${pa
 const withoutComments = (source: string) => source.replace(/\/\*[\s\S]*?\*\/|\/\/[^\n]*/g, '')
 
 const block = (css: string, selector: string) => {
-  const match = css.match(new RegExp(`${selector}\\s*\\{([\\s\\S]*?)\\n\\}`, 'm'))
+  const match = css.match(new RegExp(`${selector}\\s*\\{([^}]*)\\}`, 'm'))
   if (!match) throw new Error(`Missing ${selector} token block`)
   return match[1]
 }
@@ -127,4 +127,35 @@ it('does not restore removed purple, emoji feature-card, or image-zoom styling',
   expect(themeCss).not.toMatch(/\.VPFeature(?:\s|\.|\{|:)/)
   expect(themeCss).not.toMatch(/\.vp-doc\s+img:hover/)
   expect(themeCss).not.toMatch(/scale\(1\.02\)/)
+})
+
+it('keeps Mermaid diagrams in an isolated drag-safe scroll container', () => {
+  const articleCss = readThemeFile('styles/article.css')
+  const mermaidBlock = block(articleCss, "\\.vp-doc \\.mermaid")
+  const svgBlock = block(articleCss, "\\.vp-doc \\.mermaid svg")
+
+  expect(declaration(mermaidBlock, 'overscroll-behavior-inline')).toBe('contain')
+  expect(declaration(mermaidBlock, 'contain')).toBe('content')
+  expect(declaration(mermaidBlock, 'touch-action')).toBe('pan-x pan-y')
+  expect(declaration(mermaidBlock, 'cursor')).toBe('grab')
+  expect(declaration(mermaidBlock, 'user-select')).toBe('none')
+  expect(declaration(svgBlock, 'width')).toBe('max-content')
+  expect(declaration(svgBlock, 'height')).toBe('auto')
+  expect(declaration(svgBlock, 'will-change')).toBe('transform')
+})
+
+it('gives the homepage and article intro a refined handbook surface treatment', () => {
+  const homeCss = readThemeFile('styles/home.css')
+  const articleCss = readThemeFile('styles/article.css')
+  const heroBlock = block(homeCss, '\\.nl-home-hero')
+  const moduleCardBlock = block(homeCss, '\\.nl-module-card')
+  const introBlock = block(articleCss, '\\.nl-article-intro')
+
+  expect(declaration(heroBlock, 'position')).toBe('relative')
+  expect(declaration(heroBlock, 'border-radius')).toBe('1.1rem')
+  expect(declaration(heroBlock, 'background')).toContain('radial-gradient')
+  expect(declaration(moduleCardBlock, 'border-radius')).toBe('0.85rem')
+  expect(declaration(moduleCardBlock, 'box-shadow')).toContain('color-mix')
+  expect(declaration(introBlock, 'border-radius')).toBe('0.9rem')
+  expect(declaration(introBlock, 'background')).toContain('linear-gradient')
 })

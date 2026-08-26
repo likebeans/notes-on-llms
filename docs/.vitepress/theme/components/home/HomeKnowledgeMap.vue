@@ -16,7 +16,7 @@ const modules = computed(() => Object.entries(MODULE_DEFINITIONS).map(([key, def
       <p class="nl-home-eyebrow">知识地图</p>
       <div>
         <h2 id="knowledge-map-title">六个模块，一条可组合的学习主线</h2>
-        <p>从提示与检索开始，逐步进入智能体、协议、模型定制与多模态系统。</p>
+        <p>每个模块都尽量回答三个问题：它解决什么、容易在哪里失败、上线前如何验证。你可以顺序学习，也可以从当前项目的瓶颈反向进入。</p>
       </div>
     </header>
 
