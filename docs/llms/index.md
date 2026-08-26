@@ -1,57 +1,64 @@
 ---
 title: LLMs 技术专区
-description: 大模型核心技术学习专区，涵盖 RAG、Agent、训练微调和多模态等方向。
+description: 大模型核心技术学习专区，按 Prompt、RAG、Agent、MCP、训练微调和多模态组织。
 pageType: landing
 module: site
-updated: '2025-12-27'
+updated: '2026-08-26'
 contentStatus: needs-review
 tags:
   - llm
   - modules
 ---
+
 # LLMs 技术专区
 
-大模型核心技术学习专区，涵盖 RAG、Agent、训练微调和多模态等方向。
+这里是整站的知识骨架。六个模块不是平行孤岛，而是一条从“会用模型”到“能构建系统”再到“理解训练和评估”的路径。
 
-## 📚 学习模块
+## 六个模块
 
-<div class="custom-card-grid">
+| 模块 | 解决的问题 | 建议入口 | 依赖 |
+| --- | --- | --- | --- |
+| [Prompt](/llms/prompt/) | 如何让模型稳定理解任务、利用上下文并输出可用结果 | [提示工程基础](/llms/prompt/basics) | 无 |
+| [RAG](/llms/rag/) | 如何把外部知识接入生成过程，并让答案可引用、可更新 | [RAG 技术全景](/llms/rag/) | Prompt |
+| [Agent](/llms/agent/) | 如何让模型使用工具、规划任务、处理多步工作流 | [AI Agent 全景](/llms/agent/) | Prompt、RAG |
+| [MCP](/llms/mcp/) | 如何用统一协议连接模型应用与外部系统 | [MCP 快速入门](/llms/mcp/quickstart) | Agent 工具调用 |
+| [训练与微调](/llms/training/) | 如何用数据、SFT/LoRA、DPO/RLHF 定制模型行为 | [训练数据](/llms/training/data) | ML/DL、评估 |
+| [多模态](/llms/multimodal/) | 如何处理图像、文本、音频或视频等多种模态 | [多模态全景](/llms/multimodal/) | Transformer、RAG/Agent |
 
-  <a href="./rag/" class="custom-card">
-    <h3>🔍 RAG 检索增强</h3>
-    <p>检索增强生成技术，让大模型拥有外部知识库的能力，解决幻觉和知识过时问题。</p>
-  </a>
+## 推荐依赖图
 
-  <a href="./agent/" class="custom-card">
-    <h3>🤖 Agent 智能体</h3>
-    <p>智能体技术，赋予大模型规划、工具使用和复杂任务执行的能力，实现真正的自动化。</p>
-  </a>
+```mermaid
+flowchart LR
+    Prompt[Prompt] --> RAG[RAG]
+    Prompt --> Agent[Agent]
+    RAG --> Agent
+    Agent --> MCP[MCP]
+    RAG --> Eval[评估]
+    Agent --> Eval
+    Data[数据工程] --> Training[训练与微调]
+    Training --> Eval
+    Training --> Multimodal[多模态]
+    RAG --> Multimodal
+```
 
-  <a href="./training/" class="custom-card">
-    <h3>⚙️ 训练与微调</h3>
-    <p>模型定制技术，涵盖 SFT、DPO、RLHF、LoRA 等，打造专属垂直领域大模型。</p>
-  </a>
+## 按目标选择入口
 
-  <a href="./multimodal/" class="custom-card">
-    <h3>👁️ 多模态</h3>
-    <p>视觉与语言的融合，探索 GPT-4V、LLaVA 等多模态模型的理解与生成能力。</p>
-  </a>
+| 目标 | 先读 | 接着读 | 做什么项目 |
+| --- | --- | --- | --- |
+| 快速做出 AI 功能 | [Prompt](/llms/prompt/) | [RAG](/llms/rag/) | 文档问答、摘要、信息抽取 |
+| 做可靠知识库 | [RAG](/llms/rag/) | [RAG 评估](/llms/rag/evaluation) | 带引用的企业知识库 |
+| 做自动化助手 | [Agent 工具调用](/llms/agent/tool-calling) | [Agent 安全](/llms/agent/safety) | 可中断的工具调用 Agent |
+| 做系统集成 | [MCP 概念](/llms/mcp/concepts) | [MCP 高级功能](/llms/mcp/advanced) | 封装一个业务 MCP server |
+| 做模型定制 | [训练数据](/llms/training/data) | [LoRA](/llms/training/lora) | 小模型领域微调实验 |
+| 做图文任务 | [视觉编码器](/llms/multimodal/vision-encoder) | [多模态 RAG 与 Agent](/llms/multimodal/rag-agent) | 图文问答或多模态检索 |
 
-  <a href="./prompt/" class="custom-card">
-    <h3>✨ Prompt 工程</h3>
-    <p>掌握与大模型高效沟通的艺术，通过结构化提示词激发模型潜能。</p>
-  </a>
+## 内容状态说明
 
-  <a href="./mcp/" class="custom-card">
-    <h3>🔌 MCP 协议</h3>
-    <p>Model Context Protocol，标准化的上下文协议，连接 AI 模型与数据源。</p>
-  </a>
+| 状态 | 含义 |
+| --- | --- |
+| `verified` | 已按当前资料复核，适合作为主线阅读材料 |
+| `needs-review` | 已完成整理，但可能需要根据最新模型/API 继续复核 |
+| `opinion` | 包含作者判断或经验归纳 |
+| `historical` | 保留历史背景，不代表当前最佳实践 |
 
-</div>
-
-## 🎯 学习建议
-
-1. **入门推荐**：先学习 RAG 基础，了解如何增强大模型的知识能力
-2. **进阶方向**：深入 Agent 技术，学习工具调用和任务规划
-3. **深度学习**：探索训练微调，掌握模型定制能力
-4. **前沿探索**：了解多模态技术的最新进展
+如果你是第一次来，建议先走 [学习路径](/guide/)；如果你已经有项目，可以直接到 [实践项目](/practice/) 反向选择模块。

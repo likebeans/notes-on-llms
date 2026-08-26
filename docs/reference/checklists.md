@@ -1,18 +1,79 @@
 ---
 title: Checklist
-description: 常用检查清单
+description: Prompt、RAG、Agent、微调、MCP 和上线评审清单。
 pageType: article
 module: site
-updated: '2025-12-27'
+updated: '2026-08-26'
 contentStatus: needs-review
 tags:
   - reference
+  - checklist
 level: intermediate
 prerequisites: []
-reviewed: '2026-08-25'
-techVersion: 待复核（2026-08）
+reviewed: '2026-08-26'
+techVersion: 2026-08（工程检查）
 ---
 
 # Checklist
 
-> 待补充
+清单的价值不在于让方案变复杂，而是提前暴露“上线后一定会问”的问题：数据从哪来、失败怎么算、谁能审批、怎么回滚。
+
+## Prompt / 上下文检查
+
+- [ ] 任务目标、输入、输出格式是否写清？
+- [ ] 是否区分系统指令、开发者约束、用户内容和引用资料？
+- [ ] 是否有 5-20 个固定样本做回归？
+- [ ] 是否处理空输入、冲突信息、越权请求和不确定答案？
+- [ ] 如果要求 JSON/schema，是否用结构化输出或解析校验？
+
+相关阅读：[Prompt 基础](/llms/prompt/basics)、[上下文工程](/llms/prompt/context)。
+
+## RAG 上线检查
+
+- [ ] 文档来源、更新时间、权限和删除策略是否明确？
+- [ ] chunk 大小、重叠、元数据是否经过样本对比？
+- [ ] 是否有关键词/向量/混合检索与 rerank 的取舍记录？
+- [ ] 答案是否强制引用来源，并能在缺证据时拒答？
+- [ ] 是否有召回、引用准确性、幻觉样本和人工复核流程？
+
+相关阅读：[文档切分](/llms/rag/chunking)、[RAG 评估](/llms/rag/evaluation)、[RAG 生产实践](/llms/rag/production)。
+
+## Agent 生产检查
+
+- [ ] 每个工具是否有 schema、权限、超时、重试和幂等策略？
+- [ ] 高风险动作是否需要人工确认？
+- [ ] 是否记录计划、工具调用、结果、失败和最终回答？
+- [ ] 是否限制循环次数、预算、上下文膨胀和工具连锁调用？
+- [ ] 是否有回放机制和安全测试样本？
+
+相关阅读：[工具调用](/llms/agent/tool-calling)、[异常处理](/llms/agent/exception-handling)、[Agent 安全](/llms/agent/safety)。
+
+## 微调 / 对齐检查
+
+- [ ] 是否证明 Prompt/RAG/规则无法解决问题，才选择训练？
+- [ ] 数据是否去重、脱敏、分训练/验证/测试集？
+- [ ] 是否记录模型版本、数据版本、超参和训练日志？
+- [ ] 是否比较 SFT、LoRA、DPO/RLHF 与基线模型？
+- [ ] 是否有安全、偏见、幻觉和退化任务评估？
+
+相关阅读：[训练数据](/llms/training/data)、[SFT](/llms/training/sft)、[DPO](/llms/training/dpo)、[训练评估](/llms/training/eval)。
+
+## MCP 集成检查
+
+- [ ] 是否说清 Host、Client、Server 的边界？
+- [ ] Server 暴露的工具是否最小权限？
+- [ ] 工具描述是否包含参数、返回、错误和安全约束？
+- [ ] 是否有本地/远程连接的鉴权与审计策略？
+- [ ] 是否能在不同 Host 中复用，而不是绑定单一客户端？
+
+相关阅读：[MCP 快速入门](/llms/mcp/quickstart)、[MCP 核心概念](/llms/mcp/concepts)。
+
+## 发布前检查
+
+- [ ] 是否有“不能回答/不能执行”的策略？
+- [ ] 是否记录成本、延迟、错误率和用户反馈？
+- [ ] 是否有灰度发布、回滚和人工接管路径？
+- [ ] 是否有数据保留、隐私和合规说明？
+- [ ] 是否把上线后的失败样本回流到评估集？
+
+可配合 [模板](/reference/templates) 建立发布记录。

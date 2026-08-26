@@ -14,12 +14,21 @@ export const sidebar = {
     {
       text: '学习路线',
       items: [
+        { text: '学习路径', link: '/guide/' },
         { text: '学习路线图', link: '/guide/roadmap' },
         { text: '前置知识', link: '/guide/prerequisites' },
       ],
     },
   ],
   ...moduleSidebar,
+  '/practice/': [
+    {
+      text: '实践项目',
+      items: [
+        { text: '项目总览', link: '/practice/' },
+      ],
+    },
+  ],
   '/interviews/': [
     {
       text: '面试专区',
@@ -37,6 +46,7 @@ export const sidebar = {
     {
       text: '速查手册',
       items: [
+        { text: '概述', link: '/reference/' },
         { text: '术语表', link: '/reference/glossary' },
         { text: 'Checklist', link: '/reference/checklists' },
         { text: '评估指标', link: '/reference/metrics' },
@@ -48,6 +58,7 @@ export const sidebar = {
     {
       text: '资源库',
       items: [
+        { text: '概述', link: '/resources/' },
         { text: '视频', link: '/resources/videos' },
         { text: '论文', link: '/resources/papers' },
         { text: '博客', link: '/resources/blogs' },

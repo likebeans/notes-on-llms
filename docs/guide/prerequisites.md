@@ -1,123 +1,89 @@
 ---
 title: 前置知识
-description: 学习大模型应用开发需要的基础知识
+description: 学习大模型应用开发前建议补齐的工程、机器学习和阅读基础。
 pageType: article
 module: site
-updated: '2026-01-10'
+updated: '2026-08-26'
 contentStatus: needs-review
 tags:
   - guide
-level: intermediate
+  - prerequisites
+level: beginner
 prerequisites: []
-reviewed: '2026-08-25'
-techVersion: 待复核（2026-08）
+reviewed: '2026-08-26'
+techVersion: 2026-08（基础概念）
 ---
 
 # 前置知识
 
-## 🎯 本篇目标
+这份清单不是“入场考试”。它更像一张地图：你可以先用 API 做出东西，再按遇到的问题补课。真正影响学习速度的，通常不是会不会背 Transformer 公式，而是能不能把问题拆开、验证结果、读懂文档。
 
-> 了解学习大模型应用开发前需要掌握的基础知识。
+## 最小必备
 
-## 📊 知识清单
+| 能力 | 需要到什么程度 | 会在哪些模块用到 |
+| --- | --- | --- |
+| Python | 会写脚本、调用 API、处理 JSON/CSV、管理依赖与虚拟环境 | [Prompt](/llms/prompt/)、[RAG](/llms/rag/)、[Agent](/llms/agent/) |
+| HTTP/API | 理解请求、响应、鉴权、状态码、超时与重试 | [Agent 工具调用](/llms/agent/tool-calling)、[MCP](/llms/mcp/) |
+| Git | 能提交、分支、回滚小改动，读懂 diff | 所有实践项目 |
+| 基础数据处理 | 能清洗文本、去重、切分、抽样检查 | [RAG 文档切分](/llms/rag/chunking)、[训练数据](/llms/training/data) |
+| 实验记录 | 能记录输入、版本、指标和结论 | [评估](/llms/rag/evaluation)、[部署与评测](/llms/multimodal/deployment) |
 
-### 必备技能
+## 按方向补的知识
 
-| 领域 | 要求 | 优先级 | 相关模块 |
-|------|------|--------|----------|
-| **Python** | 熟练使用，理解面向对象、异步编程 | ⭐⭐⭐ | 所有模块 |
-| **HTTP/API** | 理解 RESTful API、JSON 格式 | ⭐⭐⭐ | [Agent](/llms/agent/)、[MCP](/llms/mcp/) |
-| **Git** | 基本的版本控制操作 | ⭐⭐ | 所有模块 |
+### 应用开发方向
 
-### 加分技能
+优先补工程能力。你需要知道模型输入输出如何被系统包起来，以及失败时如何定位问题。
 
-| 领域 | 要求 | 优先级 | 相关模块 |
-|------|------|--------|----------|
-| **机器学习** | 理解训练/推理、损失函数、梯度下降 | ⭐⭐ | [训练与微调](/llms/training/) |
-| **NLP 基础** | 理解 Tokenization、Embedding 概念 | ⭐⭐ | [RAG](/llms/rag/)、[Prompt](/llms/prompt/) |
-| **深度学习** | 了解 Transformer 架构 | ⭐ | [训练与微调](/llms/training/) |
-| **Docker** | 容器化部署基础 | ⭐ | [训练与微调](/llms/training/) |
+1. API 调用：鉴权、限流、重试、结构化输出。
+2. 文档处理：Markdown/PDF/网页抽取、chunk 策略、元数据。
+3. 数据库：至少理解关系数据库、KV、向量检索的适用边界。
+4. 可观测性：日志、trace、错误样本、延迟和成本统计。
 
-### 模块前置知识映射
+推荐顺序：[Prompt 基础](/llms/prompt/basics) → [RAG 概述](/llms/rag/) → [Agent 工具调用](/llms/agent/tool-calling) → [MCP 快速入门](/llms/mcp/quickstart)。
 
-| LLM 模块 | 所需前置知识 | 难度 |
-|----------|-------------|------|
-| [🔍 RAG 检索增强](/llms/rag/) | Python、NLP 基础（Embedding、向量检索）、数据库基础 | ⭐⭐ |
-| [🤖 Agent 智能体](/llms/agent/) | Python、HTTP/API、异步编程、基础算法思维 | ⭐⭐⭐ |
-| [⚙️ 训练与微调](/llms/training/) | 机器学习、深度学习、PyTorch/TensorFlow、分布式计算 | ⭐⭐⭐⭐ |
-| [👁️ 多模态](/llms/multimodal/) | 计算机视觉基础、NLP 基础、Transformer 架构 | ⭐⭐⭐ |
-| [✨ Prompt 工程](/llms/prompt/) | 自然语言处理直觉、逻辑思维、实验方法论 | ⭐ |
-| [🔌 MCP 协议](/llms/mcp/) | HTTP/API、协议设计、数据流处理 | ⭐⭐ |
+### 算法工程方向
 
-## 💻 快速补课资源
+如果你想进入微调、对齐或多模态，需要补更多机器学习基础。
 
-### Python
+1. 线性代数与概率：向量、矩阵、分布、采样。
+2. 深度学习：反向传播、优化器、过拟合、验证集。
+3. NLP 基础：tokenization、embedding、语言模型目标。
+4. Transformer：attention、位置编码、KV cache、长上下文。
+5. 训练工程：数据质量、显存估算、分布式训练、推理 serving。
 
-- [Python 官方教程](https://docs.python.org/zh-cn/3/tutorial/)
-- 重点掌握：类型提示、异步编程、包管理
+推荐顺序：[训练数据](/llms/training/data) → [SFT](/llms/training/sft) → [LoRA](/llms/training/lora) → [DPO](/llms/training/dpo) → [评估](/llms/training/eval)。
 
-### Transformer
+## 模块前置关系
 
-- [The Illustrated Transformer](https://jalammar.github.io/illustrated-transformer/)
-- [Attention Is All You Need](https://arxiv.org/abs/1706.03762)
+| 模块 | 建议先掌握 | 不掌握会卡在哪里 |
+| --- | --- | --- |
+| [Prompt](/llms/prompt/) | 基本 API 调用、任务描述能力 | 难以稳定复现实验结果 |
+| [RAG](/llms/rag/) | Embedding、文本切分、检索直觉 | 只会“接向量库”，不会调召回与可信度 |
+| [Agent](/llms/agent/) | Prompt、工具调用、错误处理 | 容易做出能演示但不可靠的自动化 |
+| [MCP](/llms/mcp/) | Agent 工具调用、协议/客户端概念 | 分不清 Host、Client、Server 的职责 |
+| [训练与微调](/llms/training/) | ML/DL、数据集、评估 | 难以判断该微调还是该改数据/提示/RAG |
+| [多模态](/llms/multimodal/) | Transformer、视觉编码、RAG/Agent | 难以理解图文对齐和多模态检索 |
 
-### LLM 基础
+## 快速补课资源
 
-- [What Is ChatGPT Doing](https://writings.stephenwolfram.com/2023/02/what-is-chatgpt-doing-and-why-does-it-work/)
-- 理解：Token、上下文窗口、Temperature、Top-p
+| 主题 | 建议资源 | 读法 |
+| --- | --- | --- |
+| Python | [Python 官方教程](https://docs.python.org/zh-cn/3/tutorial/) | 重点看数据结构、模块、异常、虚拟环境 |
+| Transformer | [The Illustrated Transformer](https://jalammar.github.io/illustrated-transformer/) 与 [Attention Is All You Need](https://arxiv.org/abs/1706.03762) | 先看图解，再回论文确认 Q/K/V 与 attention |
+| API 设计 | [OpenAPI Specification](https://spec.openapis.org/oas/latest.html) | 理解 schema、参数、响应和错误建模 |
+| 向量检索 | [FAISS 文档](https://faiss.ai/) | 关注 index 类型、召回/速度权衡 |
+| 评估方法 | [OpenAI Evals](https://github.com/openai/evals) | 学习如何把主观体验变成可重复样本 |
 
-## ⚠️ 常见误区
+## 常见误区
 
-- ❌ 必须精通深度学习才能开始
-- ✅ 应用开发可以先用 API，边做边学原理
-- ❌ 需要 GPU 才能学习
-- ✅ 大部分学习可以用云 API 完成
+- “必须先懂全部深度学习才能开始”：应用开发可以先从 API 和评估做起。
+- “RAG 等于向量数据库”：真正的难点通常在数据清洗、chunk、召回、重排和引用。
+- “Agent 越自主越高级”：生产系统里，边界、审批和可观测性往往比自主性更重要。
+- “微调能解决所有问题”：如果知识经常变、答案要引用来源，优先考虑 RAG 或工具调用。
+- “指标越多越好”：先选能反映业务失败的少数指标，再扩展评估集。
 
-## 📚 延伸阅读
+## 下一步
 
-### 指南文档
-
-- [学习路线图](/guide/roadmap) - 查看完整的学习路径规划
-
-### 核心技术模块
-
-<div class="custom-card-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin: 1rem 0;">
-
-  <a href="../llms/rag/" class="custom-card" style="padding: 1rem; border: 1px solid #e1e4e8; border-radius: 6px; text-decoration: none; color: inherit;">
-    <h3 style="margin: 0 0 0.5rem 0; font-size: 1.1rem;">🔍 RAG 检索增强</h3>
-    <p style="margin: 0; font-size: 0.9rem; color: #586069;">检索增强生成技术，解决知识滞后和幻觉问题</p>
-  </a>
-
-  <a href="../llms/agent/" class="custom-card" style="padding: 1rem; border: 1px solid #e1e4e8; border-radius: 6px; text-decoration: none; color: inherit;">
-    <h3 style="margin: 0 0 0.5rem 0; font-size: 1.1rem;">🤖 Agent 智能体</h3>
-    <p style="margin: 0; font-size: 0.9rem; color: #586069;">规划、工具使用和复杂任务执行能力</p>
-  </a>
-
-  <a href="../llms/training/" class="custom-card" style="padding: 1rem; border: 1px solid #e1e4e8; border-radius: 6px; text-decoration: none; color: inherit;">
-    <h3 style="margin: 0 0 0.5rem 0; font-size: 1.1rem;">⚙️ 训练与微调</h3>
-    <p style="margin: 0; font-size: 0.9rem; color: #586069;">SFT、DPO、RLHF、LoRA 等模型定制技术</p>
-  </a>
-
-  <a href="../llms/multimodal/" class="custom-card" style="padding: 1rem; border: 1px solid #e1e4e8; border-radius: 6px; text-decoration: none; color: inherit;">
-    <h3 style="margin: 0 0 0.5rem 0; font-size: 1.1rem;">👁️ 多模态</h3>
-    <p style="margin: 0; font-size: 0.9rem; color: #586069;">视觉与语言的融合，GPT-4V、LLaVA 等</p>
-  </a>
-
-  <a href="../llms/prompt/" class="custom-card" style="padding: 1rem; border: 1px solid #e1e4e8; border-radius: 6px; text-decoration: none; color: inherit;">
-    <h3 style="margin: 0 0 0.5rem 0; font-size: 1.1rem;">✨ Prompt 工程</h3>
-    <p style="margin: 0; font-size: 0.9rem; color: #586069;">掌握与大模型高效沟通的艺术</p>
-  </a>
-
-  <a href="../llms/mcp/" class="custom-card" style="padding: 1rem; border: 1px solid #e1e4e8; border-radius: 6px; text-decoration: none; color: inherit;">
-    <h3 style="margin: 0 0 0.5rem 0; font-size: 1.1rem;">🔌 MCP 协议</h3>
-    <p style="margin: 0; font-size: 0.9rem; color: #586069;">Model Context Protocol，标准化上下文协议</p>
-  </a>
-
-</div>
-
-### 快速开始建议
-
-1. **零基础入门**：先学习 [Prompt 工程](/llms/prompt/)（最简单），了解如何与模型交互
-2. **应用开发**：掌握 [RAG](/llms/rag/) 和 [Agent](/llms/agent/) 技术，构建实用应用
-3. **深度定制**：学习 [训练与微调](/llms/training/)，打造专属模型
-4. **前沿探索**：了解 [多模态](/llms/multimodal/) 和 [MCP 协议](/llms/mcp/)，拓展应用边界
+- 想按角色学习：从 [学习路径](/guide/) 选择应用开发者、算法工程师或面试冲刺。
+- 想直接看时间表：进入 [学习路线图](/guide/roadmap)。
+- 想先做项目：进入 [实践项目](/practice/)。
