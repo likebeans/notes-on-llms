@@ -1,6 +1,6 @@
 import type { HeadConfig } from 'vitepress'
 import type { ContentFrontmatter } from '../content/model'
-import { SITE_AUTHOR, SITE_ORIGIN, SITE_URL } from './site'
+import { SITE_AUTHOR, SITE_BASE, SITE_ORIGIN, SITE_URL } from './site'
 
 type PageHeadContext = {
   page: string
@@ -17,7 +17,7 @@ const pageUrl = (page: string): string => {
 
 export function buildPageHead({ page, title, description, frontmatter }: PageHeadContext) {
   const url = pageUrl(page)
-  const image = `${SITE_URL}logo.png`
+  const image = `${SITE_ORIGIN}${SITE_BASE}og-default.png`
   const head: HeadConfig[] = [
     ['link', { rel: 'canonical', href: url }],
     ['meta', { property: 'og:type', content: frontmatter.pageType === 'article' ? 'article' : 'website' }],

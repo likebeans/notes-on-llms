@@ -10,7 +10,9 @@
     "docs:preview": "vitepress preview docs",
     "test": "vitest run",
     "test:watch": "vitest",
-    "content:check": "tsx scripts/check-content.ts"
+    "content:check": "tsx scripts/check-content.ts",
+    "site:check": "tsx scripts/check-built-site.ts",
+    "quality": "pnpm test && pnpm content:check && pnpm docs:build && pnpm site:check"
   },
   "keywords": [
     "llm",

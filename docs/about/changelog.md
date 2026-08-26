@@ -19,6 +19,8 @@ tags:
 - 补齐参考手册：术语表、Checklist、评估指标和模板。
 - 补充关于页面：受众、作者视角、内容状态、来源政策和更新流程。
 - 调整侧边栏结构，让资源、参考和面试分区都从概述页开始。
+- 新增生产站点质量门：构建后检查 canonical、Open Graph、Twitter Card、favicon、分享图和 sitemap，并在部署前执行完整质量命令。
+- 验证 GitHub Pages 子路径、桌面与移动端布局、站内搜索、深色模式、代码块、表格、Mermaid 和 Lighthouse 指标。
 
 说明：本条记录描述当前 redesign 分支的内容工作，不声称线上站点已经部署。
 
