@@ -148,7 +148,7 @@ export async function checkBuiltSite(dist: string): Promise<void> {
     errors.push('missing sitemap.xml')
   }
 
-  console.log(`Checked ${inspectedHtmlFiles.length} built HTML pages.`)
+  console.log(`Checked ${inspectedHtmlFiles.length} non-404 built HTML pages.`)
   if (errors.length) throw new Error(errors.join('\n'))
 }
 

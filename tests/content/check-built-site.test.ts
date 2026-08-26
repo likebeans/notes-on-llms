@@ -161,7 +161,7 @@ describe('checkBuiltSite', () => {
 
     await checkBuiltSite(root)
 
-    expect(log).toHaveBeenCalledWith('Checked 1 built HTML pages.')
+    expect(log).toHaveBeenCalledWith('Checked 1 non-404 built HTML pages.')
   })
 
   it('does not abort aggregation on malformed percent escapes in built paths', async () => {
