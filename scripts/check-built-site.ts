@@ -1,4 +1,4 @@
-import { access, readdir, readFile } from 'node:fs/promises'
+import { readdir, readFile, stat } from 'node:fs/promises'
 import { relative, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { SITE_BASE, SITE_ORIGIN } from '../docs/.vitepress/config/site'
@@ -27,7 +27,13 @@ function hasRel(attributes: Attributes, rel: string): boolean {
 }
 
 function hasForbiddenPath(value: string): string | undefined {
-  const decoded = decodeURIComponent(value).toLowerCase()
+  let decoded: string
+  try {
+    decoded = decodeURIComponent(value)
+  } catch {
+    decoded = value
+  }
+  decoded = decoded.toLowerCase()
   return FORBIDDEN_PATH_SEGMENTS.find(segment => decoded.includes(segment.toLowerCase()))
 }
 
@@ -54,8 +60,17 @@ async function assetExists(dist: string, reference: string): Promise<boolean> {
   if (!assetPath || assetPath.startsWith('../')) return false
 
   try {
-    await access(resolve(dist, assetPath))
-    return true
+    const asset = await stat(resolve(dist, assetPath))
+    return asset.isFile()
+  } catch {
+    return false
+  }
+}
+
+function isCanonicalForSite(reference: string): boolean {
+  try {
+    const url = new URL(reference)
+    return url.origin === SITE_ORIGIN && url.pathname.startsWith(SITE_BASE)
   } catch {
     return false
   }
@@ -67,7 +82,7 @@ function validatePageHead(path: string, source: string, errors: string[]): void 
   const canonical = links.find(attributes => hasRel(attributes, 'canonical'))
 
   if (!canonical?.href) errors.push(`${path}: missing canonical link`)
-  else if (!canonical.href.includes(SITE_BASE)) errors.push(`${path}: canonical must include ${SITE_BASE}`)
+  else if (!isCanonicalForSite(canonical.href)) errors.push(`${path}: canonical must be under ${SITE_ORIGIN}${SITE_BASE}`)
 
   for (const property of REQUIRED_OPEN_GRAPH) {
     const meta = metas.find(attributes => attributes.property === property)
@@ -88,6 +103,7 @@ export async function checkBuiltSite(dist: string): Promise<void> {
   const root = resolve(dist)
   const files = await walk(root)
   const htmlFiles = files.filter(file => file.endsWith('.html')).sort()
+  const inspectedHtmlFiles = htmlFiles.filter(file => relative(root, file).replaceAll('\\', '/') !== '404.html')
   const errors: string[] = []
 
   for (const file of files) {
@@ -96,23 +112,30 @@ export async function checkBuiltSite(dist: string): Promise<void> {
     if (forbidden) errors.push(`${path}: built output must not contain ${forbidden}`)
   }
 
-  for (const file of htmlFiles) {
+  for (const file of inspectedHtmlFiles) {
     const path = relative(root, file).replaceAll('\\', '/')
-    if (path === '404.html') continue
 
     const source = await readFile(file, 'utf8')
     validatePageHead(path, source, errors)
 
     const links = tags(source, 'link').map(parseAttributes)
-    const favicon = links.find(attributes => hasRel(attributes, 'icon'))
-    if (!favicon?.href) errors.push(`${path}: missing favicon link`)
-    else if (!await assetExists(root, favicon.href)) errors.push(`${path}: favicon target is missing or bypasses ${SITE_BASE}: ${favicon.href}`)
+    const favicons = links.filter(attributes => hasRel(attributes, 'icon'))
+    if (!favicons.length) {
+      errors.push(`${path}: missing favicon link`)
+    }
+    for (const favicon of favicons) {
+      if (!favicon.href) errors.push(`${path}: missing favicon link`)
+      else if (!await assetExists(root, favicon.href)) errors.push(`${path}: favicon target is missing or bypasses ${SITE_BASE}: ${favicon.href}`)
+    }
 
-    const shareImage = tags(source, 'meta')
+    const shareImages = tags(source, 'meta')
       .map(parseAttributes)
-      .find(attributes => attributes.property === 'og:image')
-    if (shareImage?.content && !await assetExists(root, shareImage.content)) {
-      errors.push(`${path}: share image target is missing or bypasses ${SITE_BASE}: ${shareImage.content}`)
+      .filter(attributes => attributes.property === 'og:image')
+    for (const shareImage of shareImages) {
+      if (!shareImage.content) errors.push(`${path}: missing og:image metadata`)
+      else if (!await assetExists(root, shareImage.content)) {
+        errors.push(`${path}: share image target is missing or bypasses ${SITE_BASE}: ${shareImage.content}`)
+      }
     }
   }
 
@@ -125,7 +148,7 @@ export async function checkBuiltSite(dist: string): Promise<void> {
     errors.push('missing sitemap.xml')
   }
 
-  console.log(`Checked ${htmlFiles.length} built HTML pages.`)
+  console.log(`Checked ${inspectedHtmlFiles.length} built HTML pages.`)
   if (errors.length) throw new Error(errors.join('\n'))
 }
 
