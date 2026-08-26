@@ -14,14 +14,14 @@ tags:
 
 视频适合建立直觉，但实现时仍要回到官方文档、论文或代码。这里优先收录官方课程页、大学公开课页和厂商开发者演示。
 
-| 资源 | 年份 | URL | 适合谁 |
-| --- | --- | --- | --- |
-| Stanford CS25: Transformers United | 2026 | [课程主页](https://web.stanford.edu/class/cs25/) | 想从研究者视角理解 Transformer 和前沿应用的人。 |
-| LangChain for LLM Application Development | 2023 | [DeepLearning.AI 课程](https://www.deeplearning.ai/courses/langchain/) | 想快速理解 LLM 应用链路和组件化开发的人。 |
-| AI Agents in LangGraph | 2024 | [DeepLearning.AI 课程](https://www.deeplearning.ai/courses/ai-agents-in-langgraph/) | 想从状态图角度理解 Agent 工作流的人。 |
-| OpenAI DevDay talks | 2024 | [OpenAI YouTube](https://www.youtube.com/@OpenAI/videos) | 需要跟进结构化输出、实时 API、Agent 等开发者主题的人。 |
-| OpenAI DevDay 2023 Breakout Sessions | 2023 | [OpenAI Community](https://community.openai.com/t/openai-dev-day-2023-breakout-sessions/505213) | 想了解 Assistants/API 工程用法和开发者示例的人。 |
-| DeepLearning.AI AI Courses | 持续更新 | [课程索引](https://www.deeplearning.ai/courses/) | 想按主题补课的人，适合做入门索引。 |
+<SourceList :items="[
+  { title: 'Stanford CS25: Transformers United V6', href: 'https://web.stanford.edu/class/cs25/', note: '2026 · 官方课程页，适合从研究者视角理解 Transformer 和前沿应用。' },
+  { title: 'LangChain for LLM Application Development', href: 'https://www.deeplearning.ai/courses/langchain', note: '2023 · DeepLearning.AI 官方课程，适合快速理解 LLM 应用链路。' },
+  { title: 'AI Agents in LangGraph', href: 'https://www.deeplearning.ai/courses/ai-agents-in-langgraph', note: '2024 · DeepLearning.AI 官方课程，适合从状态图角度理解 Agent 工作流。' },
+  { title: 'OpenAI DevDay 2024 | Structured outputs for reliable applications', href: 'https://www.youtube.com/watch?v=kE4BkATIl9c', note: '2024 · OpenAI 官方视频，适合学习 schema 约束输出。' },
+  { title: 'OpenAI DevDay 2024 | Balancing accuracy, latency, and cost at scale', href: 'https://www.youtube.com/watch?v=Bx6sUDRMx-8', note: '2024 · OpenAI 官方视频，适合理解生产应用的质量、延迟和成本权衡。' },
+  { title: 'OpenAI DevDay 2025', href: 'https://openai.com/devday/', note: '2025 · OpenAI 官方活动页，汇总 AgentKit、Apps SDK、Sora 2 API 等开发者资源。' }
+]" />
 
 ## 看视频时怎么记笔记
 
