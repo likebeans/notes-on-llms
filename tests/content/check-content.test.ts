@@ -35,3 +35,27 @@ tags: [rag]
     'article.md: draft pages must live under _drafts or use .draft.md',
   )
 })
+
+it('rejects public placeholder markers', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'content-check-'))
+  temporaryRoots.push(root)
+  await writeFile(join(root, 'placeholder.md'), `---
+title: Placeholder
+description: A public placeholder page
+pageType: article
+module: site
+level: intermediate
+prerequisites: []
+updated: '2026-08-25'
+reviewed: '2026-08-25'
+contentStatus: needs-review
+tags: [interviews]
+---
+
+# Placeholder
+
+这部分内容待补充。
+`, 'utf8')
+
+  await expect(checkContent(root)).rejects.toThrow('placeholder marker')
+})

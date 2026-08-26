@@ -34,4 +34,13 @@ describe('article navigation', () => {
   it('treats an unordered article as the final deterministic entry', () => {
     expect(findAdjacentArticle([{ ...pages[0], order: undefined }], '/llms/rag/').next).toBeUndefined()
   })
+
+  it('does not create custom adjacent links for site-level auxiliary articles', () => {
+    const sitePages = [
+      page({ title: 'Agent 面试题', module: 'site', url: '/interviews/agent-questions', order: undefined }),
+      page({ title: 'Checklist', module: 'site', url: '/reference/checklists', order: undefined }),
+    ]
+
+    expect(findAdjacentArticle(sitePages, '/interviews/agent-questions')).toEqual({})
+  })
 })

@@ -43,4 +43,36 @@ describe('buildPageHead', () => {
     ])
     expect(JSON.stringify(head)).not.toContain('application/ld+json')
   })
+
+  it('creates the root canonical for the homepage', () => {
+    const head = buildPageHead({
+      page: 'index.md',
+      title: 'Notes on LLMs',
+      description: '大模型研究手册',
+      frontmatter: { pageType: 'landing', updated: '2026-08-26' },
+    })
+
+    expect(head).toContainEqual([
+      'link',
+      { rel: 'canonical', href: 'https://likebeans.github.io/notes-on-llms/' },
+    ])
+  })
+
+  it('keeps .html in canonicals for non-index pages when cleanUrls is disabled', () => {
+    const head = buildPageHead({
+      page: 'llms/rag/retrieval.md',
+      title: '检索策略',
+      description: 'RAG 检索策略',
+      frontmatter: {
+        pageType: 'article',
+        updated: '2026-08-25',
+        reviewed: '2026-08-25',
+      },
+    })
+
+    expect(head).toContainEqual([
+      'link',
+      { rel: 'canonical', href: 'https://likebeans.github.io/notes-on-llms/llms/rag/retrieval.html' },
+    ])
+  })
 })

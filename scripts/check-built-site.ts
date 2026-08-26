@@ -76,13 +76,23 @@ function isCanonicalForSite(reference: string): boolean {
   }
 }
 
+function expectedCanonicalForPath(path: string): string {
+  if (path === 'index.html') return `${SITE_ORIGIN}${SITE_BASE}`
+  if (path.endsWith('/index.html')) return `${SITE_ORIGIN}${SITE_BASE}${path.replace(/index\.html$/, '')}`
+  return `${SITE_ORIGIN}${SITE_BASE}${path}`
+}
+
 function validatePageHead(path: string, source: string, errors: string[]): void {
   const links = tags(source, 'link').map(parseAttributes)
   const metas = tags(source, 'meta').map(parseAttributes)
   const canonical = links.find(attributes => hasRel(attributes, 'canonical'))
+  const expectedCanonical = expectedCanonicalForPath(path)
 
   if (!canonical?.href) errors.push(`${path}: missing canonical link`)
   else if (!isCanonicalForSite(canonical.href)) errors.push(`${path}: canonical must be under ${SITE_ORIGIN}${SITE_BASE}`)
+  else if (canonical.href !== expectedCanonical) {
+    errors.push(`${path}: canonical must match built output path: expected ${expectedCanonical}, received ${canonical.href}`)
+  }
 
   for (const property of REQUIRED_OPEN_GRAPH) {
     const meta = metas.find(attributes => attributes.property === property)

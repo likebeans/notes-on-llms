@@ -1,5 +1,7 @@
 <script setup lang="ts">
+import { computed } from 'vue'
 import type { ContentStatus as ContentStatusType } from '../../../content/model'
+import { getContentStatusCopy } from './contentStatusCopy'
 
 const props = defineProps<{
   status: ContentStatusType
@@ -7,21 +9,16 @@ const props = defineProps<{
   sourceCount: number
 }>()
 
-const labels: Record<ContentStatusType, string> = {
-  verified: '已核验',
-  'needs-review': '待复核',
-  opinion: '观点内容',
-  historical: '历史资料',
-  draft: '草稿',
-}
+const copy = computed(() => getContentStatusCopy(props.status))
 </script>
 
 <template>
   <aside class="nl-content-status" :data-status="props.status" aria-label="内容状态">
     <p>
-      <strong>内容状态：{{ labels[props.status] }}</strong>
+      <strong>内容状态：{{ copy.label }}</strong>
       <span v-if="props.reviewed">最近复核：{{ props.reviewed }}</span>
       <span>参考资料：{{ props.sourceCount }} 项</span>
     </p>
+    <p>{{ copy.guidance }}</p>
   </aside>
 </template>

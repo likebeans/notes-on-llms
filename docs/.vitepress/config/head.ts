@@ -11,8 +11,9 @@ type PageHeadContext = {
 
 const pageUrl = (page: string): string => {
   const path = page.replace(/^\/+/, '').replace(/\.md$/, '')
-  const route = path === 'index' ? '' : path.replace(/\/index$/, '')
-  return `${SITE_URL}${route}${route && !route.endsWith('/') ? (page.endsWith('/index.md') ? '/' : '') : ''}`
+  if (path === 'index') return SITE_URL
+  if (path.endsWith('/index')) return `${SITE_URL}${path.replace(/\/index$/, '')}/`
+  return `${SITE_URL}${path}.html`
 }
 
 export function buildPageHead({ page, title, description, frontmatter }: PageHeadContext) {

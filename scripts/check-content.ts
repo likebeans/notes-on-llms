@@ -10,6 +10,10 @@ export function findBaseUnsafeLinks(source: string): string[] {
   return [...source.matchAll(/href=["'](\/(?!\/)[^"']*)["']/g)].map(match => match[1])
 }
 
+export function findPlaceholderMarkers(source: string): string[] {
+  return [...new Set([...source.matchAll(/加密内容|待补充/g)].map(match => match[0]))]
+}
+
 export async function collectPublicMarkdown(root: string): Promise<string[]> {
   const files: string[] = []
 
@@ -43,6 +47,10 @@ export async function checkContent(root: string): Promise<void> {
 
     for (const href of findBaseUnsafeLinks(source)) {
       errors.push(`${path}: raw HTML href bypasses base: ${href}`)
+    }
+
+    for (const marker of findPlaceholderMarkers(source)) {
+      errors.push(`${path}: public placeholder marker: ${marker}`)
     }
 
     if (data.contentStatus === 'draft' && !path.startsWith('_drafts/') && !path.endsWith('.draft.md')) {

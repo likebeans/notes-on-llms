@@ -3,17 +3,39 @@ title: 系统设计
 description: LLM 系统设计面试题
 pageType: article
 module: site
-updated: '2025-12-27'
+updated: '2026-08-26'
 contentStatus: needs-review
 tags:
   - interviews
 level: intermediate
-prerequisites: []
-reviewed: '2026-08-25'
-techVersion: 待复核（2026-08）
-password: true
+prerequisites:
+  - /guide/roadmap
+reviewed: '2026-08-26'
+techVersion: 2026-08（LLM 应用架构）
 ---
 
 # 系统设计
 
-> 🔒 加密内容，待补充
+LLM 系统设计题考的是“把模型放进可靠产品”的能力。一个好答案不只画模型框，还会画数据、权限、评估、观测、失败恢复和成本边界。
+
+## 常见题目
+
+1. 设计一个企业知识库问答系统，要求支持权限、引用、增量更新和拒答。
+2. 设计一个客服 Agent，要求能查订单、改地址、创建工单并在高风险操作前确认。
+3. 设计一个面向开发者的代码助手，要求支持仓库检索、测试运行和安全沙箱。
+4. 设计一个多模态文档审核系统，要求处理扫描件、表格、截图和人工复核。
+5. 设计一套 LLM 评估平台，支持数据集版本、自动 grader、人工复审和发布门禁。
+
+## 回答框架
+
+- 需求边界：用户是谁、任务成功如何定义、哪些操作不能自动化。
+- 数据路径：数据来源、解析、索引、权限、缓存、删除和版本。
+- 模型路径：prompt、RAG、tool calling、agent loop、fallback 和拒答。
+- 安全路径：注入防护、敏感信息、外部写入、审批和审计。
+- 评估路径：离线集、线上监控、失败样本、A/B、回滚和成本。
+
+## 追问角度
+
+面试官常会追问一个故障：引用错了怎么办？工具写错数据怎么办？延迟翻倍怎么办？模型升级后答案变差怎么办？你可以用同一套思路回答：先定位是哪一层出错，再说明观测信号、止损策略和长期修复。
+
+相关复习：[学习路线图](/guide/roadmap)、[RAG 技术全景](/llms/rag/) 和 [Agent 技术全景](/llms/agent/)。

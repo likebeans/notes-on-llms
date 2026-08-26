@@ -164,11 +164,28 @@ describe('checkBuiltSite', () => {
     expect(log).toHaveBeenCalledWith('Checked 1 non-404 built HTML pages.')
   })
 
+  it('rejects canonicals that do not exactly match the built output path', async () => {
+    const root = await fixture(validPage, {
+      'llms/rag/retrieval.html': validPage.replace(
+        'href="https://likebeans.github.io/notes-on-llms/"',
+        'href="https://likebeans.github.io/notes-on-llms/llms/rag/retrieval"',
+      ),
+      'logo.svg': '<svg/>',
+      'og-default.png': 'image',
+    })
+
+    await expect(checkBuiltSite(root)).rejects.toThrow('canonical must match')
+  })
+
   it('does not abort aggregation on malformed percent escapes in built paths', async () => {
+    const encodedPathPage = validPage.replace(
+      'href="https://likebeans.github.io/notes-on-llms/"',
+      'href="https://likebeans.github.io/notes-on-llms/%E0%A4%A/"',
+    )
     const root = await fixture(validPage, {
       'logo.svg': '<svg/>',
       'og-default.png': 'image',
-      '%E0%A4%A/index.html': validPage,
+      '%E0%A4%A/index.html': encodedPathPage,
     })
 
     await expect(checkBuiltSite(root)).resolves.toBeUndefined()

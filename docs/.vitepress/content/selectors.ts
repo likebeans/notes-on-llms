@@ -31,6 +31,7 @@ export function findAdjacentArticle(items: ContentIndexItem[], url: string): Adj
   const currentUrl = normalizeUrl(url)
   const current = items.find(item => normalizeUrl(item.url) === currentUrl && !isDraft(item))
   if (!current) return {}
+  if (current.module === 'site') return {}
 
   const moduleArticles = items
     .filter(item => item.module === current.module && item.pageType === 'article' && !isDraft(item))
