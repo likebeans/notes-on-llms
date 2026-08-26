@@ -99,13 +99,15 @@ describe('content loader transform', () => {
       article('/superpowers/internal.html', {}, 'invalid internal content'),
       article('/llms/rag/draft.html', { ...publicFrontmatter, title: '草稿', contentStatus: 'draft' }, 'draft'),
       article('/llms/rag/long.html', publicFrontmatter, longSource),
-      article('/llms/rag/references/index.html', { ...publicFrontmatter, title: '参考资料' }, '正文\n\n## 参考资料\n- 第一项\n* 第二项')
+      article('/llms/rag/references/index.html', { ...publicFrontmatter, title: '参考资料' }, '正文\n\n## 参考资料\n- 第一项\n* 第二项'),
+      article('/llms/rag/sources.html', { ...publicFrontmatter, title: 'SourceList 参考资料' }, `正文\n\n<SourceList :items="[\n  { title: '第一项', href: 'https://example.com/one' },\n  { title: '第二项', href: 'https://example.com/two' }\n]" />`)
     ]
 
     const result = transform(raw)
-    expect(result.map(item => item.title)).toEqual(['公开文章', '参考资料'])
+    expect(result.map(item => item.title)).toEqual(['公开文章', '参考资料', 'SourceList 参考资料'])
     expect(result[0]).toMatchObject({ url: '/llms/rag/long', readingTime: 2, sourceCount: 0 })
     expect(result[1]).toMatchObject({ url: '/llms/rag/references/', readingTime: 1, sourceCount: 2 })
+    expect(result[2]).toMatchObject({ url: '/llms/rag/sources', readingTime: 1, sourceCount: 2 })
     expect(() => transform([
       article('/llms/rag/invalid.html', { ...publicFrontmatter, reviewed: undefined }, 'invalid public metadata')
     ])).toThrow('/llms/rag/invalid.html: reviewed is required for a published article')
