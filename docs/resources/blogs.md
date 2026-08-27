@@ -3,7 +3,7 @@ title: 博客
 description: 官方博客、文档和工程指南索引。
 pageType: landing
 module: site
-updated: '2026-08-26'
+updated: '2026-08-27'
 contentStatus: needs-review
 tags:
   - resources
@@ -13,6 +13,8 @@ tags:
 # 博客
 
 这里的“博客”泛指官方公告、开发者文档和工程指南。使用这些内容时，要特别注意发布日期、模型版本和 API 是否仍然有效。
+
+如果你想阅读作者自己的技术博客原文，最新 30 篇已经同步到 [CSDN 全文镜像](/resources/csdn)，并按 Agent、Prompt、RAG、MCP、Training、Multimodal 与工程实践重新归类。
 
 <SourceList :items="[
   { title: 'Function calling and other API updates', href: 'https://openai.com/index/function-calling-and-other-api-updates/', note: '2023 · OpenAI 官方博客，关联工具调用、结构化参数和 Agent 基础能力。' },

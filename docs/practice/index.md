@@ -3,7 +3,7 @@ title: 实践项目
 description: 从入门、进阶到生产级的大模型项目练习清单。
 pageType: landing
 module: site
-updated: '2026-08-26'
+updated: '2026-08-27'
 contentStatus: needs-review
 tags:
   - practice
@@ -15,6 +15,8 @@ tags:
 学习 LLM 最容易掉进“看懂了但不会做”的坑。这里按难度列出项目，你可以把它们当成每个模块的验收题：做完一个，再回去补理论。
 
 实践项目的目标不是堆更多 SDK，而是建立一套能复盘的工程闭环：输入样本、系统 trace、评估指标、失败分类和下一步实验。只要这五件事缺一件，项目就很难从 demo 走向可靠系统。
+
+此外，我也把 CSDN 最新 30 篇文章做了站内全文镜像：偏 Agent、Prompt、RAG、MCP、Training、多模态的文章会进入对应知识模块，偏文件上传、连接池、SSRF、Celery、权限系统等工程主题的文章收在 [CSDN 镜像 / 工程实践](/resources/csdn#工程实践)。
 
 ## 入门项目
 

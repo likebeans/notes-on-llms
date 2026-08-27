@@ -3,7 +3,7 @@ title: 资源库
 description: 论文、官方博客、视频课程和开源项目的精选入口。
 pageType: landing
 module: site
-updated: '2026-08-26'
+updated: '2026-08-27'
 contentStatus: needs-review
 tags:
   - resources
@@ -13,13 +13,14 @@ tags:
 
 资源页优先收录“能追溯到源头”的材料：论文、官方文档/博客、官方课程或维护活跃的开源仓库。二手解读可以帮助理解，但不应该替代原始来源。
 
-## 四类资源
+## 五类资源
 
 | 分类 | 适合什么时候看 | 入口 |
 | --- | --- | --- |
 | 论文 | 想确认技术定义、方法来源和实验设定 | [论文](/resources/papers) |
 | 视频 | 想快速建立直觉，适合入门和复习 | [视频](/resources/videos) |
 | 博客/文档 | 想跟进 API、产品实践和工程建议 | [博客](/resources/blogs) |
+| CSDN 全文镜像 | 想按本站结构阅读作者最新技术博客原文 | [CSDN 镜像](/resources/csdn) |
 | 开源项目 | 想看真实实现、样例和工程结构 | [开源项目](/resources/repos) |
 
 ## 使用建议

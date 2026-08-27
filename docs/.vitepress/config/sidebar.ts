@@ -62,6 +62,7 @@ export const sidebar = {
         { text: '视频', link: '/resources/videos' },
         { text: '论文', link: '/resources/papers' },
         { text: '博客', link: '/resources/blogs' },
+        { text: 'CSDN 镜像', link: '/resources/csdn' },
         { text: '开源项目', link: '/resources/repos' },
       ],
     },
