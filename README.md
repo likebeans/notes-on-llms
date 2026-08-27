@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-  <strong>系统性理解大语言模型（LLM）从原理到工程实践的知识仓库</strong>
+  <strong>一份面向工程实践的 LLM 系统学习手册</strong>
 </p>
 
 <p align="center">
@@ -19,165 +19,139 @@
 </p>
 
 <p align="center">
-  面向 AI 工程师、研究者以及深度学习学习者的 <strong>大语言模型全景技术参考指南</strong><br>
-  帮助你不只是理解模型，还能<strong>理解模型背后的系统工程逻辑</strong>
+  从 Prompt、RAG、Agent、MCP 到训练微调与多模态，系统整理大语言模型从原理到落地的关键知识。<br>
+  目标不是堆概念，而是帮你建立可以反复复用的技术判断框架。
 </p>
 
 ---
 
-## 🚀 为什么要有这个仓库？
+## 项目定位
 
-当前关于 LLM 的内容非常碎片化：
+LLM 相关资料很多，但常见问题也很明显：
 
-- 🚫 只讲 Prompt / API 调用教程
-- 🚫 只讲单篇论文解读
-- 🚫 只讲模型用法而不讲原理
-- ❓ 缺少整体视角与工程上下文
+- 只讲 API 调用，不讲系统边界；
+- 只讲单篇论文，不讲工程取舍；
+- 只讲模型能力，不讲评估、监控、成本和失败恢复；
+- 内容分散，缺少从入门到生产实践的连续路径。
 
-而 **notes-on-llms** 追求的是：
+**notes-on-llms** 希望成为一份可持续更新的 LLM 技术手册：既能作为学习路线，也能作为做项目、准备面试和复盘工程方案时的参考资料。
 
-> ⭐ **从原理 → 架构 → 工程 → 推理 → 安全 → 多模态 全面理解 LLM 技术栈**
+在线阅读：
 
-不仅仅是知识笔记，而是一套 **可复用且持续更新的认知框架**。
+👉 [https://likebeans.github.io/notes-on-llms/](https://likebeans.github.io/notes-on-llms/)
 
----
+## 内容地图
 
-## 🧠 这个仓库适合谁？
+| 模块 | 关注问题 | 适合阅读阶段 |
+| --- | --- | --- |
+| [Prompt](https://likebeans.github.io/notes-on-llms/llms/prompt/) | 如何组织指令、上下文、结构化输出与安全边界 | 入门到进阶 |
+| [RAG](https://likebeans.github.io/notes-on-llms/llms/rag/) | 如何让模型基于外部知识回答，并能评估与追溯 | 进阶 |
+| [Agent](https://likebeans.github.io/notes-on-llms/llms/agent/) | 如何让模型规划、调用工具、处理状态和长任务 | 进阶到生产 |
+| [MCP](https://likebeans.github.io/notes-on-llms/llms/mcp/) | 如何用协议连接模型、工具、资源和应用上下文 | 进阶 |
+| [Training](https://likebeans.github.io/notes-on-llms/llms/training/) | 如何理解数据、SFT、RLHF、DPO、LoRA、评估与推理 | 深入 |
+| [Multimodal](https://likebeans.github.io/notes-on-llms/llms/multimodal/) | 如何理解视觉编码、多模态连接、生成模型和部署评测 | 拓展 |
 
-| 人群 | 收获 |
-|------|------|
-| ✅ **AI 工程师** | 系统理解 LLM 技术栈，构建全栈认知地图 |
-| ✅ **研究者** | 从"会用模型"进阶到"理解模型原理与架构" |
-| ✅ **求职者** | 系统准备 LLM 相关岗位面试 |
-| ✅ **学习者** | 已有深度学习基础，希望深入 LLM 领域 |
+辅助栏目：
 
----
+- [学习路径](https://likebeans.github.io/notes-on-llms/guide/)：按阶段安排阅读顺序。
+- [实践项目](https://likebeans.github.io/notes-on-llms/practice/)：把知识点转成可验收的工程练习。
+- [面试专区](https://likebeans.github.io/notes-on-llms/interviews/)：整理系统设计、RAG、Agent、训练微调等常见问题。
+- [速查手册](https://likebeans.github.io/notes-on-llms/reference/)：术语、Checklist、指标和模板。
+- [资源库](https://likebeans.github.io/notes-on-llms/resources/)：论文、官方文档、博客、视频和开源项目。
 
-## 🗂 仓库结构概览
+## CSDN 全文镜像
 
-> 每个模块都是相对独立的知识单元，组合起来构成完整的大语言模型认知体系。
+站内已同步作者 CSDN 博客最新 30 篇公开文章，并按本站知识体系重新归类：
 
+- Agent：运行时、长任务、SSE 状态恢复、Agent UI、多智能体、评估体系、工具调用适配等；
+- Prompt：GEO、结构化输出稳定性、Prompt 到工程治理；
+- RAG：文档分块、知识图谱与检索增强；
+- MCP：LSP / MCP / ACP / Agent 协议体系；
+- Training：QPS、TPM、并发、对象存储与 AI 训练；
+- Multimodal：实时 3D 数字人与大模型接入；
+- 工程实践：Playwright、Celery、连接池、文件上传、权限、SSRF 等。
+
+入口：
+
+👉 [CSDN 全文镜像](https://likebeans.github.io/notes-on-llms/resources/csdn)
+
+每篇镜像文章都保留原文链接和发布时间。正文主体保持原文内容，站内只补充元数据、来源说明和主题分类，方便在学习手册里连续阅读。
+
+## 推荐学习顺序
+
+如果你刚开始系统学习 LLM，可以按这个顺序走：
+
+1. [前置知识](https://likebeans.github.io/notes-on-llms/guide/prerequisites)：补齐 Transformer、概率、向量检索和基础工程概念。
+2. [Prompt](https://likebeans.github.io/notes-on-llms/llms/prompt/)：理解模型交互、上下文工程和结构化输出。
+3. [RAG](https://likebeans.github.io/notes-on-llms/llms/rag/)：把模型接到外部知识，理解检索、重排、引用和评估。
+4. [Agent](https://likebeans.github.io/notes-on-llms/llms/agent/)：学习工具调用、规划、记忆、人机协同、异常恢复和监控。
+5. [Training](https://likebeans.github.io/notes-on-llms/llms/training/)：理解数据、微调、对齐、部署和推理优化。
+6. [MCP](https://likebeans.github.io/notes-on-llms/llms/mcp/) 与 [Multimodal](https://likebeans.github.io/notes-on-llms/llms/multimodal/)：扩展到协议生态与多模态系统。
+
+更完整的阶段安排见 [学习路线图](https://likebeans.github.io/notes-on-llms/guide/roadmap)。
+
+## 仓库结构
+
+```text
+docs/
+├── index.md                  # 首页
+├── guide/                    # 学习路径与前置知识
+├── llms/
+│   ├── prompt/               # Prompt 与上下文工程
+│   ├── rag/                  # RAG 核心组件、优化与生产实践
+│   ├── agent/                # Agent 设计模式、运行时与工程治理
+│   ├── mcp/                  # Model Context Protocol
+│   ├── training/             # 训练、对齐、评估与推理部署
+│   └── multimodal/           # 多模态模型与系统
+├── practice/                 # 实践项目与工程主题
+├── interviews/               # 面试题与系统设计
+├── reference/                # 术语、指标、模板和 Checklist
+├── resources/                # 论文、博客、视频、开源项目与 CSDN 镜像
+└── .vitepress/               # VitePress 配置、主题与内容索引
 ```
-📦 notes-on-llms/docs/llms/
-├── 📌 rag/              # RAG 检索增强生成：分块、Embedding、向量库、重排、评估
-├── 📌 agent/            # Agent 智能体：规划(CoT/ToT/ReAct)、记忆、工具调用、多智能体
-├── 📌 training/         # 训练微调：数据工程、SFT、DPO、RLHF、LoRA、推理优化
-├── 📌 prompt/           # 提示工程：ICL、结构化框架、安全防御
-├── 📌 multimodal/       # 多模态：视觉编码、模态连接、扩散模型、统一架构
-├── 📌 mcp/              # MCP 协议：AI 工具调用标准协议
-├── 📌 interviews/       # 面试专区：系统设计、RAG/Agent/训练面试题
-└── 📌 reference/        # 速查手册：术语表、Checklist
-```
 
----
+## 本地开发
 
-## 📖 核心内容导览
-
-| 模块 | 核心主题 | 亮点内容 |
-|------|----------|----------|
-| **RAG** | 检索增强生成 | 架构演进、分块策略、向量数据库选型、重排机制、评估体系 |
-| **Agent** | 智能体系统 | 核心公式、CoT/ToT/ReAct、记忆系统、多智能体框架对比 |
-| **Training** | 训练微调 | Transformer 架构、分布式训练、PEFT、对齐技术、推理优化 |
-| **Prompt** | 提示工程 | ICL 机制、CRISPE 框架、APE 自动化、安全防御 |
-| **Multimodal** | 多模态 | ViT/CLIP、模态连接器、扩散模型、Show-o 统一架构 |
-| **MCP** | 工具协议 | JSON-RPC、核心原语、安全架构、生态系统 |
-
----
-
-## 🔍 学习路线（推荐）
-
-| 阶段 | 模块 | 目标 |
-|------|------|------|
-| **入门** | `prompt/` | 理解 ICL、CoT 等核心推理范式 |
-| **进阶** | `rag/` + `agent/` | 掌握检索增强与智能体架构 |
-| **深化** | `training/` | 理解训练全流程与优化技术 |
-| **拓展** | `multimodal/` + `mcp/` | 探索多模态与工具协议前沿 |
-
-📌 详细路线请访问 👉 [学习指南](https://likebeans.github.io/notes-on-llms/guide/)
-
----
-
-## ✨ 本仓库三大特色
-
-### 🎯 1. 全景式技术架构
-
-不是零散笔记集合，而是一套从**底层原理到工程实践**的系统认知图谱。每个模块包含：
-- Mermaid 流程图可视化
-- 技术对比表格
-- 数学公式推导
-- 代码示例
-
-### 📈 2. 工程驱动而非只读研究
-
-读完不仅知道怎么实现，还知道：
-- **为什么这么设计？**
-- **不同范式之间有什么联系和权衡？**
-- **在实际工程中会遇到哪些问题？**
-
-### 🔄 3. 同步博客 + 仓库更新
-
-仓库内容与技术博客互联互通：
-- 博客提供更易读的讲解
-- 仓库提供完整结构化参考
-- 两者共同维护最新内容
-
-📌 博客链接：[dd-ff.blog.csdn.net](https://dd-ff.blog.csdn.net/)
-
----
-
-## 🌐 在线访问
-
-👉 **[https://likebeans.github.io/notes-on-llms/](https://likebeans.github.io/notes-on-llms/)**
-
----
-
-## 🛠️ 本地开发
+本项目使用 VitePress 与 pnpm。
 
 ```bash
-# 克隆仓库
 git clone https://github.com/likebeans/notes-on-llms.git
 cd notes-on-llms
 
-# 安装依赖
 pnpm install
-
-# 启动开发服务器
 pnpm docs:dev
-
-# 构建生产版本
-pnpm docs:build
-
-# 预览构建结果
-pnpm docs:preview
 ```
 
----
+常用命令：
 
-## 🙌 如何贡献？
+| 命令 | 说明 |
+| --- | --- |
+| `pnpm docs:dev` | 启动本地开发服务器 |
+| `pnpm test` | 运行单元测试 |
+| `pnpm content:check` | 检查公开 Markdown 元数据、占位符和基础链接规则 |
+| `pnpm docs:build` | 构建生产站点 |
+| `pnpm site:check` | 检查构建后的 HTML 输出 |
+| `pnpm quality` | 依次运行测试、内容检查、构建和站点检查 |
 
-欢迎一起完善这个知识库：
+> 提示：由于站内包含 CSDN 全文镜像，生产构建会比普通文档站更慢，并可能出现 Rollup chunk 体积提示。只要 `pnpm quality` 最终通过即可。
 
-- ✔️ 提交 Issue 反馈问题或建议
-- ✔️ 提交 Pull Request 补充内容
-- ✔️ 改进术语解析与图示
-- ✔️ 增加工程实战案例
+## 内容维护原则
 
-让这个仓库成为 LLM 技术参考的 **行业级知识地标**。
+1. **标明状态**：区分已核验、待复核、观点、历史资料和草稿。
+2. **保留来源**：重要事实优先链接论文、官方文档、官方博客或原始项目。
+3. **承认时效性**：模型 API、框架和工具链变化很快，过时内容不假装“永远正确”。
+4. **面向工程判断**：不仅解释是什么，也说明什么时候用、风险在哪里、如何评估。
+5. **避免碎片化**：新增文章尽量放回 Prompt、RAG、Agent、MCP、Training、Multimodal 或实践路径中。
 
----
+## 贡献方式
 
-## ⭐ Star & Follow
+欢迎通过 Issue 或 Pull Request 一起改进：
 
-如果这个仓库对你有帮助：
+- 修正文档中的错误、失效链接或过时 API；
+- 补充论文、官方文档、工程案例或评估方法；
+- 改进 Mermaid 图、表格、Checklist 和模板；
+- 增加真实项目中的失败案例与复盘经验。
 
-- 👉 ⭐ **Star** 收藏仓库
-- 👉 🛎 **Watch** 关注更新
-- 👉 📢 推荐给正在学习 LLM 的同学们！
+## License
 
-让我们一起把 LLM 技术理解提升到一个新的等级 🚀
-
----
-
-## 📄 License
-
-本项目遵循 [MIT](./LICENSE) 许可协议。
+本项目采用 [MIT License](./LICENSE)。
