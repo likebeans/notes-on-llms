@@ -147,6 +147,8 @@
 
 .nl-article-meta dt {
   font-weight: 700;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .nl-article-meta dd {

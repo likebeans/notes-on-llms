@@ -3,15 +3,15 @@ title: SFT 监督微调
 description: Supervised Fine-Tuning - 让模型学会遵循指令
 pageType: article
 module: training
-updated: '2025-12-27'
+updated: '2026-10-08'
 contentStatus: needs-review
 tags:
   - training
 level: advanced
 prerequisites:
   - /guide/prerequisites
-reviewed: '2026-08-25'
-techVersion: 待复核（2026-08）
+reviewed: '2026-10-08'
+techVersion: 原理与示例复核于 2026-10；训练脚本未在 GPU 实测
 ---
 
 # SFT 监督微调
@@ -37,7 +37,7 @@ techVersion: 待复核（2026-08）
 
 | 目标 | 说明 | 实现方式 |
 |------|------|----------|
-| **知识注入** | 确保模型掌握专业领域的术语和事实 | CPT（持续预训练） |
+| **领域适配** | 增强领域语言与任务知识，不能保证事实记忆准确 | CPT / SFT，动态事实配合 RAG |
 | **行为对齐** | 教会模型按照用户特定指令和格式输出 | SFT（监督微调） |
 
 ### SFT的作用
@@ -49,34 +49,24 @@ techVersion: 待复核（2026-08）
 | **RLHF后** | 输出符合人类偏好 | 最大化奖励信号 |
 
 ```
-Base Model (续写能力) → SFT → Instruct Model (指令遵循) → RLHF → Chat Model (对齐)
+一种训练路线：Base → SFT → 偏好优化；Instruct/Chat 是产品命名，不对应强制独立阶段
 ```
 
 ### SFT vs CPT vs RAG
 
-| 策略 | 目标 | 数据类型 | 成本 | 核心优势 |
-|------|------|----------|------|----------|
-| **CPT** | 注入领域知识 | 海量非结构化文本 | 高（7-100万美元） | 深度适配领域语言，修复知识结构性缺陷 |
-| **SFT** | 教授指令遵循行为 | 高质量结构化问答数据 | 中低（0.5-14万美元） | 精准控制输出格式、风格和任务解决能力 |
-| **RAG** | 访问实时/私有知识 | 外部文档/知识库 | 低 | 知识即时更新，高可追溯性 |
+| 策略 | 改变什么 | 适用条件 | 主要验收点 |
+| --- | --- | --- | --- |
+| CPT | 继续优化语言建模分布 | 大量领域语料、基础领域表征不足 | 领域困惑度与下游任务，通用能力回归 |
+| SFT | 提高目标回答的条件概率 | 有稳定任务规范与高质量示范 | 任务成功率、格式正确率、未见问题泛化 |
+| RAG | 为当前请求提供外部证据 | 内容常变、需要引用或权限过滤 | 召回覆盖、引用准确性、答案忠实度 |
 
-::: warning 成本对比
-- 从头训练：~7800万美元（GPT-4估计）
-- CPT：7-100万美元
-- SFT + PEFT：成本最低，价值实现时间最短
-:::
+它们可组合使用。SFT 也能学习知识，CPT 也会改变行为；区分的是训练目标与输入数据，而不是互斥的能力。成本由模型规模、token 数、硬件、标注和服务流量决定，不使用无预算口径的美元区间比较。
 
 ### SFT vs 强化学习
 
-根据 OpenAI 联合创始人 John Schulman 的报告，SFT 和强化学习各有优势：
+SFT 用 teacher forcing 逐 token 拟合示范；RL 通过奖励与采样优化行为。SFT 可以学习多轮对话和多种正确表达，RL 也会被错误奖励诱导产生幻觉，两者都没有天然真实性保证。[InstructGPT](https://arxiv.org/abs/2203.02155)
 
-| 维度 | SFT | 强化学习（RL） |
-|------|-----|---------------|
-| **反馈粒度** | 针对单个 Token | 针对整体输出 |
-| **表达多样性** | 受限于标注数据 | 可探索多种表达 |
-| **幻觉问题** | 容易产生幻觉 | 可通过奖励函数缓解 |
-| **多轮对话** | 难以建模长期目标 | 可累积奖励优化 |
-| **训练难度** | 简单，类似监督学习 | 复杂，需要调参 |
+若任务“好答案长什么样”容易示范，先用 SFT；若多种输出难写唯一标准答案、但能可靠比较或验证结果，再评估偏好优化。用 [DPO](/llms/training/dpo) 或 [RLHF](/llms/training/rlhf)前，先确认 SFT 基线和独立评估足够稳定。
 
 ---
 
@@ -111,10 +101,10 @@ SFT并非单一流程，数据选择与训练目标决定模型最终形态：
 ### C. 混合SFT（推荐）
 
 ::: tip 标准实践
-混合 SFT 已成为领域微调的**标准实践**（非可选模式），本质是基于“回放（Rehearsal）”的数据级保障机制。
+混合通用样本是一种回放策略。是否混合、混多少应由通用回归集与领域目标共同决定，不能把某个比例作为所有任务的必选项。
 :::
 
-**核心原理**：在领域数据集训练过程中，混合通用指令数据，确保模型学习领域技能时，与通用能力相关的权重不被完全失活。
+**核心原理**：在领域数据集训练过程中，混合通用指令数据，为通用任务持续提供梯度信号，降低遗忘风险，但不保证所有通用能力保留。
 
 ### D. 模型起点选择
 
@@ -135,15 +125,15 @@ SFT 前的核心决策——选择 **Base Model** 还是 **Instruct Model** 作�
 
 | 方法 | 原理 | 效果 |
 |------|------|------|
-| **混合数据** | 混入 5-10% 通用数据 | 简单有效 |
+| **混合数据** | 通过消融确定通用数据占比 | 简单有效 |
 | **EWC 正则化** | 保护重要参数不变 | 理论扎实 |
-| **LoRA 微调** | 仅更新少量参数 | 推荐方案 |
+| **LoRA 微调** | 限制更新参数 | 仍需通用能力回归，不能保证不遗忘 |
 | **Replay 机制** | 重放历史数据 | 计算成本高 |
 
 ### SFT 数据质量要求
 
 ::: warning 关键洞察
-研究表明：**高质量的 1,000 条数据 > 低质量的 100,000 条数据**
+[LIMA](https://arxiv.org/abs/2305.11206)展示了少量精选示范在特定基座和任务上的价值；不能把它解释为固定的“1,000 胜过 100,000”定律。质量、覆盖和难度需要一起看。
 :::
 
 | 维度 | 要求 |
@@ -160,98 +150,74 @@ SFT 前的核心决策——选择 **Base Model** 还是 **Instruct Model** 作�
 
 ### 使用Transformers
 
+下面展示单轮 Alpaca 样本的显式 labels 构造，重点是回答监督与 padding。为了让输入与输出拼接边界可核对，示例采用自定义模板；已有聊天基座应使用它自己的 chat template，不能直接换成 Alpaca。
+
 ```python
-from transformers import (
-    AutoModelForCausalLM,
-    AutoTokenizer,
-    TrainingArguments,
-    Trainer
-)
+from transformers import AutoTokenizer, AutoModelForCausalLM, Trainer, TrainingArguments
 from datasets import load_dataset
 
-# 1. 加载模型和分词器
 model_name = "meta-llama/Llama-2-7b-hf"
-model = AutoModelForCausalLM.from_pretrained(model_name)
 tokenizer = AutoTokenizer.from_pretrained(model_name)
 tokenizer.pad_token = tokenizer.eos_token
-
-# 2. 准备数据集
-def format_instruction(sample):
-    """格式化为指令格式"""
-    return f"""### 指令:
-{sample['instruction']}
-
-### 输入:
-{sample.get('input', '')}
-
-### 回答:
-{sample['output']}"""
+model = AutoModelForCausalLM.from_pretrained(model_name)
+max_length = 2048
 
 def tokenize(sample):
-    text = format_instruction(sample)
-    return tokenizer(
-        text,
-        truncation=True,
-        max_length=2048,
-        padding="max_length"
-    )
+    prompt = (f"### 指令:\n{sample['instruction']}\n\n"
+              f"### 输入:\n{sample.get('input', '')}\n\n### 回答:\n")
+    prompt_ids = tokenizer(prompt, add_special_tokens=True)["input_ids"]
+    answer_ids = tokenizer(sample["output"], add_special_tokens=False)["input_ids"]
+    answer_ids += [tokenizer.eos_token_id]
+    # 超长样本交给上游拆分或拒绝，避免静默截掉全部回答
+    if len(prompt_ids) + len(answer_ids) > max_length:
+        raise ValueError("样本超长：请先统计并制定截断策略")
+    ids = prompt_ids + answer_ids
+    pad = max_length - len(ids)
+    return {
+        "input_ids": ids + [tokenizer.pad_token_id] * pad,
+        "attention_mask": [1] * len(ids) + [0] * pad,
+        "labels": [-100] * len(prompt_ids) + answer_ids + [-100] * pad,
+    }
 
-dataset = load_dataset("json", data_files="train.json")
-tokenized_dataset = dataset.map(tokenize, remove_columns=dataset["train"].column_names)
-
-# 3. 训练配置
-training_args = TrainingArguments(
-    output_dir="./sft_output",
-    num_train_epochs=3,
-    per_device_train_batch_size=4,
-    gradient_accumulation_steps=8,
-    learning_rate=2e-5,
-    warmup_ratio=0.1,
-    logging_steps=10,
-    save_strategy="epoch",
-    fp16=True,
-)
-
-# 4. 开始训练
+raw = load_dataset("json", data_files="train.json", split="train")
+data = raw.map(tokenize, remove_columns=raw.column_names)
 trainer = Trainer(
     model=model,
-    args=training_args,
-    train_dataset=tokenized_dataset["train"],
+    args=TrainingArguments(output_dir="./sft_output", max_steps=10,
+                           per_device_train_batch_size=1, learning_rate=2e-5),
+    train_dataset=data,
 )
+# 先检查一条 labels 的非 -100 部分恰为回答与终止符，再启动短跑
 trainer.train()
 ```
+
+这只是全量训练的教学短跑；7B 模型的完整训练状态通常超出单张消费卡容量，资源受限时按 [LoRA](/llms/training/lora)改造。需要 PyTorch、Transformers、Datasets 与模型访问权限，未进行 GPU 实测。
 
 ### 使用TRL SFTTrainer
 
+对于包含 `prompt`/`completion` 的对话数据，使用模型内置模板可减少手写分隔符错误。以下假定 `sft_model` 为本地聊天基座，JSONL 的两列均为 messages 数组。
+
 ```python
 from trl import SFTTrainer, SFTConfig
-from transformers import AutoModelForCausalLM, AutoTokenizer
+from transformers import AutoTokenizer
+from datasets import load_dataset
 
-model = AutoModelForCausalLM.from_pretrained("meta-llama/Llama-2-7b-hf")
-tokenizer = AutoTokenizer.from_pretrained("meta-llama/Llama-2-7b-hf")
-
-# SFT配置
-sft_config = SFTConfig(
-    output_dir="./sft_output",
-    max_seq_length=2048,
-    num_train_epochs=3,
-    per_device_train_batch_size=4,
-    gradient_accumulation_steps=8,
-    learning_rate=2e-5,
-    packing=True,  # 样本打包，提升效率
-)
-
-# 创建训练器
+tokenizer = AutoTokenizer.from_pretrained("sft_model")
+train = load_dataset("json", data_files="train.jsonl", split="train")
 trainer = SFTTrainer(
-    model=model,
-    args=sft_config,
-    train_dataset=dataset,
-    tokenizer=tokenizer,
-    formatting_func=format_instruction,
+    model="sft_model",
+    processing_class=tokenizer,
+    args=SFTConfig(
+        output_dir="./sft_output", max_length=2048,
+        completion_only_loss=True, packing=False,
+        per_device_train_batch_size=1, num_train_epochs=1,
+    ),
+    train_dataset=train,
 )
-
 trainer.train()
 ```
+
+按 [TRL SFT 文档](https://huggingface.co/docs/trl/sft_trainer)复核接口；项目应固定依赖版本。先不启用 packing，核对角色、EOS、有效 labels 与截断统计后再比较吞吐。`assistant_only_loss=True` 是另一种 messages 监督选择，要求模板提供 assistant mask，不能对任意模板盲开。
 
 ---
 
@@ -295,7 +261,7 @@ Below is an instruction that describes a task. Write a response that appropriate
 ### 损失掩码
 
 ::: warning 重要
-SFT训练时，只应该计算**响应部分**的损失，不应该计算指令/输入部分的损失。
+指令跟随任务通常只监督 completion 或 assistant 消息；全文语言建模也有使用场景。关键是明确选择并验证 mask。padding 必须忽略，不能因为 pad 与 eos 共用 ID 就把真正的 EOS 标签一并屏蔽。
 :::
 
 ```python
@@ -303,7 +269,7 @@ def create_labels_with_mask(input_ids, response_start_idx):
     """创建带掩码的标签"""
     labels = input_ids.clone()
     # 将指令部分的标签设为-100（忽略）
-    labels[:response_start_idx] = -100
+    labels[..., :response_start_idx] = -100
     return labels
 ```
 
@@ -316,10 +282,10 @@ def create_labels_with_mask(input_ids, response_start_idx):
 | 参数 | 推荐值 | 说明 |
 |------|--------|------|
 | **learning_rate** | 1e-5 ~ 5e-5 | 学习率，太高易过拟合 |
-| **batch_size** | 根据显存调整 | 有效batch=batch×gradient_accumulation |
+| **batch_size** | 根据显存调整 | 有效batch=每卡batch×累积步数×数据并行卡数；packing 时另报有效 token 数 |
 | **epochs** | 1-3 | SFT通常不需要太多轮次 |
 | **warmup_ratio** | 0.03-0.1 | 预热比例 |
-| **max_seq_length** | 2048-4096 | 最大序列长度 |
+| **max_length** | 按业务长度分布确定 | 当前 TRL SFTConfig 的长度上限；记录截断率 |
 
 ### 学习率调度
 
@@ -340,6 +306,8 @@ scheduler = get_cosine_schedule_with_warmup(
 
 ### 自动评估指标
 
+以下函数只接收独立 `generate()` 产生的 token ID 和对应标签；普通 Trainer 默认返回的是 logits，不能直接 `batch_decode`。BLEU/ROUGE 适合作为翻译或摘要的辅助指标，不是开放问答正确性的验收指标。
+
 ```python
 from evaluate import load
 
@@ -350,6 +318,7 @@ rouge = load("rouge")
 def compute_metrics(eval_pred):
     predictions, labels = eval_pred
     decoded_preds = tokenizer.batch_decode(predictions, skip_special_tokens=True)
+    labels = [[tokenizer.pad_token_id if t == -100 else t for t in row] for row in labels]
     decoded_labels = tokenizer.batch_decode(labels, skip_special_tokens=True)
     
     # BLEU分数
@@ -381,6 +350,15 @@ def compute_metrics(eval_pred):
 | **安全性** | 是否有害内容 |
 
 ---
+
+### 排障顺序与发布门槛
+
+- **loss 很低但不回答**：先解码有效 labels，看是否只学了输入、padding，或回答全被截断。
+- **复述用户、无法停止**：比较训练和推理模板、assistant 起始标记、EOS 与停止配置。
+- **领域集变好但真实问题变差**：按来源/用户/时间检查泄漏，检查示范是否只有单一模板。
+- **通用能力退化**：比较小学习率、早停与混合数据；用独立回归集决定比例。
+
+一次合格实验要保留未微调基线、按来源分组的留出集、模板和 tokenizer revision；按任务成功率、格式通过率与通用回归选 checkpoint，不能只选最低训练 loss。
 
 ## 🔗 相关阅读
 

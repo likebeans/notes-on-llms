@@ -10,6 +10,10 @@ import DraftNotice from './components/article/DraftNotice.vue'
 import ModuleProgress from './components/article/ModuleProgress.vue'
 import NextStep from './components/article/NextStep.vue'
 import ReadingProgress from './components/article/ReadingProgress.vue'
+import { useDisclosureNavigation } from './components/article/useDisclosureNavigation'
+import ArticleActions from './components/learning/ArticleActions.vue'
+
+useDisclosureNavigation()
 
 const { Layout } = DefaultTheme
 const { frontmatter } = useData()
@@ -29,6 +33,7 @@ const adjacent = computed(() => findAdjacentArticle(content, currentUrl.value))
       <template #doc-before>
         <DraftNotice v-if="frontmatter.contentStatus === 'draft'" />
         <ArticleIntro v-if="page && frontmatter.pageType === 'article'" :page="page" />
+        <ArticleActions v-if="page && frontmatter.pageType === 'article'" :url="page.url" />
       </template>
       <template #sidebar-nav-before>
         <ModuleProgress
@@ -46,6 +51,8 @@ const adjacent = computed(() => findAdjacentArticle(content, currentUrl.value))
           :status="page.contentStatus"
           :reviewed="page.reviewed"
           :source-count="page.sourceCount"
+          :review-scope="page.reviewScope"
+          :example-status="page.exampleStatus"
         />
         <NextStep v-if="frontmatter.pageType === 'article'" v-bind="adjacent" />
       </template>

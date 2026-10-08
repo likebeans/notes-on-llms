@@ -3,7 +3,7 @@ title: "对象存储架构演进与AI大模型时代的深度融合：从S3基�
 description: "CSDN 原文全文镜像：摘要： 生成式AI和大语言模型的爆发推动云计算基础设施转向对象存储（如Amazon S3），其无限扩展性和扁平化命名空间更适配AI工作负载的I/O特征。相比传统块存储和文件存储，对象存储解决了海量小文件的元数据瓶颈，并通过强一致性模型支……"
 pageType: article
 module: training
-updated: '2026-02-02'
+updated: '2026-10-08'
 contentStatus: needs-review
 tags:
   - "csdn-mirror"
@@ -19,11 +19,16 @@ author: likebeans
 ---
 
 ::: info CSDN 原文镜像
-本文为作者 CSDN 博客的全文镜像，原文发布于 2026-02-02。为适配本站结构，仅补充了站内元数据与来源说明，正文主体保持原文内容。
+本文为作者 CSDN 博客的全文镜像，原文发布于 2026-02-02。为适配本站结构，补充了站内元数据、来源说明与阅读导引，并修复代码高亮残留；原文主体与观点保留。
 
 - 原文链接：[https://blog.csdn.net/m0_63309778/article/details/157654512](https://blog.csdn.net/m0_63309778/article/details/157654512)
 - 站内分区：Training / 对象存储与 AI 训练
 :::
+
+::: tip 站内导读：从存储方案到训练 I/O 验收
+本文扩展 [训练数据工程](/llms/training/data)中的分片与版本管理。阅读时区分对象、文件和块存储的接口语义，文中的规模、性能与成本比较属于原文条件，不能理解为对象存储在每个阶段都优胜。做一个小型实验：记录分片大小、并发读取、缓存命中、GPU 等待数据时间，以及 checkpoint 完成与恢复耗时；保留 manifest 和哈希，验证中断上传不会被误当作完整 checkpoint。
+:::
+
 
 <div class="csdn-mirror-content">
 

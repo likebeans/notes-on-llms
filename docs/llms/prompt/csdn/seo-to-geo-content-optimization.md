@@ -3,7 +3,7 @@ title: "从 SEO 到 GEO：当搜索引擎开始直接回答问题，内容优化
 description: "CSDN 原文全文镜像：SEO 是让机器找到你。GEO 是机器找到你以后，愿不愿意选择你。因此真正值得研究的，并不是：怎么在文章里多塞几个 GEO 技巧？为什么当 AI 需要回答这个问题的时候，我应该成为它最值得使用的信息源之一？最终决定这件事情的，很可能并不……"
 pageType: article
 module: prompt
-updated: '2026-08-24'
+updated: '2026-10-08'
 contentStatus: needs-review
 tags:
   - "csdn-mirror"
@@ -18,10 +18,16 @@ author: likebeans
 ---
 
 ::: info CSDN 原文镜像
-本文为作者 CSDN 博客的全文镜像，原文发布于 2026-08-24。为适配本站结构，仅补充了站内元数据与来源说明，正文主体保持原文内容。
+本文为作者 CSDN 博客的全文镜像，原文发布于 2026-08-24。本站保留原文主体与发布时间，补充主题导读，并修复代码块中残留的语法高亮标签；技术结论仍需结合原文时点与当前文档判断。
 
 - 原文链接：[https://blog.csdn.net/m0_63309778/article/details/164025027](https://blog.csdn.net/m0_63309778/article/details/164025027)
 - 站内分区：Prompt / SEO 到 GEO
+:::
+
+::: tip 站内阅读提示
+本文讨论公开内容的可发现性与引用机会，适合作为内容组织实验参考。提及、引用、抓取和实际用户价值是不同指标，不能把 AI 引用等同于权威背书，也不能承诺一种写法适用于所有引擎。保留来源与日期，用固定问题集、多次测量检验变化。
+
+主线关联：[GEO 测量方法](/llms/prompt/csdn/geo-ai-citation-method) · [证据与评估](/llms/rag/evaluation)
 :::
 
 <p><img src="https://i-blog.csdnimg.cn/direct/d9615f0d559046c4a148ce4f8d27e10e.png" alt="在这里插入图片描述" /></p>

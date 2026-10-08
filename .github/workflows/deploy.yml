@@ -34,6 +34,11 @@ jobs:
           node-version: 20
           cache: pnpm
 
+      - name: Setup Python for offline examples
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
       - name: Setup Pages
         uses: actions/configure-pages@v4
 

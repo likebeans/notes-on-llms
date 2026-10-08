@@ -3,7 +3,7 @@ title: "从 Subagent 到 MAS：深入理解多 Agent 协作、任务分工与并
 description: "CSDN 原文全文镜像：本文讨论了Agent系统中的三个关键概念：Subagent（子智能体）、MAS（多智能体系统）和Multi-Agent Parallelism（多智能体并行）。Subagent指由主Agent委派执行边界清晰的子任务，并返回结果的智能体……"
 pageType: article
 module: agent
-updated: '2026-08-12'
+updated: '2026-10-08'
 contentStatus: needs-review
 tags:
   - "csdn-mirror"
@@ -23,10 +23,16 @@ author: likebeans
 ---
 
 ::: info CSDN 原文镜像
-本文为作者 CSDN 博客的全文镜像，原文发布于 2026-08-12。为适配本站结构，仅补充了站内元数据与来源说明，正文主体保持原文内容。
+本文为作者 CSDN 博客的全文镜像，原文发布于 2026-08-12。本站补充导读与相关主线链接，并修复代码展示；原文观点、来源与发布时间保留。
 
 - 原文链接：[https://blog.csdn.net/m0_63309778/article/details/163701731](https://blog.csdn.net/m0_63309778/article/details/163701731)
 - 站内分区：Agent / Subagent 与 MAS
+:::
+
+::: tip 站内导读与实践边界
+本文有助于区分组织关系与执行并发：多个 Agent 可以串行，一个 Agent 也可以并行调用工具。Subagent 与 MAS 的划分是分析视角，并非互斥标准。引入团队前，先明确写入范围、交付证据和唯一整合者，并用同预算的单 Agent 方案比较收益。
+
+继续阅读：[多智能体协作](/llms/agent/multi-agent)、[并行化](/llms/agent/parallelization)。
 :::
 
 <p><img src="https://i-blog.csdnimg.cn/direct/3330ce68dba1442fa57e003dc70b1767.png" alt="在这里插入图片描述" /></p>

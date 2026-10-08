@@ -3,7 +3,7 @@ title: "AI Agent 工程化实践：Skill as Prompt 与渐进式加载机制"
 description: "CSDN 原文全文镜像：本文探讨了AI Agent系统中Prompt管理失控的问题，并提出Skill体系解决方案。传统方式将所有能力集中在一个系统Prompt中，导致上下文浪费、能力污染等问题。Skill体系将能力拆分为独立模块，每个Skill包含元数据和提示……"
 pageType: article
 module: agent
-updated: '2026-05-19'
+updated: '2026-10-08'
 contentStatus: needs-review
 tags:
   - "csdn-mirror"
@@ -22,10 +22,16 @@ author: likebeans
 ---
 
 ::: info CSDN 原文镜像
-本文为作者 CSDN 博客的全文镜像，原文发布于 2026-05-19。为适配本站结构，仅补充了站内元数据与来源说明，正文主体保持原文内容。
+本文为作者 CSDN 博客的全文镜像，原文发布于 2026-05-19。本站补充导读与相关主线链接，并修复代码展示；原文观点、来源与发布时间保留。
 
 - 原文链接：[https://blog.csdn.net/m0_63309778/article/details/161198674](https://blog.csdn.net/m0_63309778/article/details/161198674)
 - 站内分区：Agent / Skill as Prompt
+:::
+
+::: tip 站内导读与实践边界
+本文重点在按需提供任务说明和资源，减少无关上下文。Skill 不限于一段提示，也可能引用脚本、模板和工具；加载技能不等于已执行这些资源。渐进加载是否省成本要统计检索与重复读取开销，并验证关键约束是否在需要时真正进入上下文。
+
+继续阅读：[记忆系统](/llms/agent/memory)、[资源感知优化](/llms/agent/resource-optimization)。
 :::
 
 <p><img src="https://i-blog.csdnimg.cn/direct/598709959eda421690a290978aa9c8a1.png" alt="在这里插入图片描述" /></p> 
@@ -211,16 +217,16 @@ tags:
 
 
 ```yaml
-<span class="token key atrule">name</span><span class="token punctuation">:</span> code<span class="token punctuation">-</span>review
-<span class="token key atrule">version</span><span class="token punctuation">:</span> 1.0.0
-<span class="token key atrule">description</span><span class="token punctuation">:</span> 用于审查代码质量、发现潜在 bug、提出优化建议
-<span class="token key atrule">trigger</span><span class="token punctuation">:</span>
-<span class="token key atrule">type</span><span class="token punctuation">:</span> prefix
-<span class="token key atrule">patterns</span><span class="token punctuation">:</span>
-<span class="token punctuation">-</span> <span class="token string">"审查代码"</span>
-<span class="token punctuation">-</span> <span class="token string">"帮我看看这段代码"</span>
-<span class="token key atrule">priority</span><span class="token punctuation">:</span> <span class="token number">80</span>
-<span class="token key atrule">cache</span><span class="token punctuation">:</span> <span class="token boolean important">true</span>
+name: code-review
+version: 1.0.0
+description: 用于审查代码质量、发现潜在 bug、提出优化建议
+trigger:
+type: prefix
+patterns:
+- "审查代码"
+- "帮我看看这段代码"
+priority: 80
+cache: true
 ```
 
  
@@ -252,25 +258,25 @@ tags:
 
 
 ```json
-<span class="token punctuation">[</span>
-<span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"name"</span><span class="token operator">:</span> <span class="token string">"code-review"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"description"</span><span class="token operator">:</span> <span class="token string">"用于审查代码质量、发现潜在 bug、提出优化建议"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"trigger"</span><span class="token operator">:</span> <span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"type"</span><span class="token operator">:</span> <span class="token string">"prefix"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"patterns"</span><span class="token operator">:</span> <span class="token punctuation">[</span><span class="token string">"审查代码"</span><span class="token punctuation">,</span> <span class="token string">"code review"</span><span class="token punctuation">]</span>
-<span class="token punctuation">}</span><span class="token punctuation">,</span>
-<span class="token string-property property">"priority"</span><span class="token operator">:</span> <span class="token number">80</span>
-<span class="token punctuation">}</span><span class="token punctuation">,</span>
-<span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"name"</span><span class="token operator">:</span> <span class="token string">"work-report"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"description"</span><span class="token operator">:</span> <span class="token string">"用于根据工作记录生成日报、周报、月报"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"trigger"</span><span class="token operator">:</span> <span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"type"</span><span class="token operator">:</span> <span class="token string">"llm"</span>
-<span class="token punctuation">}</span><span class="token punctuation">,</span>
-<span class="token string-property property">"priority"</span><span class="token operator">:</span> <span class="token number">60</span>
-<span class="token punctuation">}</span>
-<span class="token punctuation">]</span>
+[
+{
+"name": "code-review",
+"description": "用于审查代码质量、发现潜在 bug、提出优化建议",
+"trigger": {
+"type": "prefix",
+"patterns": ["审查代码", "code review"]
+},
+"priority": 80
+},
+{
+"name": "work-report",
+"description": "用于根据工作记录生成日报、周报、月报",
+"trigger": {
+"type": "llm"
+},
+"priority": 60
+}
+]
 ```
 
  
@@ -415,12 +421,12 @@ tags:
 
 
 ```yaml
-<span class="token key atrule">trigger</span><span class="token punctuation">:</span>
-<span class="token key atrule">type</span><span class="token punctuation">:</span> prefix
-<span class="token key atrule">patterns</span><span class="token punctuation">:</span>
-<span class="token punctuation">-</span> <span class="token string">"审查代码"</span>
-<span class="token punctuation">-</span> <span class="token string">"code review"</span>
-<span class="token punctuation">-</span> <span class="token string">"帮我看看这段代码"</span>
+trigger:
+type: prefix
+patterns:
+- "审查代码"
+- "code review"
+- "帮我看看这段代码"
 ```
 
  
@@ -437,27 +443,27 @@ tags:
 
 
 ```python
-<span class="token keyword">def</span> <span class="token function">match_prefix_skill</span><span class="token punctuation">(</span>user_input<span class="token punctuation">,</span> skill_metadata_list<span class="token punctuation">)</span><span class="token punctuation">:</span>
-matched <span class="token operator">=</span> <span class="token punctuation">[</span><span class="token punctuation">]</span>
+def match_prefix_skill(user_input, skill_metadata_list):
+matched = []
 
-<span class="token keyword">for</span> skill <span class="token keyword">in</span> skill_metadata_list<span class="token punctuation">:</span>
-trigger <span class="token operator">=</span> skill<span class="token punctuation">.</span>get<span class="token punctuation">(</span><span class="token string">"trigger"</span><span class="token punctuation">,</span> <span class="token punctuation">{<!-- --></span><span class="token punctuation">}</span><span class="token punctuation">)</span>
+for skill in skill_metadata_list:
+trigger = skill.get("trigger", {})
 
-<span class="token keyword">if</span> trigger<span class="token punctuation">.</span>get<span class="token punctuation">(</span><span class="token string">"type"</span><span class="token punctuation">)</span> <span class="token operator">!=</span> <span class="token string">"prefix"</span><span class="token punctuation">:</span>
-<span class="token keyword">continue</span>
+if trigger.get("type") != "prefix":
+continue
 
-patterns <span class="token operator">=</span> trigger<span class="token punctuation">.</span>get<span class="token punctuation">(</span><span class="token string">"patterns"</span><span class="token punctuation">,</span> <span class="token punctuation">[</span><span class="token punctuation">]</span><span class="token punctuation">)</span>
+patterns = trigger.get("patterns", [])
 
-<span class="token keyword">for</span> pattern <span class="token keyword">in</span> patterns<span class="token punctuation">:</span>
-<span class="token keyword">if</span> user_input<span class="token punctuation">.</span>startswith<span class="token punctuation">(</span>pattern<span class="token punctuation">)</span> <span class="token keyword">or</span> pattern <span class="token keyword">in</span> user_input<span class="token punctuation">:</span>
-matched<span class="token punctuation">.</span>append<span class="token punctuation">(</span>skill<span class="token punctuation">)</span>
-<span class="token keyword">break</span>
+for pattern in patterns:
+if user_input.startswith(pattern) or pattern in user_input:
+matched.append(skill)
+break
 
-<span class="token keyword">return</span> <span class="token builtin">sorted</span><span class="token punctuation">(</span>
-matched<span class="token punctuation">,</span>
-key<span class="token operator">=</span><span class="token keyword">lambda</span> x<span class="token punctuation">:</span> x<span class="token punctuation">.</span>get<span class="token punctuation">(</span><span class="token string">"priority"</span><span class="token punctuation">,</span> <span class="token number">0</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
-reverse<span class="token operator">=</span><span class="token boolean">True</span>
-<span class="token punctuation">)</span>
+return sorted(
+matched,
+key=lambda x: x.get("priority", 0),
+reverse=True
+)
 ```
 
  
@@ -576,18 +582,18 @@ cache: true
 
 
 ```json
-<span class="token punctuation">[</span>
-<span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"name"</span><span class="token operator">:</span> <span class="token string">"code-review"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"description"</span><span class="token operator">:</span> <span class="token string">"用于审查代码质量、发现潜在 bug、提出优化建议"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"tags"</span><span class="token operator">:</span> <span class="token punctuation">[</span><span class="token string">"code"</span><span class="token punctuation">,</span> <span class="token string">"review"</span><span class="token punctuation">,</span> <span class="token string">"bug"</span><span class="token punctuation">]</span>
-<span class="token punctuation">}</span><span class="token punctuation">,</span>
-<span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"name"</span><span class="token operator">:</span> <span class="token string">"api-design"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"description"</span><span class="token operator">:</span> <span class="token string">"用于分析接口设计是否合理，包括参数、响应结构、错误码、幂等等"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"tags"</span><span class="token operator">:</span> <span class="token punctuation">[</span><span class="token string">"api"</span><span class="token punctuation">,</span> <span class="token string">"backend"</span><span class="token punctuation">,</span> <span class="token string">"design"</span><span class="token punctuation">]</span>
-<span class="token punctuation">}</span>
-<span class="token punctuation">]</span>
+[
+{
+"name": "code-review",
+"description": "用于审查代码质量、发现潜在 bug、提出优化建议",
+"tags": ["code", "review", "bug"]
+},
+{
+"name": "api-design",
+"description": "用于分析接口设计是否合理，包括参数、响应结构、错误码、幂等等",
+"tags": ["api", "backend", "design"]
+}
+]
 ```
 
  
@@ -595,15 +601,15 @@ cache: true
 
 
 ```json
-<span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"matched_skills"</span><span class="token operator">:</span> <span class="token punctuation">[</span>
-<span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"name"</span><span class="token operator">:</span> <span class="token string">"api-design"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"reason"</span><span class="token operator">:</span> <span class="token string">"用户关注接口返回结构和设计合理性，更符合 API 设计分析任务"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"confidence"</span><span class="token operator">:</span> <span class="token number">0.86</span>
-<span class="token punctuation">}</span>
-<span class="token punctuation">]</span>
-<span class="token punctuation">}</span>
+{
+"matched_skills": [
+{
+"name": "api-design",
+"reason": "用户关注接口返回结构和设计合理性，更符合 API 设计分析任务",
+"confidence": 0.86
+}
+]
+}
 ```
 
  
@@ -697,7 +703,7 @@ v
 
 
 ```python
-CACHE_SIZE <span class="token operator">=</span> <span class="token number">32</span>
+CACHE_SIZE = 32
 ```
 
  
@@ -708,21 +714,21 @@ CACHE_SIZE <span class="token operator">=</span> <span class="token number">32</
 
 
 ```python
-<span class="token keyword">from</span> functools <span class="token keyword">import</span> lru_cache
-<span class="token keyword">from</span> pathlib <span class="token keyword">import</span> Path
-<span class="token keyword">import</span> frontmatter
+from functools import lru_cache
+from pathlib import Path
+import frontmatter
 
-SKILL_DIR <span class="token operator">=</span> Path<span class="token punctuation">(</span><span class="token string">"./skills"</span><span class="token punctuation">)</span>
+SKILL_DIR = Path("./skills")
 
-<span class="token decorator annotation punctuation">@lru_cache</span><span class="token punctuation">(</span>maxsize<span class="token operator">=</span><span class="token number">32</span><span class="token punctuation">)</span>
-<span class="token keyword">def</span> <span class="token function">load_skill_body</span><span class="token punctuation">(</span>skill_name<span class="token punctuation">:</span> <span class="token builtin">str</span><span class="token punctuation">)</span> <span class="token operator">-</span><span class="token operator">></span> <span class="token builtin">str</span><span class="token punctuation">:</span>
-skill_file <span class="token operator">=</span> SKILL_DIR <span class="token operator">/</span> skill_name <span class="token operator">/</span> <span class="token string">"SKILL.md"</span>
+@lru_cache(maxsize=32)
+def load_skill_body(skill_name: str) -> str:
+skill_file = SKILL_DIR / skill_name / "SKILL.md"
 
-<span class="token keyword">if</span> <span class="token keyword">not</span> skill_file<span class="token punctuation">.</span>exists<span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">:</span>
-<span class="token keyword">raise</span> FileNotFoundError<span class="token punctuation">(</span><span class="token string-interpolation"><span class="token string">f"Skill not found: </span><span class="token interpolation"><span class="token punctuation">{<!-- --></span>skill_name<span class="token punctuation">}</span></span><span class="token string">"</span></span><span class="token punctuation">)</span>
+if not skill_file.exists():
+raise FileNotFoundError(f"Skill not found: {skill_name}")
 
-post <span class="token operator">=</span> frontmatter<span class="token punctuation">.</span>load<span class="token punctuation">(</span>skill_file<span class="token punctuation">)</span>
-<span class="token keyword">return</span> post<span class="token punctuation">.</span>content
+post = frontmatter.load(skill_file)
+return post.content
 ```
 
  
@@ -730,28 +736,28 @@ post <span class="token operator">=</span> frontmatter<span class="token punctua
 
 
 ```python
-<span class="token keyword">from</span> collections <span class="token keyword">import</span> OrderedDict
+from collections import OrderedDict
 
-<span class="token keyword">class</span> <span class="token class-name">LRUCache</span><span class="token punctuation">:</span>
-<span class="token keyword">def</span> <span class="token function">__init__</span><span class="token punctuation">(</span>self<span class="token punctuation">,</span> capacity<span class="token punctuation">:</span> <span class="token builtin">int</span> <span class="token operator">=</span> <span class="token number">32</span><span class="token punctuation">)</span><span class="token punctuation">:</span>
-self<span class="token punctuation">.</span>capacity <span class="token operator">=</span> capacity
-self<span class="token punctuation">.</span>cache <span class="token operator">=</span> OrderedDict<span class="token punctuation">(</span><span class="token punctuation">)</span>
+class LRUCache:
+def __init__(self, capacity: int = 32):
+self.capacity = capacity
+self.cache = OrderedDict()
 
-<span class="token keyword">def</span> <span class="token function">get</span><span class="token punctuation">(</span>self<span class="token punctuation">,</span> key<span class="token punctuation">:</span> <span class="token builtin">str</span><span class="token punctuation">)</span><span class="token punctuation">:</span>
-<span class="token keyword">if</span> key <span class="token keyword">not</span> <span class="token keyword">in</span> self<span class="token punctuation">.</span>cache<span class="token punctuation">:</span>
-<span class="token keyword">return</span> <span class="token boolean">None</span>
+def get(self, key: str):
+if key not in self.cache:
+return None
 
-self<span class="token punctuation">.</span>cache<span class="token punctuation">.</span>move_to_end<span class="token punctuation">(</span>key<span class="token punctuation">)</span>
-<span class="token keyword">return</span> self<span class="token punctuation">.</span>cache<span class="token punctuation">[</span>key<span class="token punctuation">]</span>
+self.cache.move_to_end(key)
+return self.cache[key]
 
-<span class="token keyword">def</span> <span class="token function">put</span><span class="token punctuation">(</span>self<span class="token punctuation">,</span> key<span class="token punctuation">:</span> <span class="token builtin">str</span><span class="token punctuation">,</span> value<span class="token punctuation">:</span> <span class="token builtin">str</span><span class="token punctuation">)</span><span class="token punctuation">:</span>
-<span class="token keyword">if</span> key <span class="token keyword">in</span> self<span class="token punctuation">.</span>cache<span class="token punctuation">:</span>
-self<span class="token punctuation">.</span>cache<span class="token punctuation">.</span>move_to_end<span class="token punctuation">(</span>key<span class="token punctuation">)</span>
+def put(self, key: str, value: str):
+if key in self.cache:
+self.cache.move_to_end(key)
 
-self<span class="token punctuation">.</span>cache<span class="token punctuation">[</span>key<span class="token punctuation">]</span> <span class="token operator">=</span> value
+self.cache[key] = value
 
-<span class="token keyword">if</span> <span class="token builtin">len</span><span class="token punctuation">(</span>self<span class="token punctuation">.</span>cache<span class="token punctuation">)</span> <span class="token operator">></span> self<span class="token punctuation">.</span>capacity<span class="token punctuation">:</span>
-self<span class="token punctuation">.</span>cache<span class="token punctuation">.</span>popitem<span class="token punctuation">(</span>last<span class="token operator">=</span><span class="token boolean">False</span><span class="token punctuation">)</span>
+if len(self.cache) > self.capacity:
+self.cache.popitem(last=False)
 ```
 
  
@@ -759,16 +765,16 @@ self<span class="token punctuation">.</span>cache<span class="token punctuation"
 
 
 ```python
-skill_cache <span class="token operator">=</span> LRUCache<span class="token punctuation">(</span>capacity<span class="token operator">=</span><span class="token number">32</span><span class="token punctuation">)</span>
+skill_cache = LRUCache(capacity=32)
 
-<span class="token keyword">def</span> <span class="token function">get_skill_body</span><span class="token punctuation">(</span>skill_name<span class="token punctuation">:</span> <span class="token builtin">str</span><span class="token punctuation">)</span> <span class="token operator">-</span><span class="token operator">></span> <span class="token builtin">str</span><span class="token punctuation">:</span>
-cached <span class="token operator">=</span> skill_cache<span class="token punctuation">.</span>get<span class="token punctuation">(</span>skill_name<span class="token punctuation">)</span>
-<span class="token keyword">if</span> cached<span class="token punctuation">:</span>
-<span class="token keyword">return</span> cached
+def get_skill_body(skill_name: str) -> str:
+cached = skill_cache.get(skill_name)
+if cached:
+return cached
 
-body <span class="token operator">=</span> read_skill_body_from_disk<span class="token punctuation">(</span>skill_name<span class="token punctuation">)</span>
-skill_cache<span class="token punctuation">.</span>put<span class="token punctuation">(</span>skill_name<span class="token punctuation">,</span> body<span class="token punctuation">)</span>
-<span class="token keyword">return</span> body
+body = read_skill_body_from_disk(skill_name)
+skill_cache.put(skill_name, body)
+return body
 ```
 
  
@@ -796,127 +802,127 @@ SKILL.md
 
 
 ```python
-<span class="token keyword">from</span> pathlib <span class="token keyword">import</span> Path
-<span class="token keyword">from</span> functools <span class="token keyword">import</span> lru_cache
-<span class="token keyword">import</span> frontmatter
+from pathlib import Path
+from functools import lru_cache
+import frontmatter
 
-SKILL_DIR <span class="token operator">=</span> Path<span class="token punctuation">(</span><span class="token string">"./skills"</span><span class="token punctuation">)</span>
+SKILL_DIR = Path("./skills")
 
-<span class="token keyword">def</span> <span class="token function">load_skill_metadata</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">:</span>
-<span class="token triple-quoted-string string">"""
+def load_skill_metadata():
+"""
 系统启动时只加载每个 SKILL.md 的 frontmatter。
 不读取完整 Prompt 正文。
-"""</span>
-registry <span class="token operator">=</span> <span class="token punctuation">{<!-- --></span><span class="token punctuation">}</span>
+"""
+registry = {}
 
-<span class="token keyword">for</span> skill_file <span class="token keyword">in</span> SKILL_DIR<span class="token punctuation">.</span>glob<span class="token punctuation">(</span><span class="token string">"*/SKILL.md"</span><span class="token punctuation">)</span><span class="token punctuation">:</span>
-post <span class="token operator">=</span> frontmatter<span class="token punctuation">.</span>load<span class="token punctuation">(</span>skill_file<span class="token punctuation">)</span>
+for skill_file in SKILL_DIR.glob("*/SKILL.md"):
+post = frontmatter.load(skill_file)
 
-metadata <span class="token operator">=</span> <span class="token builtin">dict</span><span class="token punctuation">(</span>post<span class="token punctuation">.</span>metadata<span class="token punctuation">)</span>
-skill_name <span class="token operator">=</span> metadata<span class="token punctuation">.</span>get<span class="token punctuation">(</span><span class="token string">"name"</span><span class="token punctuation">)</span> <span class="token keyword">or</span> skill_file<span class="token punctuation">.</span>parent<span class="token punctuation">.</span>name
+metadata = dict(post.metadata)
+skill_name = metadata.get("name") or skill_file.parent.name
 
-registry<span class="token punctuation">[</span>skill_name<span class="token punctuation">]</span> <span class="token operator">=</span> <span class="token punctuation">{<!-- --></span>
-<span class="token string">"name"</span><span class="token punctuation">:</span> skill_name<span class="token punctuation">,</span>
-<span class="token string">"path"</span><span class="token punctuation">:</span> <span class="token builtin">str</span><span class="token punctuation">(</span>skill_file<span class="token punctuation">)</span><span class="token punctuation">,</span>
-<span class="token string">"description"</span><span class="token punctuation">:</span> metadata<span class="token punctuation">.</span>get<span class="token punctuation">(</span><span class="token string">"description"</span><span class="token punctuation">,</span> <span class="token string">""</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
-<span class="token string">"trigger"</span><span class="token punctuation">:</span> metadata<span class="token punctuation">.</span>get<span class="token punctuation">(</span><span class="token string">"trigger"</span><span class="token punctuation">,</span> <span class="token punctuation">{<!-- --></span><span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
-<span class="token string">"priority"</span><span class="token punctuation">:</span> metadata<span class="token punctuation">.</span>get<span class="token punctuation">(</span><span class="token string">"priority"</span><span class="token punctuation">,</span> <span class="token number">0</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
-<span class="token string">"cache"</span><span class="token punctuation">:</span> metadata<span class="token punctuation">.</span>get<span class="token punctuation">(</span><span class="token string">"cache"</span><span class="token punctuation">,</span> <span class="token boolean">True</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
-<span class="token string">"tags"</span><span class="token punctuation">:</span> metadata<span class="token punctuation">.</span>get<span class="token punctuation">(</span><span class="token string">"tags"</span><span class="token punctuation">,</span> <span class="token punctuation">[</span><span class="token punctuation">]</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
-<span class="token string">"version"</span><span class="token punctuation">:</span> metadata<span class="token punctuation">.</span>get<span class="token punctuation">(</span><span class="token string">"version"</span><span class="token punctuation">,</span> <span class="token string">"0.0.0"</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
-<span class="token punctuation">}</span>
+registry[skill_name] = {
+"name": skill_name,
+"path": str(skill_file),
+"description": metadata.get("description", ""),
+"trigger": metadata.get("trigger", {}),
+"priority": metadata.get("priority", 0),
+"cache": metadata.get("cache", True),
+"tags": metadata.get("tags", []),
+"version": metadata.get("version", "0.0.0"),
+}
 
-<span class="token keyword">return</span> registry
+return registry
 
-<span class="token decorator annotation punctuation">@lru_cache</span><span class="token punctuation">(</span>maxsize<span class="token operator">=</span><span class="token number">32</span><span class="token punctuation">)</span>
-<span class="token keyword">def</span> <span class="token function">load_skill_body</span><span class="token punctuation">(</span>skill_path<span class="token punctuation">:</span> <span class="token builtin">str</span><span class="token punctuation">)</span> <span class="token operator">-</span><span class="token operator">></span> <span class="token builtin">str</span><span class="token punctuation">:</span>
-<span class="token triple-quoted-string string">"""
+@lru_cache(maxsize=32)
+def load_skill_body(skill_path: str) -> str:
+"""
 只有 Skill 被命中时，才加载 body。
 并且使用 LRU 缓存减少重复磁盘 I/O。
-"""</span>
-post <span class="token operator">=</span> frontmatter<span class="token punctuation">.</span>load<span class="token punctuation">(</span>skill_path<span class="token punctuation">)</span>
-<span class="token keyword">return</span> post<span class="token punctuation">.</span>content
+"""
+post = frontmatter.load(skill_path)
+return post.content
 
-<span class="token keyword">def</span> <span class="token function">match_always_on_skills</span><span class="token punctuation">(</span>registry<span class="token punctuation">)</span><span class="token punctuation">:</span>
-<span class="token keyword">return</span> <span class="token punctuation">[</span>
-skill <span class="token keyword">for</span> skill <span class="token keyword">in</span> registry<span class="token punctuation">.</span>values<span class="token punctuation">(</span><span class="token punctuation">)</span>
-<span class="token keyword">if</span> skill<span class="token punctuation">.</span>get<span class="token punctuation">(</span><span class="token string">"trigger"</span><span class="token punctuation">,</span> <span class="token punctuation">{<!-- --></span><span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">.</span>get<span class="token punctuation">(</span><span class="token string">"type"</span><span class="token punctuation">)</span> <span class="token operator">==</span> <span class="token string">"always-on"</span>
-<span class="token punctuation">]</span>
+def match_always_on_skills(registry):
+return [
+skill for skill in registry.values()
+if skill.get("trigger", {}).get("type") == "always-on"
+]
 
-<span class="token keyword">def</span> <span class="token function">match_prefix_skills</span><span class="token punctuation">(</span>user_input<span class="token punctuation">,</span> registry<span class="token punctuation">)</span><span class="token punctuation">:</span>
-matched <span class="token operator">=</span> <span class="token punctuation">[</span><span class="token punctuation">]</span>
+def match_prefix_skills(user_input, registry):
+matched = []
 
-<span class="token keyword">for</span> skill <span class="token keyword">in</span> registry<span class="token punctuation">.</span>values<span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">:</span>
-trigger <span class="token operator">=</span> skill<span class="token punctuation">.</span>get<span class="token punctuation">(</span><span class="token string">"trigger"</span><span class="token punctuation">,</span> <span class="token punctuation">{<!-- --></span><span class="token punctuation">}</span><span class="token punctuation">)</span>
+for skill in registry.values():
+trigger = skill.get("trigger", {})
 
-<span class="token keyword">if</span> trigger<span class="token punctuation">.</span>get<span class="token punctuation">(</span><span class="token string">"type"</span><span class="token punctuation">)</span> <span class="token operator">!=</span> <span class="token string">"prefix"</span><span class="token punctuation">:</span>
-<span class="token keyword">continue</span>
+if trigger.get("type") != "prefix":
+continue
 
-patterns <span class="token operator">=</span> trigger<span class="token punctuation">.</span>get<span class="token punctuation">(</span><span class="token string">"patterns"</span><span class="token punctuation">,</span> <span class="token punctuation">[</span><span class="token punctuation">]</span><span class="token punctuation">)</span>
+patterns = trigger.get("patterns", [])
 
-<span class="token keyword">for</span> pattern <span class="token keyword">in</span> patterns<span class="token punctuation">:</span>
-<span class="token keyword">if</span> user_input<span class="token punctuation">.</span>startswith<span class="token punctuation">(</span>pattern<span class="token punctuation">)</span> <span class="token keyword">or</span> pattern <span class="token keyword">in</span> user_input<span class="token punctuation">:</span>
-matched<span class="token punctuation">.</span>append<span class="token punctuation">(</span>skill<span class="token punctuation">)</span>
-<span class="token keyword">break</span>
+for pattern in patterns:
+if user_input.startswith(pattern) or pattern in user_input:
+matched.append(skill)
+break
 
-<span class="token keyword">return</span> matched
+return matched
 
-<span class="token keyword">def</span> <span class="token function">select_skills</span><span class="token punctuation">(</span>user_input<span class="token punctuation">,</span> registry<span class="token punctuation">)</span><span class="token punctuation">:</span>
-matched <span class="token operator">=</span> <span class="token punctuation">[</span><span class="token punctuation">]</span>
+def select_skills(user_input, registry):
+matched = []
 
-<span class="token comment"># 1. always-on Skill 默认加载</span>
-matched<span class="token punctuation">.</span>extend<span class="token punctuation">(</span>match_always_on_skills<span class="token punctuation">(</span>registry<span class="token punctuation">)</span><span class="token punctuation">)</span>
+# 1. always-on Skill 默认加载
+matched.extend(match_always_on_skills(registry))
 
-<span class="token comment"># 2. prefix Skill 根据用户输入匹配</span>
-matched<span class="token punctuation">.</span>extend<span class="token punctuation">(</span>match_prefix_skills<span class="token punctuation">(</span>user_input<span class="token punctuation">,</span> registry<span class="token punctuation">)</span><span class="token punctuation">)</span>
+# 2. prefix Skill 根据用户输入匹配
+matched.extend(match_prefix_skills(user_input, registry))
 
-<span class="token comment"># 3. 去重</span>
-unique <span class="token operator">=</span> <span class="token punctuation">{<!-- --></span><span class="token punctuation">}</span>
-<span class="token keyword">for</span> skill <span class="token keyword">in</span> matched<span class="token punctuation">:</span>
-unique<span class="token punctuation">[</span>skill<span class="token punctuation">[</span><span class="token string">"name"</span><span class="token punctuation">]</span><span class="token punctuation">]</span> <span class="token operator">=</span> skill
+# 3. 去重
+unique = {}
+for skill in matched:
+unique[skill["name"]] = skill
 
-<span class="token comment"># 4. 按优先级排序</span>
-<span class="token keyword">return</span> <span class="token builtin">sorted</span><span class="token punctuation">(</span>
-unique<span class="token punctuation">.</span>values<span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
-key<span class="token operator">=</span><span class="token keyword">lambda</span> x<span class="token punctuation">:</span> x<span class="token punctuation">.</span>get<span class="token punctuation">(</span><span class="token string">"priority"</span><span class="token punctuation">,</span> <span class="token number">0</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
-reverse<span class="token operator">=</span><span class="token boolean">True</span>
-<span class="token punctuation">)</span>
+# 4. 按优先级排序
+return sorted(
+unique.values(),
+key=lambda x: x.get("priority", 0),
+reverse=True
+)
 
-<span class="token keyword">def</span> <span class="token function">build_prompt</span><span class="token punctuation">(</span>user_input<span class="token punctuation">,</span> selected_skills<span class="token punctuation">)</span><span class="token punctuation">:</span>
-skill_prompts <span class="token operator">=</span> <span class="token punctuation">[</span><span class="token punctuation">]</span>
+def build_prompt(user_input, selected_skills):
+skill_prompts = []
 
-<span class="token keyword">for</span> skill <span class="token keyword">in</span> selected_skills<span class="token punctuation">:</span>
-body <span class="token operator">=</span> load_skill_body<span class="token punctuation">(</span>skill<span class="token punctuation">[</span><span class="token string">"path"</span><span class="token punctuation">]</span><span class="token punctuation">)</span>
-skill_prompts<span class="token punctuation">.</span>append<span class="token punctuation">(</span>
-<span class="token string-interpolation"><span class="token string">f"## Skill: </span><span class="token interpolation"><span class="token punctuation">{<!-- --></span>skill<span class="token punctuation">[</span><span class="token string">'name'</span><span class="token punctuation">]</span><span class="token punctuation">}</span></span><span class="token string">\n\n</span><span class="token interpolation"><span class="token punctuation">{<!-- --></span>body<span class="token punctuation">}</span></span><span class="token string">"</span></span>
-<span class="token punctuation">)</span>
+for skill in selected_skills:
+body = load_skill_body(skill["path"])
+skill_prompts.append(
+f"## Skill: {skill['name']}\n\n{body}"
+)
 
-final_prompt <span class="token operator">=</span> <span class="token string-interpolation"><span class="token string">f"""
+final_prompt = f"""
 你是一个智能 Agent。
 
 下面是本次任务需要使用的 Skill：
 
-</span><span class="token interpolation"><span class="token punctuation">{<!-- --></span><span class="token builtin">chr</span><span class="token punctuation">(</span><span class="token number">10</span><span class="token punctuation">)</span><span class="token punctuation">.</span>join<span class="token punctuation">(</span>skill_prompts<span class="token punctuation">)</span><span class="token punctuation">}</span></span><span class="token string">
+{chr(10).join(skill_prompts)}
 
 用户输入：
 
-</span><span class="token interpolation"><span class="token punctuation">{<!-- --></span>user_input<span class="token punctuation">}</span></span><span class="token string">
+{user_input}
 
 请根据以上 Skill 完成任务。
-"""</span></span>
+"""
 
-<span class="token keyword">return</span> final_prompt
+return final_prompt
 
-<span class="token keyword">if</span> __name__ <span class="token operator">==</span> <span class="token string">"__main__"</span><span class="token punctuation">:</span>
-registry <span class="token operator">=</span> load_skill_metadata<span class="token punctuation">(</span><span class="token punctuation">)</span>
+if __name__ == "__main__":
+registry = load_skill_metadata()
 
-user_input <span class="token operator">=</span> <span class="token string">"审查代码：下面这段 FastAPI 代码有没有问题？"</span>
+user_input = "审查代码：下面这段 FastAPI 代码有没有问题？"
 
-selected_skills <span class="token operator">=</span> select_skills<span class="token punctuation">(</span>user_input<span class="token punctuation">,</span> registry<span class="token punctuation">)</span>
+selected_skills = select_skills(user_input, registry)
 
-prompt <span class="token operator">=</span> build_prompt<span class="token punctuation">(</span>user_input<span class="token punctuation">,</span> selected_skills<span class="token punctuation">)</span>
+prompt = build_prompt(user_input, selected_skills)
 
-<span class="token keyword">print</span><span class="token punctuation">(</span>prompt<span class="token punctuation">)</span>
+print(prompt)
 ```
 
  
@@ -968,10 +974,10 @@ cache: true
 
 
 ```yaml
-<span class="token key atrule">tools</span><span class="token punctuation">:</span>
-<span class="token punctuation">-</span> get_user_profile
-<span class="token punctuation">-</span> query_leave_balance
-<span class="token punctuation">-</span> submit_leave_form
+tools:
+- get_user_profile
+- query_leave_balance
+- submit_leave_form
 ```
 
  
@@ -1025,20 +1031,20 @@ CHANGELOG.md
 
 
 ```yaml
-<span class="token key atrule">cases</span><span class="token punctuation">:</span>
-<span class="token punctuation">-</span> <span class="token key atrule">name</span><span class="token punctuation">:</span> <span class="token string">"FastAPI 代码审查"</span>
-<span class="token key atrule">input</span><span class="token punctuation">:</span> <span class="token string">"审查代码：下面这段 FastAPI 代码有没有问题？"</span>
-<span class="token key atrule">expected_contains</span><span class="token punctuation">:</span>
-<span class="token punctuation">-</span> <span class="token string">"总体评价"</span>
-<span class="token punctuation">-</span> <span class="token string">"主要问题"</span>
-<span class="token punctuation">-</span> <span class="token string">"优化建议"</span>
+cases:
+- name: "FastAPI 代码审查"
+input: "审查代码：下面这段 FastAPI 代码有没有问题？"
+expected_contains:
+- "总体评价"
+- "主要问题"
+- "优化建议"
 
-<span class="token punctuation">-</span> <span class="token key atrule">name</span><span class="token punctuation">:</span> <span class="token string">"SQL 性能分析"</span>
-<span class="token key atrule">input</span><span class="token punctuation">:</span> <span class="token string">"分析 SQL：select * from user where name like '%abc%'"</span>
-<span class="token key atrule">expected_contains</span><span class="token punctuation">:</span>
-<span class="token punctuation">-</span> <span class="token string">"索引"</span>
-<span class="token punctuation">-</span> <span class="token string">"性能"</span>
-<span class="token punctuation">-</span> <span class="token string">"优化建议"</span>
+- name: "SQL 性能分析"
+input: "分析 SQL：select * from user where name like '%abc%'"
+expected_contains:
+- "索引"
+- "性能"
+- "优化建议"
 ```
 
  
@@ -1061,12 +1067,12 @@ CHANGELOG.md
 
 
 ```yaml
-<span class="token key atrule">permissions</span><span class="token punctuation">:</span>
-<span class="token key atrule">tools</span><span class="token punctuation">:</span>
-<span class="token punctuation">-</span> query_leave_balance
-<span class="token key atrule">forbidden_tools</span><span class="token punctuation">:</span>
-<span class="token punctuation">-</span> submit_payment
-<span class="token punctuation">-</span> delete_database
+permissions:
+tools:
+- query_leave_balance
+forbidden_tools:
+- submit_payment
+- delete_database
 ```
 
  
@@ -1139,7 +1145,7 @@ work-report-skill
 
 
 ```yaml
-<span class="token key atrule">description</span><span class="token punctuation">:</span> 用于处理代码
+description: 用于处理代码
 ```
 
  
@@ -1147,7 +1153,7 @@ work-report-skill
 
 
 ```yaml
-<span class="token key atrule">description</span><span class="token punctuation">:</span> 用于审查用户提供的代码，发现 bug、性能问题、安全风险，并给出可执行的修改建议
+description: 用于审查用户提供的代码，发现 bug、性能问题、安全风险，并给出可执行的修改建议
 ```
 
  
@@ -1157,12 +1163,12 @@ work-report-skill
 
 
 ```yaml
-<span class="token key atrule">patterns</span><span class="token punctuation">:</span>
-<span class="token punctuation">-</span> <span class="token string">"审查代码"</span>
-<span class="token punctuation">-</span> <span class="token string">"帮我看看这段代码"</span>
-<span class="token punctuation">-</span> <span class="token string">"这段代码有没有问题"</span>
-<span class="token punctuation">-</span> <span class="token string">"code review"</span>
-<span class="token punctuation">-</span> <span class="token string">"review this code"</span>
+patterns:
+- "审查代码"
+- "帮我看看这段代码"
+- "这段代码有没有问题"
+- "code review"
+- "review this code"
 ```
 
  

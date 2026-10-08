@@ -3,7 +3,7 @@ title: 文档切分策略
 description: RAG 系统中的文档切分技术详解 - 15种实战策略
 pageType: article
 module: rag
-updated: '2025-12-27'
+updated: '2026-10-08'
 contentStatus: needs-review
 tags:
   - rag
@@ -24,9 +24,9 @@ techVersion: 待复核（2026-08）
 
 RAG系统的第一步就是将长文档切分成小块，这样做的原因：
 
-- **Token 限制**：LLM 上下文窗口有限（如 GPT-4 的 128K tokens）
+- **Token 限制**：嵌入模型、重排器和生成模型各有输入上限，通常不能按生成模型的窗口来切块
 - **检索精度**：小块更容易匹配用户查询的具体信息
-- **计算效率**：减少向量化和检索的计算开销
+- **计算效率**：控制单次输入成本；块越多，索引体积与召回开销也可能越大
 - **语义聚焦**：避免一个chunk包含过多无关主题
 
 ### 切分的核心挑战
@@ -44,7 +44,7 @@ RAG系统的第一步就是将长文档切分成小块，这样做的原因：
 > 基于[《超越纯文本：解锁高级RAG中复杂文档预处理的艺术》](https://dd-ff.blog.csdn.net/article/details/152045489)
 
 ::: tip 核心洞察
-**RAG系统的上限不是由LLM决定的，而是由数据准备的质量决定的。** 原始文档（PDF、PPT、扫描件）在原生状态下并非机器可读，预处理流水线是将混乱转化为结构化知识的幕后英雄。
+**数据准备决定证据能否被正确读取，模型能力决定证据能否被正确使用。** 数字原生文档通常先提取文本与结构；扫描件才需要 OCR。解析错误会把错误证据传到后续所有环节。
 :::
 
 ### 文档智能六阶段流水线
@@ -59,6 +59,8 @@ RAG系统的第一步就是将长文档切分成小块，这样做的原因：
 | **6. 阅读顺序** | 逻辑流检测 | 确定多栏文档的正确阅读顺序 | 规则/ML混合 |
 
 ### 为什么布局分析至关重要？
+
+下例展示组件职责，布局、OCR、表格和阅读顺序解析器由具体实现注入，不能直接当作可运行 SDK。每个输出元素应保留页码和边界框，便于回到原件核验。
 
 ```python
 # 反面案例：双栏PDF直接提取文本
@@ -147,12 +149,16 @@ chunks = line_chunking(dialogue)
 **实战示例**：
 ```python
 def fixed_size_chunking(text, chunk_size=500, overlap=50):
+    if chunk_size <= 0 or not 0 <= overlap < chunk_size:
+        raise ValueError("要求 chunk_size > 0 且 0 <= overlap < chunk_size")
     chunks = []
     start = 0
     while start < len(text):
         end = min(start + chunk_size, len(text))
         chunk = text[start:end]
         chunks.append(chunk)
+        if end == len(text):
+            break  # 尾块必须终止，避免 overlap 让循环永不结束
         start = end - overlap
     return chunks
 ```
@@ -216,7 +222,7 @@ def recursive_chunking(text, max_size=500):
                     chunks.append(sent)
                 else:
                     # 第3层：固定长度分割
-                    chunks.extend(fixed_size_chunking(sent, max_size))
+                    chunks.extend(fixed_size_chunking(sent, max_size, overlap=0))
     return chunks
 ```
 
@@ -249,7 +255,7 @@ def recursive_chunking(text, max_size=500):
 - 设定相似度阈值进行聚类
 - 动态调整chunk边界
 
-**计算开销**：较大，但效果最佳
+**计算开销**：句子级向量化与边界判断增加成本，不保证优于结构化递归切分。语义连续也不意味着证据完整，尤其要保留否定、条件与表格说明。
 
 ### 🔟 Token分块法（Token-Based Chunking）
 
@@ -273,6 +279,26 @@ def token_chunking(text, model="gpt-3.5-turbo", max_tokens=500):
 ```
 
 ---
+
+### 11️⃣ 父子分块（Parent–Child Chunking）
+
+小块负责匹配，命中后取回所属父段落或章节作为证据。它适合问题简短、回答需要上下文的场景；父块回填必须去重并受 token 预算约束，否则几个小块可能反复带回同一大段。
+
+### 12️⃣ 句子窗口（Sentence Window）
+
+以句子建立检索粒度，命中后扩展相邻若干句。扩展时不能跨租户、文档版本或不相关章节；检查窗口是否包含代词指代和例外条件，而不只是固定取前后 N 句。
+
+### 13️⃣ 代码结构分块（AST-aware Chunking）
+
+按函数、类或语法树节点切分，保留文件路径、符号名、签名、注释和必要导入。超长函数需要继续切分并记录所属符号。调用关系问题还可能需要邻接符号或图检索，单个函数块不足以回答。
+
+### 14️⃣ 问答对分块（QA-pair Chunking）
+
+FAQ 将问题与回答作为同一单元，并保存业务条件、时间与来源。多轮客服对话按问题解决过程分组，不能让“可以”“不支持”等回答脱离前文；合成问题只做检索辅助，不替换原始事实。
+
+### 15️⃣ 上下文补充分块（Context-enriched Chunking）
+
+为片段加入标题路径、文档摘要或模型生成的局部背景，提高独立检索时的可理解性。生成补充信息要与原文分字段保存并核验；引用仍指向原文，避免把补充摘要中的推测升级为事实。
 
 ## ⚙️ 分块策略选择指南
 
@@ -302,8 +328,10 @@ def token_chunking(text, model="gpt-3.5-turbo", max_tokens=500):
 
 ### LangChain 实现
 
+安装 `langchain-text-splitters`。下例的默认长度函数是 `len`，所以 1000/200 是字符数，不是 token 数；token 限额需要指定计数器或使用对应 tokenizer。见 [LangChain 递归切分官方文档](https://docs.langchain.com/oss/python/integrations/splitters/recursive_text_splitter)。
+
 ```python
-from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain_text_splitters import RecursiveCharacterTextSplitter
 
 # 中文优化的递归分块
 splitter = RecursiveCharacterTextSplitter(
@@ -313,10 +341,13 @@ splitter = RecursiveCharacterTextSplitter(
     keep_separator=True  # 保留分隔符
 )
 
+document = "# 年假规定\n\n员工满足连续工作条件后，按规定申请年假。"
 chunks = splitter.split_text(document)
 ```
 
 ### 混合策略实现
+
+下面是接口示意，`section_based_chunking` 需由 Markdown/HTML 等结构解析器实现；不是仅按字符串匹配标题就能处理所有文档。
 
 ```python
 def hybrid_chunking(text, doc_type="general"):
@@ -356,7 +387,7 @@ def chunking_with_metadata(text, source_file, page_num):
 
 **现象**：切分后的chunk缺乏完整信息  
 **解决**：
-- 增加overlap（推荐20-30%）
+- 在相同上下文 token 预算下比较不同 overlap；不默认采用 20–30%，先检查重复证据占比
 - 使用父子分段：小chunk检索，大chunk生成
 - 保留关键元数据（标题、章节信息）
 
@@ -364,7 +395,7 @@ def chunking_with_metadata(text, source_file, page_num):
 
 **现象**：返回的chunk与查询不匹配  
 **解决**：
-- 减小chunk_size（500-800 tokens）
+- 将标准证据映射回原文，确认是块太长引入噪声，还是块太短切断条件，再调整大小
 - 优化分隔符选择
 - 结合重排序（Rerank）
 
@@ -377,6 +408,14 @@ def chunking_with_metadata(text, source_file, page_num):
 - 混合策略：重要文档用语义分块，其他用递归分块
 
 ---
+
+## 切分方案怎么验收
+
+为每个问题标出原文中的最小证据区间，再观察切分后是否仍能完整覆盖。固定嵌入模型、候选 K、重排器及最终上下文 token 预算，对比切分方案；只固定 K 会让大块方案获得更多可见信息，比较并不公平。
+
+至少记录：证据完整率、Recall@K、引用定位正确率、上下文重复率、索引大小、解析失败率与入库耗时。重点抽查跨页表格、页眉页脚、脚注、代码块和“除非/不适用”等限定语。可检索块需要稳定文档 ID、版本、页码/字符区间、标题路径和权限标签；单纯顺序编号不足以支持更新追溯。
+
+Token 切分示例仅展示计数思路：按 token 数硬切可能拆开字符对应的字节序列，也可能割断完整句子。生产中优先沿原文边界分段，再用 tokenizer 检查上限；截断、解码与重新编码后的长度都要验证。
 
 ## 🔗 相关阅读
 

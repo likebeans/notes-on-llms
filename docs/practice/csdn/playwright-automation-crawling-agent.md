@@ -3,7 +3,7 @@ title: "Playwright 深度解析：从浏览器自动化到动态爬虫、自动�
 description: "CSDN 原文全文镜像：Playwright 是一个由微软开发的开源浏览器自动化框架，支持Chromium、Firefox和WebKit三大浏览器引擎，提供多语言接口。它不仅能用于Web自动化测试，还能处理动态网页采集、自动登录、iframe操作等复杂场景。相……"
 pageType: article
 module: site
-updated: '2026-07-30'
+updated: '2026-10-08'
 contentStatus: needs-review
 tags:
   - "csdn-mirror"
@@ -20,10 +20,18 @@ author: likebeans
 ---
 
 ::: info CSDN 原文镜像
-本文为作者 CSDN 博客的全文镜像，原文发布于 2026-07-30。为适配本站结构，仅补充了站内元数据与来源说明，正文主体保持原文内容。
+本文为作者 CSDN 博客的全文镜像，原文发布于 2026-07-30。为适配本站结构，补充了站内导读、元数据与来源说明，并清理代码高亮标记；原文观点与主体内容保留。
 
 - 原文链接：[https://blog.csdn.net/m0_63309778/article/details/163335924](https://blog.csdn.net/m0_63309778/article/details/163335924)
 - 站内分区：工程实践 / Playwright 自动化
+:::
+
+::: tip 站内导读：把浏览器动作与任务结果分开
+先看定位、等待和浏览器上下文，再看如何封装 Agent 工具。完成点击并不意味着业务提交成功；任务结果需要页面或后端状态作为证据。
+
+练习：在自己控制的测试页面改变加载时序与元素位置，比较稳定定位与固定延时；模拟提交响应丢失，避免自动重复提交。
+
+相关主线：[工具调用](/llms/agent/tool-calling) · [Agent 评估](/llms/agent/evaluation)。本导读不代表对原文全部代码与结论的重新核验。
 :::
 
 <p><img src="https://i-blog.csdnimg.cn/direct/b043066d1ad7435abab7519ba2cbfa31.png" alt="在这里插入图片描述" /></p>
@@ -60,23 +68,23 @@ author: likebeans
 
 
 ```python
-<span class="token keyword">from</span> playwright<span class="token punctuation">.</span>sync_api <span class="token keyword">import</span> sync_playwright<span class="token punctuation">,</span> expect
+from playwright.sync_api import sync_playwright, expect
 
-<span class="token keyword">def</span> <span class="token function">test_login</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">:</span>
-<span class="token keyword">with</span> sync_playwright<span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token keyword">as</span> p<span class="token punctuation">:</span>
-browser <span class="token operator">=</span> p<span class="token punctuation">.</span>chromium<span class="token punctuation">.</span>launch<span class="token punctuation">(</span>headless<span class="token operator">=</span><span class="token boolean">True</span><span class="token punctuation">)</span>
-page <span class="token operator">=</span> browser<span class="token punctuation">.</span>new_page<span class="token punctuation">(</span><span class="token punctuation">)</span>
+def test_login():
+with sync_playwright() as p:
+browser = p.chromium.launch(headless=True)
+page = browser.new_page()
 
-page<span class="token punctuation">.</span>goto<span class="token punctuation">(</span><span class="token string">"https://example.com/login"</span><span class="token punctuation">)</span>
+page.goto("https://example.com/login")
 
-page<span class="token punctuation">.</span>get_by_label<span class="token punctuation">(</span><span class="token string">"用户名"</span><span class="token punctuation">)</span><span class="token punctuation">.</span>fill<span class="token punctuation">(</span><span class="token string">"admin"</span><span class="token punctuation">)</span>
-page<span class="token punctuation">.</span>get_by_label<span class="token punctuation">(</span><span class="token string">"密码"</span><span class="token punctuation">)</span><span class="token punctuation">.</span>fill<span class="token punctuation">(</span><span class="token string">"123456"</span><span class="token punctuation">)</span>
-page<span class="token punctuation">.</span>get_by_role<span class="token punctuation">(</span><span class="token string">"button"</span><span class="token punctuation">,</span> name<span class="token operator">=</span><span class="token string">"登录"</span><span class="token punctuation">)</span><span class="token punctuation">.</span>click<span class="token punctuation">(</span><span class="token punctuation">)</span>
+page.get_by_label("用户名").fill("admin")
+page.get_by_label("密码").fill("123456")
+page.get_by_role("button", name="登录").click()
 
-expect<span class="token punctuation">(</span>page<span class="token punctuation">)</span><span class="token punctuation">.</span>to_have_url<span class="token punctuation">(</span><span class="token string">"https://example.com/home"</span><span class="token punctuation">)</span>
-expect<span class="token punctuation">(</span>page<span class="token punctuation">.</span>get_by_text<span class="token punctuation">(</span><span class="token string">"欢迎回来"</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">.</span>to_be_visible<span class="token punctuation">(</span><span class="token punctuation">)</span>
+expect(page).to_have_url("https://example.com/home")
+expect(page.get_by_text("欢迎回来")).to_be_visible()
 
-browser<span class="token punctuation">.</span>close<span class="token punctuation">(</span><span class="token punctuation">)</span>
+browser.close()
 ```
 
 
@@ -91,8 +99,8 @@ browser<span class="token punctuation">.</span>close<span class="token punctuati
 
 
 ```html
-<span class="token tag"><span class="token tag"><span class="token punctuation"><</span>div</span> <span class="token attr-name">id</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>app<span class="token punctuation">"</span></span><span class="token punctuation">></span></span><span class="token tag"><span class="token tag"><span class="token punctuation"></</span>div</span><span class="token punctuation">></span></span>
-<span class="token tag"><span class="token tag"><span class="token punctuation"><</span>script</span> <span class="token attr-name">src</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>/assets/index.js<span class="token punctuation">"</span></span><span class="token punctuation">></span></span><span class="token script"></span><span class="token tag"><span class="token tag"><span class="token punctuation"></</span>script</span><span class="token punctuation">></span></span>
+<div id="app"></div>
+<script src="/assets/index.js"></script>
 ```
 
 
@@ -101,32 +109,32 @@ browser<span class="token punctuation">.</span>close<span class="token punctuati
 
 
 ```python
-<span class="token keyword">from</span> playwright<span class="token punctuation">.</span>async_api <span class="token keyword">import</span> async_playwright
+from playwright.async_api import async_playwright
 
-<span class="token keyword">async</span> <span class="token keyword">def</span> <span class="token function">fetch_page</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">:</span>
-<span class="token keyword">async</span> <span class="token keyword">with</span> async_playwright<span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token keyword">as</span> p<span class="token punctuation">:</span>
-browser <span class="token operator">=</span> <span class="token keyword">await</span> p<span class="token punctuation">.</span>chromium<span class="token punctuation">.</span>launch<span class="token punctuation">(</span>headless<span class="token operator">=</span><span class="token boolean">True</span><span class="token punctuation">)</span>
+async def fetch_page():
+async with async_playwright() as p:
+browser = await p.chromium.launch(headless=True)
 
-context <span class="token operator">=</span> <span class="token keyword">await</span> browser<span class="token punctuation">.</span>new_context<span class="token punctuation">(</span>
-locale<span class="token operator">=</span><span class="token string">"zh-CN"</span><span class="token punctuation">,</span>
-viewport<span class="token operator">=</span><span class="token punctuation">{<!-- --></span><span class="token string">"width"</span><span class="token punctuation">:</span> <span class="token number">1440</span><span class="token punctuation">,</span> <span class="token string">"height"</span><span class="token punctuation">:</span> <span class="token number">900</span><span class="token punctuation">}</span>
-<span class="token punctuation">)</span>
+context = await browser.new_context(
+locale="zh-CN",
+viewport={<!-- -->"width": 1440, "height": 900}
+)
 
-page <span class="token operator">=</span> <span class="token keyword">await</span> context<span class="token punctuation">.</span>new_page<span class="token punctuation">(</span><span class="token punctuation">)</span>
+page = await context.new_page()
 
-<span class="token keyword">await</span> page<span class="token punctuation">.</span>goto<span class="token punctuation">(</span>
-<span class="token string">"https://example.com"</span><span class="token punctuation">,</span>
-wait_until<span class="token operator">=</span><span class="token string">"domcontentloaded"</span>
-<span class="token punctuation">)</span>
+await page.goto(
+"https://example.com",
+wait_until="domcontentloaded"
+)
 
-<span class="token keyword">await</span> page<span class="token punctuation">.</span>locator<span class="token punctuation">(</span><span class="token string">".result-list"</span><span class="token punctuation">)</span><span class="token punctuation">.</span>wait_for<span class="token punctuation">(</span><span class="token punctuation">)</span>
+await page.locator(".result-list").wait_for()
 
-items <span class="token operator">=</span> <span class="token keyword">await</span> page<span class="token punctuation">.</span>locator<span class="token punctuation">(</span><span class="token string">".result-item"</span><span class="token punctuation">)</span><span class="token punctuation">.</span>all_inner_texts<span class="token punctuation">(</span><span class="token punctuation">)</span>
+items = await page.locator(".result-item").all_inner_texts()
 
-<span class="token keyword">print</span><span class="token punctuation">(</span>items<span class="token punctuation">)</span>
+print(items)
 
-<span class="token keyword">await</span> context<span class="token punctuation">.</span>close<span class="token punctuation">(</span><span class="token punctuation">)</span>
-<span class="token keyword">await</span> browser<span class="token punctuation">.</span>close<span class="token punctuation">(</span><span class="token punctuation">)</span>
+await context.close()
+await browser.close()
 ```
 
 
@@ -161,19 +169,19 @@ Playwright 获取登录状态、接口地址或页面内容
 
 
 ```python
-context <span class="token operator">=</span> <span class="token keyword">await</span> browser<span class="token punctuation">.</span>new_context<span class="token punctuation">(</span><span class="token punctuation">)</span>
+context = await browser.new_context()
 
-page <span class="token operator">=</span> <span class="token keyword">await</span> context<span class="token punctuation">.</span>new_page<span class="token punctuation">(</span><span class="token punctuation">)</span>
+page = await context.new_page()
 
-<span class="token keyword">await</span> page<span class="token punctuation">.</span>goto<span class="token punctuation">(</span><span class="token string">"https://example.com/login"</span><span class="token punctuation">)</span>
+await page.goto("https://example.com/login")
 
-<span class="token keyword">await</span> page<span class="token punctuation">.</span>get_by_label<span class="token punctuation">(</span><span class="token string">"账号"</span><span class="token punctuation">)</span><span class="token punctuation">.</span>fill<span class="token punctuation">(</span><span class="token string">"admin"</span><span class="token punctuation">)</span>
-<span class="token keyword">await</span> page<span class="token punctuation">.</span>get_by_label<span class="token punctuation">(</span><span class="token string">"密码"</span><span class="token punctuation">)</span><span class="token punctuation">.</span>fill<span class="token punctuation">(</span><span class="token string">"123456"</span><span class="token punctuation">)</span>
-<span class="token keyword">await</span> page<span class="token punctuation">.</span>get_by_role<span class="token punctuation">(</span><span class="token string">"button"</span><span class="token punctuation">,</span> name<span class="token operator">=</span><span class="token string">"登录"</span><span class="token punctuation">)</span><span class="token punctuation">.</span>click<span class="token punctuation">(</span><span class="token punctuation">)</span>
+await page.get_by_label("账号").fill("admin")
+await page.get_by_label("密码").fill("123456")
+await page.get_by_role("button", name="登录").click()
 
-<span class="token keyword">await</span> page<span class="token punctuation">.</span>wait_for_url<span class="token punctuation">(</span><span class="token string">"**/home"</span><span class="token punctuation">)</span>
+await page.wait_for_url("**/home")
 
-<span class="token keyword">await</span> context<span class="token punctuation">.</span>storage_state<span class="token punctuation">(</span>path<span class="token operator">=</span><span class="token string">"auth.json"</span><span class="token punctuation">)</span>
+await context.storage_state(path="auth.json")
 ```
 
 
@@ -181,9 +189,9 @@ page <span class="token operator">=</span> <span class="token keyword">await</sp
 
 
 ```python
-context <span class="token operator">=</span> <span class="token keyword">await</span> browser<span class="token punctuation">.</span>new_context<span class="token punctuation">(</span>
-storage_state<span class="token operator">=</span><span class="token string">"auth.json"</span>
-<span class="token punctuation">)</span>
+context = await browser.new_context(
+storage_state="auth.json"
+)
 ```
 
 
@@ -196,11 +204,11 @@ storage_state<span class="token operator">=</span><span class="token string">"au
 
 
 ```html
-<span class="token tag"><span class="token tag"><span class="token punctuation"><</span>html</span><span class="token punctuation">></span></span>
-<span class="token tag"><span class="token tag"><span class="token punctuation"><</span>body</span><span class="token punctuation">></span></span>
-<span class="token tag"><span class="token tag"><span class="token punctuation"><</span>iframe</span> <span class="token attr-name">id</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>content-frame<span class="token punctuation">"</span></span> <span class="token attr-name">src</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>/detail/content<span class="token punctuation">"</span></span><span class="token punctuation">></span></span><span class="token tag"><span class="token tag"><span class="token punctuation"></</span>iframe</span><span class="token punctuation">></span></span>
-<span class="token tag"><span class="token tag"><span class="token punctuation"></</span>body</span><span class="token punctuation">></span></span>
-<span class="token tag"><span class="token tag"><span class="token punctuation"></</span>html</span><span class="token punctuation">></span></span>
+<html>
+<body>
+<iframe id="content-frame" src="/detail/content"></iframe>
+</body>
+</html>
 ```
 
 
@@ -209,10 +217,10 @@ storage_state<span class="token operator">=</span><span class="token string">"au
 
 
 ```python
-frame <span class="token operator">=</span> page<span class="token punctuation">.</span>frame_locator<span class="token punctuation">(</span><span class="token string">"#content-frame"</span><span class="token punctuation">)</span>
+frame = page.frame_locator("#content-frame")
 
-title <span class="token operator">=</span> <span class="token keyword">await</span> frame<span class="token punctuation">.</span>locator<span class="token punctuation">(</span><span class="token string">"h1"</span><span class="token punctuation">)</span><span class="token punctuation">.</span>inner_text<span class="token punctuation">(</span><span class="token punctuation">)</span>
-content <span class="token operator">=</span> <span class="token keyword">await</span> frame<span class="token punctuation">.</span>locator<span class="token punctuation">(</span><span class="token string">".article-content"</span><span class="token punctuation">)</span><span class="token punctuation">.</span>inner_text<span class="token punctuation">(</span><span class="token punctuation">)</span>
+title = await frame.locator("h1").inner_text()
+content = await frame.locator(".article-content").inner_text()
 ```
 
 
@@ -232,7 +240,7 @@ content <span class="token operator">=</span> <span class="token keyword">await<
 
 
 ```python
-<span class="token keyword">await</span> page<span class="token punctuation">.</span>locator<span class="token punctuation">(</span><span class="token string">"body"</span><span class="token punctuation">)</span><span class="token punctuation">.</span>inner_text<span class="token punctuation">(</span><span class="token punctuation">)</span>
+await page.locator("body").inner_text()
 ```
 
 
@@ -245,23 +253,23 @@ content <span class="token operator">=</span> <span class="token keyword">await<
 
 
 ```python
-page<span class="token punctuation">.</span>on<span class="token punctuation">(</span>
-<span class="token string">"request"</span><span class="token punctuation">,</span>
-<span class="token keyword">lambda</span> request<span class="token punctuation">:</span> <span class="token keyword">print</span><span class="token punctuation">(</span>
-<span class="token string">"请求："</span><span class="token punctuation">,</span>
-request<span class="token punctuation">.</span>method<span class="token punctuation">,</span>
-request<span class="token punctuation">.</span>url
-<span class="token punctuation">)</span>
-<span class="token punctuation">)</span>
+page.on(
+"request",
+lambda request: print(
+"请求：",
+request.method,
+request.url
+)
+)
 
-page<span class="token punctuation">.</span>on<span class="token punctuation">(</span>
-<span class="token string">"response"</span><span class="token punctuation">,</span>
-<span class="token keyword">lambda</span> response<span class="token punctuation">:</span> <span class="token keyword">print</span><span class="token punctuation">(</span>
-<span class="token string">"响应："</span><span class="token punctuation">,</span>
-response<span class="token punctuation">.</span>status<span class="token punctuation">,</span>
-response<span class="token punctuation">.</span>url
-<span class="token punctuation">)</span>
-<span class="token punctuation">)</span>
+page.on(
+"response",
+lambda response: print(
+"响应：",
+response.status,
+response.url
+)
+)
 ```
 
 
@@ -270,13 +278,13 @@ response<span class="token punctuation">.</span>url
 
 
 ```python
-<span class="token keyword">async</span> <span class="token keyword">with</span> page<span class="token punctuation">.</span>expect_response<span class="token punctuation">(</span>
-<span class="token keyword">lambda</span> response<span class="token punctuation">:</span> <span class="token string">"/api/project/list"</span> <span class="token keyword">in</span> response<span class="token punctuation">.</span>url
-<span class="token punctuation">)</span> <span class="token keyword">as</span> response_info<span class="token punctuation">:</span>
-<span class="token keyword">await</span> page<span class="token punctuation">.</span>get_by_role<span class="token punctuation">(</span><span class="token string">"button"</span><span class="token punctuation">,</span> name<span class="token operator">=</span><span class="token string">"查询"</span><span class="token punctuation">)</span><span class="token punctuation">.</span>click<span class="token punctuation">(</span><span class="token punctuation">)</span>
+async with page.expect_response(
+lambda response: "/api/project/list" in response.url
+) as response_info:
+await page.get_by_role("button", name="查询").click()
 
-response <span class="token operator">=</span> <span class="token keyword">await</span> response_info<span class="token punctuation">.</span>value
-data <span class="token operator">=</span> <span class="token keyword">await</span> response<span class="token punctuation">.</span>json<span class="token punctuation">(</span><span class="token punctuation">)</span>
+response = await response_info.value
+data = await response.json()
 ```
 
 
@@ -288,15 +296,15 @@ data <span class="token operator">=</span> <span class="token keyword">await</sp
 
 
 ```python
-<span class="token keyword">async</span> <span class="token keyword">def</span> <span class="token function">handle_route</span><span class="token punctuation">(</span>route<span class="token punctuation">)</span><span class="token punctuation">:</span>
-resource_type <span class="token operator">=</span> route<span class="token punctuation">.</span>request<span class="token punctuation">.</span>resource_type
+async def handle_route(route):
+resource_type = route.request.resource_type
 
-<span class="token keyword">if</span> resource_type <span class="token keyword">in</span> <span class="token punctuation">{<!-- --></span><span class="token string">"image"</span><span class="token punctuation">,</span> <span class="token string">"font"</span><span class="token punctuation">,</span> <span class="token string">"media"</span><span class="token punctuation">}</span><span class="token punctuation">:</span>
-<span class="token keyword">await</span> route<span class="token punctuation">.</span>abort<span class="token punctuation">(</span><span class="token punctuation">)</span>
-<span class="token keyword">else</span><span class="token punctuation">:</span>
-<span class="token keyword">await</span> route<span class="token punctuation">.</span>continue_<span class="token punctuation">(</span><span class="token punctuation">)</span>
+if resource_type in {<!-- -->"image", "font", "media"}:
+await route.abort()
+else:
+await route.continue_()
 
-<span class="token keyword">await</span> page<span class="token punctuation">.</span>route<span class="token punctuation">(</span><span class="token string">"**/*"</span><span class="token punctuation">,</span> handle_route<span class="token punctuation">)</span>
+await page.route("**/*", handle_route)
 ```
 
 
@@ -307,9 +315,9 @@ resource_type <span class="token operator">=</span> route<span class="token punc
 
 
 ```python
-<span class="token keyword">await</span> page<span class="token punctuation">.</span>get_by_label<span class="token punctuation">(</span><span class="token string">"上传文件"</span><span class="token punctuation">)</span><span class="token punctuation">.</span>set_input_files<span class="token punctuation">(</span>
-<span class="token string">"documents/report.pdf"</span>
-<span class="token punctuation">)</span>
+await page.get_by_label("上传文件").set_input_files(
+"documents/report.pdf"
+)
 ```
 
 
@@ -317,14 +325,14 @@ resource_type <span class="token operator">=</span> route<span class="token punc
 
 
 ```python
-<span class="token keyword">async</span> <span class="token keyword">with</span> page<span class="token punctuation">.</span>expect_download<span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token keyword">as</span> download_info<span class="token punctuation">:</span>
-<span class="token keyword">await</span> page<span class="token punctuation">.</span>get_by_role<span class="token punctuation">(</span><span class="token string">"button"</span><span class="token punctuation">,</span> name<span class="token operator">=</span><span class="token string">"导出"</span><span class="token punctuation">)</span><span class="token punctuation">.</span>click<span class="token punctuation">(</span><span class="token punctuation">)</span>
+async with page.expect_download() as download_info:
+await page.get_by_role("button", name="导出").click()
 
-download <span class="token operator">=</span> <span class="token keyword">await</span> download_info<span class="token punctuation">.</span>value
+download = await download_info.value
 
-<span class="token keyword">await</span> download<span class="token punctuation">.</span>save_as<span class="token punctuation">(</span>
-<span class="token string-interpolation"><span class="token string">f"downloads/</span><span class="token interpolation"><span class="token punctuation">{<!-- --></span>download<span class="token punctuation">.</span>suggested_filename<span class="token punctuation">}</span></span><span class="token string">"</span></span>
-<span class="token punctuation">)</span>
+await download.save_as(
+f"downloads/{<!-- -->download.suggested_filename}"
+)
 ```
 
 
@@ -337,10 +345,10 @@ download <span class="token operator">=</span> <span class="token keyword">await
 
 
 ```python
-<span class="token keyword">await</span> page<span class="token punctuation">.</span>screenshot<span class="token punctuation">(</span>
-path<span class="token operator">=</span><span class="token string">"page.png"</span><span class="token punctuation">,</span>
-full_page<span class="token operator">=</span><span class="token boolean">True</span>
-<span class="token punctuation">)</span>
+await page.screenshot(
+path="page.png",
+full_page=True
+)
 ```
 
 
@@ -348,9 +356,9 @@ full_page<span class="token operator">=</span><span class="token boolean">True</
 
 
 ```python
-<span class="token keyword">await</span> page<span class="token punctuation">.</span>locator<span class="token punctuation">(</span><span class="token string">".article-content"</span><span class="token punctuation">)</span><span class="token punctuation">.</span>screenshot<span class="token punctuation">(</span>
-path<span class="token operator">=</span><span class="token string">"article.png"</span>
-<span class="token punctuation">)</span>
+await page.locator(".article-content").screenshot(
+path="article.png"
+)
 ```
 
 
@@ -361,7 +369,7 @@ path<span class="token operator">=</span><span class="token string">"article.png
 
 
 ```bash
-npx playwright <span class="token builtin class-name">test</span> <span class="token parameter variable">--trace</span> on
+npx playwright test --trace on
 ```
 
 
@@ -381,16 +389,16 @@ npx playwright show-trace trace.zip
 
 
 ```python
-context <span class="token operator">=</span> <span class="token keyword">await</span> browser<span class="token punctuation">.</span>new_context<span class="token punctuation">(</span>
-viewport<span class="token operator">=</span><span class="token punctuation">{<!-- --></span>
-<span class="token string">"width"</span><span class="token punctuation">:</span> <span class="token number">390</span><span class="token punctuation">,</span>
-<span class="token string">"height"</span><span class="token punctuation">:</span> <span class="token number">844</span>
-<span class="token punctuation">}</span><span class="token punctuation">,</span>
-user_agent<span class="token operator">=</span><span class="token string">"Mozilla/5.0 ..."</span><span class="token punctuation">,</span>
-locale<span class="token operator">=</span><span class="token string">"zh-CN"</span><span class="token punctuation">,</span>
-timezone_id<span class="token operator">=</span><span class="token string">"Asia/Shanghai"</span><span class="token punctuation">,</span>
-color_scheme<span class="token operator">=</span><span class="token string">"dark"</span>
-<span class="token punctuation">)</span>
+context = await browser.new_context(
+viewport={<!-- -->
+"width": 390,
+"height": 844
+},
+user_agent="Mozilla/5.0 ...",
+locale="zh-CN",
+timezone_id="Asia/Shanghai",
+color_scheme="dark"
+)
 ```
 
 
@@ -451,8 +459,8 @@ Frame / Locator
 
 
 ```python
-<span class="token keyword">async</span> <span class="token keyword">with</span> async_playwright<span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token keyword">as</span> p<span class="token punctuation">:</span>
-browser <span class="token operator">=</span> <span class="token keyword">await</span> p<span class="token punctuation">.</span>chromium<span class="token punctuation">.</span>launch<span class="token punctuation">(</span><span class="token punctuation">)</span>
+async with async_playwright() as p:
+browser = await p.chromium.launch()
 ```
 
 
@@ -461,9 +469,9 @@ browser <span class="token operator">=</span> <span class="token keyword">await<
 
 
 ```python
-p<span class="token punctuation">.</span>chromium
-p<span class="token punctuation">.</span>firefox
-p<span class="token punctuation">.</span>webkit
+p.chromium
+p.firefox
+p.webkit
 ```
 
 
@@ -473,9 +481,9 @@ p<span class="token punctuation">.</span>webkit
 
 
 ```python
-browser <span class="token operator">=</span> <span class="token keyword">await</span> p<span class="token punctuation">.</span>chromium<span class="token punctuation">.</span>launch<span class="token punctuation">(</span>
-headless<span class="token operator">=</span><span class="token boolean">True</span>
-<span class="token punctuation">)</span>
+browser = await p.chromium.launch(
+headless=True
+)
 ```
 
 
@@ -483,10 +491,10 @@ headless<span class="token operator">=</span><span class="token boolean">True</s
 
 
 ```python
-browser <span class="token operator">=</span> <span class="token keyword">await</span> p<span class="token punctuation">.</span>chromium<span class="token punctuation">.</span>launch<span class="token punctuation">(</span>
-headless<span class="token operator">=</span><span class="token boolean">False</span><span class="token punctuation">,</span>
-slow_mo<span class="token operator">=</span><span class="token number">500</span>
-<span class="token punctuation">)</span>
+browser = await p.chromium.launch(
+headless=False,
+slow_mo=500
+)
 ```
 
 
@@ -502,8 +510,8 @@ slow_mo<span class="token operator">=</span><span class="token number">500</span
 
 
 ```python
-context_1 <span class="token operator">=</span> <span class="token keyword">await</span> browser<span class="token punctuation">.</span>new_context<span class="token punctuation">(</span><span class="token punctuation">)</span>
-context_2 <span class="token operator">=</span> <span class="token keyword">await</span> browser<span class="token punctuation">.</span>new_context<span class="token punctuation">(</span><span class="token punctuation">)</span>
+context_1 = await browser.new_context()
+context_2 = await browser.new_context()
 ```
 
 
@@ -528,7 +536,7 @@ context_2 <span class="token operator">=</span> <span class="token keyword">awai
 
 
 ```python
-page <span class="token operator">=</span> <span class="token keyword">await</span> context<span class="token punctuation">.</span>new_page<span class="token punctuation">(</span><span class="token punctuation">)</span>
+page = await context.new_page()
 ```
 
 
@@ -536,8 +544,8 @@ page <span class="token operator">=</span> <span class="token keyword">await</sp
 
 
 ```python
-page_1 <span class="token operator">=</span> <span class="token keyword">await</span> context<span class="token punctuation">.</span>new_page<span class="token punctuation">(</span><span class="token punctuation">)</span>
-page_2 <span class="token operator">=</span> <span class="token keyword">await</span> context<span class="token punctuation">.</span>new_page<span class="token punctuation">(</span><span class="token punctuation">)</span>
+page_1 = await context.new_page()
+page_2 = await context.new_page()
 ```
 
 
@@ -550,10 +558,10 @@ page_2 <span class="token operator">=</span> <span class="token keyword">await</
 
 
 ```python
-login_button <span class="token operator">=</span> page<span class="token punctuation">.</span>get_by_role<span class="token punctuation">(</span>
-<span class="token string">"button"</span><span class="token punctuation">,</span>
-name<span class="token operator">=</span><span class="token string">"登录"</span>
-<span class="token punctuation">)</span>
+login_button = page.get_by_role(
+"button",
+name="登录"
+)
 ```
 
 
@@ -562,8 +570,8 @@ name<span class="token operator">=</span><span class="token string">"登录"</sp
 
 
 ```python
-<span class="token keyword">await</span> login_button<span class="token punctuation">.</span>hover<span class="token punctuation">(</span><span class="token punctuation">)</span>
-<span class="token keyword">await</span> login_button<span class="token punctuation">.</span>click<span class="token punctuation">(</span><span class="token punctuation">)</span>
+await login_button.hover()
+await login_button.click()
 ```
 
 
@@ -578,10 +586,10 @@ name<span class="token operator">=</span><span class="token string">"登录"</sp
 
 
 ```python
-<span class="token keyword">await</span> page<span class="token punctuation">.</span>get_by_role<span class="token punctuation">(</span>
-<span class="token string">"button"</span><span class="token punctuation">,</span>
-name<span class="token operator">=</span><span class="token string">"登录"</span>
-<span class="token punctuation">)</span><span class="token punctuation">.</span>click<span class="token punctuation">(</span><span class="token punctuation">)</span>
+await page.get_by_role(
+"button",
+name="登录"
+).click()
 ```
 
 
@@ -609,9 +617,9 @@ Playwright Driver
 
 
 ```python
-browser <span class="token operator">=</span> <span class="token keyword">await</span> p<span class="token punctuation">.</span>chromium<span class="token punctuation">.</span>connect_over_cdp<span class="token punctuation">(</span>
-<span class="token string">"http://localhost:9222"</span>
-<span class="token punctuation">)</span>
+browser = await p.chromium.connect_over_cdp(
+"http://localhost:9222"
+)
 ```
 
 
@@ -634,10 +642,10 @@ browser <span class="token operator">=</span> <span class="token keyword">await<
 
 
 ```python
-<span class="token keyword">async</span> <span class="token keyword">with</span> context<span class="token punctuation">.</span>expect_page<span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token keyword">as</span> page_info<span class="token punctuation">:</span>
-<span class="token keyword">await</span> page<span class="token punctuation">.</span>get_by_text<span class="token punctuation">(</span><span class="token string">"打开详情"</span><span class="token punctuation">)</span><span class="token punctuation">.</span>click<span class="token punctuation">(</span><span class="token punctuation">)</span>
+async with context.expect_page() as page_info:
+await page.get_by_text("打开详情").click()
 
-new_page <span class="token operator">=</span> <span class="token keyword">await</span> page_info<span class="token punctuation">.</span>value
+new_page = await page_info.value
 ```
 
 
@@ -645,10 +653,10 @@ new_page <span class="token operator">=</span> <span class="token keyword">await
 
 
 ```python
-<span class="token keyword">async</span> <span class="token keyword">with</span> page<span class="token punctuation">.</span>expect_download<span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token keyword">as</span> download_info<span class="token punctuation">:</span>
-<span class="token keyword">await</span> page<span class="token punctuation">.</span>get_by_text<span class="token punctuation">(</span><span class="token string">"下载"</span><span class="token punctuation">)</span><span class="token punctuation">.</span>click<span class="token punctuation">(</span><span class="token punctuation">)</span>
+async with page.expect_download() as download_info:
+await page.get_by_text("下载").click()
 
-download <span class="token operator">=</span> <span class="token keyword">await</span> download_info<span class="token punctuation">.</span>value
+download = await download_info.value
 ```
 
 
@@ -656,12 +664,12 @@ download <span class="token operator">=</span> <span class="token keyword">await
 
 
 ```python
-<span class="token keyword">async</span> <span class="token keyword">with</span> page<span class="token punctuation">.</span>expect_response<span class="token punctuation">(</span>
-<span class="token keyword">lambda</span> response<span class="token punctuation">:</span> <span class="token string">"/api/detail"</span> <span class="token keyword">in</span> response<span class="token punctuation">.</span>url
-<span class="token punctuation">)</span> <span class="token keyword">as</span> response_info<span class="token punctuation">:</span>
-<span class="token keyword">await</span> page<span class="token punctuation">.</span>get_by_text<span class="token punctuation">(</span><span class="token string">"查看详情"</span><span class="token punctuation">)</span><span class="token punctuation">.</span>click<span class="token punctuation">(</span><span class="token punctuation">)</span>
+async with page.expect_response(
+lambda response: "/api/detail" in response.url
+) as response_info:
+await page.get_by_text("查看详情").click()
 
-response <span class="token operator">=</span> <span class="token keyword">await</span> response_info<span class="token punctuation">.</span>value
+response = await response_info.value
 ```
 
 
@@ -673,8 +681,8 @@ response <span class="token operator">=</span> <span class="token keyword">await
 
 
 ```python
-<span class="token keyword">await</span> page<span class="token punctuation">.</span>get_by_text<span class="token punctuation">(</span><span class="token string">"下载"</span><span class="token punctuation">)</span><span class="token punctuation">.</span>click<span class="token punctuation">(</span><span class="token punctuation">)</span>
-download <span class="token operator">=</span> <span class="token keyword">await</span> page<span class="token punctuation">.</span>wait_for_event<span class="token punctuation">(</span><span class="token string">"download"</span><span class="token punctuation">)</span>
+await page.get_by_text("下载").click()
+download = await page.wait_for_event("download")
 ```
 
 
@@ -683,8 +691,8 @@ download <span class="token operator">=</span> <span class="token keyword">await
 
 
 ```python
-<span class="token keyword">async</span> <span class="token keyword">with</span> page<span class="token punctuation">.</span>expect_download<span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token keyword">as</span> download_info<span class="token punctuation">:</span>
-<span class="token keyword">await</span> page<span class="token punctuation">.</span>get_by_text<span class="token punctuation">(</span><span class="token string">"下载"</span><span class="token punctuation">)</span><span class="token punctuation">.</span>click<span class="token punctuation">(</span><span class="token punctuation">)</span>
+async with page.expect_download() as download_info:
+await page.get_by_text("下载").click()
 ```
 
 
@@ -695,8 +703,8 @@ download <span class="token operator">=</span> <span class="token keyword">await
 
 
 ```python
-<span class="token keyword">await</span> page<span class="token punctuation">.</span>click<span class="token punctuation">(</span><span class="token string">"#submit"</span><span class="token punctuation">)</span>
-<span class="token keyword">await</span> asyncio<span class="token punctuation">.</span>sleep<span class="token punctuation">(</span><span class="token number">3</span><span class="token punctuation">)</span>
+await page.click("#submit")
+await asyncio.sleep(3)
 ```
 
 
@@ -709,10 +717,10 @@ download <span class="token operator">=</span> <span class="token keyword">await
 
 
 ```python
-<span class="token keyword">await</span> page<span class="token punctuation">.</span>get_by_role<span class="token punctuation">(</span>
-<span class="token string">"button"</span><span class="token punctuation">,</span>
-name<span class="token operator">=</span><span class="token string">"提交"</span>
-<span class="token punctuation">)</span><span class="token punctuation">.</span>click<span class="token punctuation">(</span><span class="token punctuation">)</span>
+await page.get_by_role(
+"button",
+name="提交"
+).click()
 ```
 
 
@@ -723,9 +731,9 @@ name<span class="token operator">=</span><span class="token string">"提交"</sp
 
 
 ```python
-expect<span class="token punctuation">(</span>page<span class="token punctuation">.</span>locator<span class="token punctuation">(</span><span class="token string">".status"</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">.</span>to_have_text<span class="token punctuation">(</span>
-<span class="token string">"处理完成"</span>
-<span class="token punctuation">)</span>
+expect(page.locator(".status")).to_have_text(
+"处理完成"
+)
 ```
 
 
@@ -755,13 +763,13 @@ expect<span class="token punctuation">(</span>page<span class="token punctuation
 
 
 ```python
-button <span class="token operator">=</span> page<span class="token punctuation">.</span>get_by_role<span class="token punctuation">(</span>
-<span class="token string">"button"</span><span class="token punctuation">,</span>
-name<span class="token operator">=</span><span class="token string">"提交"</span>
-<span class="token punctuation">)</span>
+button = page.get_by_role(
+"button",
+name="提交"
+)
 
-<span class="token keyword">await</span> button<span class="token punctuation">.</span>hover<span class="token punctuation">(</span><span class="token punctuation">)</span>
-<span class="token keyword">await</span> button<span class="token punctuation">.</span>click<span class="token punctuation">(</span><span class="token punctuation">)</span>
+await button.hover()
+await button.click()
 ```
 
 
@@ -773,10 +781,10 @@ name<span class="token operator">=</span><span class="token string">"提交"</sp
 
 
 ```python
-page<span class="token punctuation">.</span>get_by_role<span class="token punctuation">(</span>
-<span class="token string">"button"</span><span class="token punctuation">,</span>
-name<span class="token operator">=</span><span class="token string">"登录"</span>
-<span class="token punctuation">)</span>
+page.get_by_role(
+"button",
+name="登录"
+)
 ```
 
 
@@ -786,8 +794,8 @@ name<span class="token operator">=</span><span class="token string">"登录"</sp
 
 
 ```python
-page<span class="token punctuation">.</span>get_by_label<span class="token punctuation">(</span><span class="token string">"用户名"</span><span class="token punctuation">)</span>
-page<span class="token punctuation">.</span>get_by_label<span class="token punctuation">(</span><span class="token string">"密码"</span><span class="token punctuation">)</span>
+page.get_by_label("用户名")
+page.get_by_label("密码")
 ```
 
 
@@ -797,7 +805,7 @@ page<span class="token punctuation">.</span>get_by_label<span class="token punct
 
 
 ```python
-page<span class="token punctuation">.</span>get_by_text<span class="token punctuation">(</span><span class="token string">"查看详情"</span><span class="token punctuation">)</span>
+page.get_by_text("查看详情")
 ```
 
 
@@ -806,7 +814,7 @@ page<span class="token punctuation">.</span>get_by_text<span class="token punctu
 
 
 ```python
-page<span class="token punctuation">.</span>get_by_placeholder<span class="token punctuation">(</span><span class="token string">"请输入关键词"</span><span class="token punctuation">)</span>
+page.get_by_placeholder("请输入关键词")
 ```
 
 
@@ -815,7 +823,7 @@ page<span class="token punctuation">.</span>get_by_placeholder<span class="token
 
 
 ```python
-page<span class="token punctuation">.</span>get_by_test_id<span class="token punctuation">(</span><span class="token string">"submit-button"</span><span class="token punctuation">)</span>
+page.get_by_test_id("submit-button")
 ```
 
 
@@ -823,9 +831,9 @@ page<span class="token punctuation">.</span>get_by_test_id<span class="token pun
 
 
 ```html
-<span class="token tag"><span class="token tag"><span class="token punctuation"><</span>button</span> <span class="token attr-name">data-testid</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>submit-button<span class="token punctuation">"</span></span><span class="token punctuation">></span></span>
+<button data-testid="submit-button">
 提交
-<span class="token tag"><span class="token tag"><span class="token punctuation"></</span>button</span><span class="token punctuation">></span></span>
+</button>
 ```
 
 
@@ -834,7 +842,7 @@ page<span class="token punctuation">.</span>get_by_test_id<span class="token pun
 
 
 ```python
-page<span class="token punctuation">.</span>locator<span class="token punctuation">(</span><span class="token string">".article-list .article-item"</span><span class="token punctuation">)</span>
+page.locator(".article-list .article-item")
 ```
 
 
@@ -843,9 +851,9 @@ page<span class="token punctuation">.</span>locator<span class="token punctuatio
 
 
 ```python
-page<span class="token punctuation">.</span>locator<span class="token punctuation">(</span>
-<span class="token string">"xpath=//button[contains(text(),'提交')]"</span>
-<span class="token punctuation">)</span>
+page.locator(
+"xpath=//button[contains(text(),'提交')]"
+)
 ```
 
 
@@ -853,7 +861,7 @@ page<span class="token punctuation">.</span>locator<span class="token punctuatio
 
 
 ```python
-<span class="token operator">/</span>html<span class="token operator">/</span>body<span class="token operator">/</span>div<span class="token punctuation">[</span><span class="token number">2</span><span class="token punctuation">]</span><span class="token operator">/</span>div<span class="token punctuation">[</span><span class="token number">3</span><span class="token punctuation">]</span><span class="token operator">/</span>div<span class="token operator">/</span>button
+/html/body/div[2]/div[3]/div/button
 ```
 
 
@@ -866,119 +874,119 @@ page<span class="token punctuation">.</span>locator<span class="token punctuatio
 
 
 ```python
-<span class="token keyword">import</span> asyncio
-<span class="token keyword">from</span> pathlib <span class="token keyword">import</span> Path
+import asyncio
+from pathlib import Path
 
-<span class="token keyword">from</span> playwright<span class="token punctuation">.</span>async_api <span class="token keyword">import</span> <span class="token punctuation">(</span>
-async_playwright<span class="token punctuation">,</span>
-TimeoutError <span class="token keyword">as</span> PlaywrightTimeoutError<span class="token punctuation">,</span>
-<span class="token punctuation">)</span>
+from playwright.async_api import (
+async_playwright,
+TimeoutError as PlaywrightTimeoutError,
+)
 
-<span class="token keyword">async</span> <span class="token keyword">def</span> <span class="token function">collect_data</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">-</span><span class="token operator">></span> <span class="token builtin">list</span><span class="token punctuation">[</span><span class="token builtin">dict</span><span class="token punctuation">[</span><span class="token builtin">str</span><span class="token punctuation">,</span> <span class="token builtin">str</span><span class="token punctuation">]</span><span class="token punctuation">]</span><span class="token punctuation">:</span>
-output_dir <span class="token operator">=</span> Path<span class="token punctuation">(</span><span class="token string">"artifacts"</span><span class="token punctuation">)</span>
-output_dir<span class="token punctuation">.</span>mkdir<span class="token punctuation">(</span>parents<span class="token operator">=</span><span class="token boolean">True</span><span class="token punctuation">,</span> exist_ok<span class="token operator">=</span><span class="token boolean">True</span><span class="token punctuation">)</span>
+async def collect_data() -> list[dict[str, str]]:
+output_dir = Path("artifacts")
+output_dir.mkdir(parents=True, exist_ok=True)
 
-<span class="token keyword">async</span> <span class="token keyword">with</span> async_playwright<span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token keyword">as</span> playwright<span class="token punctuation">:</span>
-browser <span class="token operator">=</span> <span class="token keyword">await</span> playwright<span class="token punctuation">.</span>chromium<span class="token punctuation">.</span>launch<span class="token punctuation">(</span>
-headless<span class="token operator">=</span><span class="token boolean">True</span>
-<span class="token punctuation">)</span>
+async with async_playwright() as playwright:
+browser = await playwright.chromium.launch(
+headless=True
+)
 
-context <span class="token operator">=</span> <span class="token keyword">await</span> browser<span class="token punctuation">.</span>new_context<span class="token punctuation">(</span>
-locale<span class="token operator">=</span><span class="token string">"zh-CN"</span><span class="token punctuation">,</span>
-viewport<span class="token operator">=</span><span class="token punctuation">{<!-- --></span>
-<span class="token string">"width"</span><span class="token punctuation">:</span> <span class="token number">1440</span><span class="token punctuation">,</span>
-<span class="token string">"height"</span><span class="token punctuation">:</span> <span class="token number">900</span><span class="token punctuation">,</span>
-<span class="token punctuation">}</span><span class="token punctuation">,</span>
-<span class="token punctuation">)</span>
+context = await browser.new_context(
+locale="zh-CN",
+viewport={<!-- -->
+"width": 1440,
+"height": 900,
+},
+)
 
-page <span class="token operator">=</span> <span class="token keyword">await</span> context<span class="token punctuation">.</span>new_page<span class="token punctuation">(</span><span class="token punctuation">)</span>
+page = await context.new_page()
 
-<span class="token keyword">try</span><span class="token punctuation">:</span>
-<span class="token keyword">await</span> page<span class="token punctuation">.</span>goto<span class="token punctuation">(</span>
-<span class="token string">"https://example.com/projects"</span><span class="token punctuation">,</span>
-wait_until<span class="token operator">=</span><span class="token string">"domcontentloaded"</span><span class="token punctuation">,</span>
-timeout<span class="token operator">=</span><span class="token number">30_000</span><span class="token punctuation">,</span>
-<span class="token punctuation">)</span>
+try:
+await page.goto(
+"https://example.com/projects",
+wait_until="domcontentloaded",
+timeout=30_000,
+)
 
-keyword_input <span class="token operator">=</span> page<span class="token punctuation">.</span>get_by_placeholder<span class="token punctuation">(</span>
-<span class="token string">"请输入项目名称"</span>
-<span class="token punctuation">)</span>
+keyword_input = page.get_by_placeholder(
+"请输入项目名称"
+)
 
-<span class="token keyword">await</span> keyword_input<span class="token punctuation">.</span>fill<span class="token punctuation">(</span><span class="token string">"人工智能"</span><span class="token punctuation">)</span>
+await keyword_input.fill("人工智能")
 
-<span class="token keyword">async</span> <span class="token keyword">with</span> page<span class="token punctuation">.</span>expect_response<span class="token punctuation">(</span>
-<span class="token keyword">lambda</span> response<span class="token punctuation">:</span> <span class="token punctuation">(</span>
-<span class="token string">"/api/project/list"</span> <span class="token keyword">in</span> response<span class="token punctuation">.</span>url
-<span class="token keyword">and</span> response<span class="token punctuation">.</span>status <span class="token operator">==</span> <span class="token number">200</span>
-<span class="token punctuation">)</span><span class="token punctuation">,</span>
-timeout<span class="token operator">=</span><span class="token number">20_000</span><span class="token punctuation">,</span>
-<span class="token punctuation">)</span> <span class="token keyword">as</span> response_info<span class="token punctuation">:</span>
-<span class="token keyword">await</span> page<span class="token punctuation">.</span>get_by_role<span class="token punctuation">(</span>
-<span class="token string">"button"</span><span class="token punctuation">,</span>
-name<span class="token operator">=</span><span class="token string">"查询"</span><span class="token punctuation">,</span>
-<span class="token punctuation">)</span><span class="token punctuation">.</span>click<span class="token punctuation">(</span><span class="token punctuation">)</span>
+async with page.expect_response(
+lambda response: (
+"/api/project/list" in response.url
+and response.status == 200
+),
+timeout=20_000,
+) as response_info:
+await page.get_by_role(
+"button",
+name="查询",
+).click()
 
-response <span class="token operator">=</span> <span class="token keyword">await</span> response_info<span class="token punctuation">.</span>value
-response_data <span class="token operator">=</span> <span class="token keyword">await</span> response<span class="token punctuation">.</span>json<span class="token punctuation">(</span><span class="token punctuation">)</span>
+response = await response_info.value
+response_data = await response.json()
 
-<span class="token keyword">await</span> page<span class="token punctuation">.</span>locator<span class="token punctuation">(</span>
-<span class="token string">".project-list"</span>
-<span class="token punctuation">)</span><span class="token punctuation">.</span>wait_for<span class="token punctuation">(</span>
-state<span class="token operator">=</span><span class="token string">"visible"</span><span class="token punctuation">,</span>
-timeout<span class="token operator">=</span><span class="token number">20_000</span><span class="token punctuation">,</span>
-<span class="token punctuation">)</span>
+await page.locator(
+".project-list"
+).wait_for(
+state="visible",
+timeout=20_000,
+)
 
-rows <span class="token operator">=</span> page<span class="token punctuation">.</span>locator<span class="token punctuation">(</span><span class="token string">".project-item"</span><span class="token punctuation">)</span>
-count <span class="token operator">=</span> <span class="token keyword">await</span> rows<span class="token punctuation">.</span>count<span class="token punctuation">(</span><span class="token punctuation">)</span>
+rows = page.locator(".project-item")
+count = await rows.count()
 
-results<span class="token punctuation">:</span> <span class="token builtin">list</span><span class="token punctuation">[</span><span class="token builtin">dict</span><span class="token punctuation">[</span><span class="token builtin">str</span><span class="token punctuation">,</span> <span class="token builtin">str</span><span class="token punctuation">]</span><span class="token punctuation">]</span> <span class="token operator">=</span> <span class="token punctuation">[</span><span class="token punctuation">]</span>
+results: list[dict[str, str]] = []
 
-<span class="token keyword">for</span> index <span class="token keyword">in</span> <span class="token builtin">range</span><span class="token punctuation">(</span>count<span class="token punctuation">)</span><span class="token punctuation">:</span>
-row <span class="token operator">=</span> rows<span class="token punctuation">.</span>nth<span class="token punctuation">(</span>index<span class="token punctuation">)</span>
+for index in range(count):
+row = rows.nth(index)
 
-title <span class="token operator">=</span> <span class="token keyword">await</span> row<span class="token punctuation">.</span>locator<span class="token punctuation">(</span>
-<span class="token string">".project-title"</span>
-<span class="token punctuation">)</span><span class="token punctuation">.</span>inner_text<span class="token punctuation">(</span><span class="token punctuation">)</span>
+title = await row.locator(
+".project-title"
+).inner_text()
 
-date <span class="token operator">=</span> <span class="token keyword">await</span> row<span class="token punctuation">.</span>locator<span class="token punctuation">(</span>
-<span class="token string">".project-date"</span>
-<span class="token punctuation">)</span><span class="token punctuation">.</span>inner_text<span class="token punctuation">(</span><span class="token punctuation">)</span>
+date = await row.locator(
+".project-date"
+).inner_text()
 
-results<span class="token punctuation">.</span>append<span class="token punctuation">(</span>
-<span class="token punctuation">{<!-- --></span>
-<span class="token string">"title"</span><span class="token punctuation">:</span> title<span class="token punctuation">.</span>strip<span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
-<span class="token string">"date"</span><span class="token punctuation">:</span> date<span class="token punctuation">.</span>strip<span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
-<span class="token punctuation">}</span>
-<span class="token punctuation">)</span>
+results.append(
+{<!-- -->
+"title": title.strip(),
+"date": date.strip(),
+}
+)
 
-<span class="token keyword">await</span> page<span class="token punctuation">.</span>screenshot<span class="token punctuation">(</span>
-path<span class="token operator">=</span>output_dir <span class="token operator">/</span> <span class="token string">"result.png"</span><span class="token punctuation">,</span>
-full_page<span class="token operator">=</span><span class="token boolean">True</span><span class="token punctuation">,</span>
-<span class="token punctuation">)</span>
+await page.screenshot(
+path=output_dir / "result.png",
+full_page=True,
+)
 
-<span class="token keyword">print</span><span class="token punctuation">(</span>
-<span class="token string">"接口返回数据量："</span><span class="token punctuation">,</span>
-<span class="token builtin">len</span><span class="token punctuation">(</span>response_data<span class="token punctuation">.</span>get<span class="token punctuation">(</span><span class="token string">"data"</span><span class="token punctuation">,</span> <span class="token punctuation">[</span><span class="token punctuation">]</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
-<span class="token punctuation">)</span>
+print(
+"接口返回数据量：",
+len(response_data.get("data", [])),
+)
 
-<span class="token keyword">return</span> results
+return results
 
-<span class="token keyword">except</span> PlaywrightTimeoutError<span class="token punctuation">:</span>
-<span class="token keyword">await</span> page<span class="token punctuation">.</span>screenshot<span class="token punctuation">(</span>
-path<span class="token operator">=</span>output_dir <span class="token operator">/</span> <span class="token string">"timeout.png"</span><span class="token punctuation">,</span>
-full_page<span class="token operator">=</span><span class="token boolean">True</span><span class="token punctuation">,</span>
-<span class="token punctuation">)</span>
-<span class="token keyword">raise</span> RuntimeError<span class="token punctuation">(</span><span class="token string">"页面操作超时"</span><span class="token punctuation">)</span>
+except PlaywrightTimeoutError:
+await page.screenshot(
+path=output_dir / "timeout.png",
+full_page=True,
+)
+raise RuntimeError("页面操作超时")
 
-<span class="token keyword">finally</span><span class="token punctuation">:</span>
-<span class="token keyword">await</span> context<span class="token punctuation">.</span>close<span class="token punctuation">(</span><span class="token punctuation">)</span>
-<span class="token keyword">await</span> browser<span class="token punctuation">.</span>close<span class="token punctuation">(</span><span class="token punctuation">)</span>
+finally:
+await context.close()
+await browser.close()
 
-<span class="token keyword">if</span> __name__ <span class="token operator">==</span> <span class="token string">"__main__"</span><span class="token punctuation">:</span>
-data <span class="token operator">=</span> asyncio<span class="token punctuation">.</span>run<span class="token punctuation">(</span>collect_data<span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+if __name__ == "__main__":
+data = asyncio.run(collect_data())
 
-<span class="token keyword">for</span> item <span class="token keyword">in</span> data<span class="token punctuation">:</span>
-<span class="token keyword">print</span><span class="token punctuation">(</span>item<span class="token punctuation">)</span>
+for item in data:
+print(item)
 ```
 
 
@@ -1059,8 +1067,8 @@ Page：具体页面操作
 
 
 ```python
-context<span class="token punctuation">.</span>set_default_timeout<span class="token punctuation">(</span><span class="token number">10_000</span><span class="token punctuation">)</span>
-context<span class="token punctuation">.</span>set_default_navigation_timeout<span class="token punctuation">(</span><span class="token number">30_000</span><span class="token punctuation">)</span>
+context.set_default_timeout(10_000)
+context.set_default_navigation_timeout(30_000)
 ```
 
 

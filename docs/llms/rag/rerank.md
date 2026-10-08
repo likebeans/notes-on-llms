@@ -3,7 +3,7 @@ title: 重排序技术详解
 description: RAG系统中的检索结果重排序与精排技术
 pageType: article
 module: rag
-updated: '2025-12-27'
+updated: '2026-10-08'
 contentStatus: needs-review
 tags:
   - rag
@@ -15,6 +15,10 @@ techVersion: 待复核（2026-08）
 ---
 
 # 重排序技术详解
+
+::: info 代码阅读约定
+模型调用示例需安装匹配依赖并下载权重；自定义打分、批量/缓存/微调组件是接口骨架。文中不提供跨语言、硬件和领域通用的得分阈值或性能保证。
+:::
 
 > 提升检索精度的关键技术，从粗排到精排的核心环节
 
@@ -51,7 +55,7 @@ techVersion: 待复核（2026-08）
 
 | 类型 | 原理 | 优势 | 劣势 | 适用场景 |
 |------|------|------|------|----------|
-| **Cross-Encoder** | 查询-文档联合编码 | 精度最高 | 计算量大 | 高质量要求 |
+| **Cross-Encoder** | 查询-文档联合编码 | 可建模更细的交互 | 计算量大 | 高质量要求 |
 | **Bi-Encoder** | 查询和文档分别编码 | 速度快 | 交互不足 | 大规模检索 |
 | **Late Interaction** | 延迟交互计算 | 平衡精度速度 | 实现复杂 | 平衡场景 |
 
@@ -75,7 +79,7 @@ Cross-Encoder将查询和文档拼接输入，通过Transformer进行联合编�
 ```python
 # Cross-Encoder架构
 input = "[CLS] query [SEP] document [SEP]"
-score = CrossEncoder(input)  # 输出0-1相关性分数
+score = reranker(input)  # 架构伪代码；输出范围由具体模型决定
 ```
 
 ### 实战实现
@@ -134,84 +138,41 @@ for i, doc in enumerate(reranked):
 
 ### Cross-Encoder输出处理：Logits到概率
 
-> 来源：[混合搜索中的分数归一化方法深度解析](https://dd-ff.blog.csdn.net/article/details/156072979)
+先确认模型输出契约：单标量 logits、已激活分数、多分类 logits 不能混用。Sigmoid 对单标量严格单调，因此只为排序时可直接用 logits；变为 0–1 不会提高排序质量，也不代表获得已校准的相关概率。[Sentence Transformers 官方文档](https://sbert.net/docs/cross_encoder/usage/usage.html) 给出了原始 logits 与显式激活的用法。
 
-::: warning 关键注意
-Cross-Encoder（如bge-reranker）输出的是**原始Logits**（对数几率），定义域为(-∞, +∞)。直接将Logits与其他分数（如余弦相似度）混合是**数学谬误**。
-:::
+若要比较分数与阈值，必须固定模型、候选分布和输入模板，再用标注集拟合与检查校准。不要把未经校准的 rerank 分数与余弦直接相加，也不要对 SDK 已做过的激活再做一次 Sigmoid。
 
 ```python
-import numpy as np
+# pip install sentence-transformers torch
+import torch
+from sentence_transformers import CrossEncoder
 
-class CrossEncoderRerankerWithCalibration:
-    """带概率校准的Cross-Encoder重排序器"""
-    
-    def __init__(self, model_name='BAAI/bge-reranker-v2-m3'):
-        from sentence_transformers import CrossEncoder
-        self.model = CrossEncoder(model_name)
-    
-    def _sigmoid(self, x):
-        """将Logits转换为概率"""
-        return 1 / (1 + np.exp(-np.array(x)))
-    
-    def rerank(self, query: str, documents: list, top_k: int = 5, 
-               return_probabilities: bool = True):
-        """
-        重排序并返回校准后的概率分数
-        
-        Cross-Encoder训练目标是BCEWithLogitsLoss:
-        - Logit > 0 意味着 P(相关) > 0.5
-        - Logit = 8.5  -> P = 0.9998 (高相关)
-        - Logit = -2.3 -> P = 0.0911 (低相关)
-        """
-        if not documents:
-            return []
-        
-        pairs = [(query, doc['text']) for doc in documents]
-        
-        # 获取原始Logits
-        logits = self.model.predict(pairs)
-        
-        # 转换为概率（推荐）
-        if return_probabilities:
-            scores = self._sigmoid(logits)
-        else:
-            scores = logits
-        
-        scored_docs = []
-        for doc, score, logit in zip(documents, scores, logits):
-            doc_copy = doc.copy()
-            doc_copy['rerank_score'] = float(score)
-            doc_copy['raw_logit'] = float(logit)
-            scored_docs.append(doc_copy)
-        
-        ranked_docs = sorted(scored_docs, key=lambda x: x['rerank_score'], reverse=True)
-        return ranked_docs[:top_k]
-
-# 使用示例
-reranker = CrossEncoderRerankerWithCalibration()
-results = reranker.rerank("什么是RAG？", candidates)
-
-for doc in results:
-    print(f"概率: {doc['rerank_score']:.3f} (Logit: {doc['raw_logit']:.2f})")
-    # 概率: 0.998 (Logit: 6.21)  <- 高相关
-    # 概率: 0.124 (Logit: -1.95) <- 低相关
+# 英文教学模型：显式使用 Identity，确保下面得到原始标量 logits。
+model = CrossEncoder(
+    "cross-encoder/ms-marco-MiniLM-L6-v2",
+    activation_fn=torch.nn.Identity(),
+)
+pairs = [
+    ("What is RAG?", "RAG combines retrieval with text generation."),
+    ("What is RAG?", "Bananas are yellow."),
+]
+logits = model.predict(pairs)
+ranked = sorted(zip(pairs, logits), key=lambda item: float(item[1]), reverse=True)
 ```
 
-**为什么必须转换为概率？**
-- **分数可比性**：概率值[0,1]可与余弦相似度直接融合
-- **阈值截断**：概率支持设置绝对质量阈值（如P<0.3拒绝回答）
-- **幻觉抑制**：即使所有文档都不相关，也能识别出低概率
+中文场景应换为适合中文的模型并重新评估，不应沿用这个教学模型的分数阈值。
 
 ### 开源重排序模型对比
 
-| 模型 | 语言 | 参数量 | MTEB排名 | 特点 |
-|------|------|--------|----------|------|
-| **bge-reranker-v2-m3** | 多语言 | 568M | Top 1 | 最新版本，推荐 |
-| **bge-reranker-large** | 中英 | 560M | Top 3 | 性能优秀，中文友好 |
-| **bge-reranker-base** | 中英 | 278M | Top 10 | 平衡性能与速度 |
-| **jina-reranker-v2** | 多语言 | 278M | - | 多语言支持 |
-| **ms-marco-cross-encoder** | 英文 | 340M | - | 经典英文模型 |
+下列是候选家族，不是实时榜单。相同系列的参数规模、窗口、许可证和推理接口可能不同，选择时固定具体模型卡与 revision。
+
+| 候选家族 | 先核对什么 | 需要实测什么 |
+| --- | --- | --- |
+| BGE reranker | 中文/多语言支持、输入长度、分数定义 | 专有名词、否定条件与长片段截断 |
+| Jina reranker | 具体版本与运行时依赖 | 跨语言排序和吞吐 |
+| MS MARCO Cross-Encoder | 训练域与语言覆盖 | 从英文搜索数据迁移到业务域的退化 |
+
+以固定候选集上的 NDCG/MRR 增益、最终证据覆盖率及 p95 延迟选型。参数量大、榜单名次高或标注“多语言”都不能替代业务测试。
 
 ---
 
@@ -222,14 +183,14 @@ for doc in results:
 ### 短查询高分异常问题
 
 ::: danger 病态现象
-输入"Hello"、"系统"、"测试"等短查询时，混合检索往往以**极高置信度**返回**完全不相关**的文档。这在RAG中是致命的——噪声上下文直接导致LLM幻觉。
+输入"Hello"、"系统"、"测试"等短查询时，混合检索往往以**较高排序分数**返回**完全不相关**的文档。这在RAG中是致命的——噪声上下文会增加无依据回答的风险。
 :::
 
 **根本原因分析**：
 
 | 检索阶段 | 失效机制 | 后果 |
 |----------|----------|------|
-| **BM25** | IDF权重崩溃 + 长度偏置 | 短碎片高分 |
+| **BM25** | 分词、词频和长度归一化不适配 | 短碎片高分 |
 | **向量检索** | 各向异性 + 枢纽点效应 | 通用文档高分 |
 | **RRF融合** | 盲信排名，放大错误 | 噪声居榜首 |
 
@@ -246,160 +207,55 @@ Bi-Encoder（向量检索）：
 Cross-Encoder（重排序）：
   [CLS] Query [SEP] Doc [SEP] ────→ [Transformer] ────→ 相关性分数
                                     ↑
-                                    逐词交互，消除几何噪声
+                                    逐词交互，补充相关性信号
 ```
 
 **修正机制**：
 
-1. **消除几何噪声**：通过自注意力机制逐词分析，识别"Hello"与"用户协议"无语义蕴含关系
-2. **解决长度偏置**：阅读完整上下文，识别文档中的"Hello"若只是孤立词汇则无法回答查询
-3. **分数校准**：输出概率值，支持绝对阈值截断
+1. **补充交互信号**：联合阅读问题与片段，可改善一些仅凭向量相似度难区分的候选
+2. **检查实际输入**：超过模型长度的片段会截断；关键信息必须在可见范围内
+3. **校准拒答决策**：用带标签验证集选择阈值，检查无答案查询的误接受率
 
 ### 阈值截断与幻觉抑制
 
+阈值是一项经过验证的应用决策，不是模型的通用属性。先标注“可支持回答”与“仅主题相关”的区别，在验证集选择可接受的误接受/误拒绝折中；最后用未参与选择的测试集报告结果。模型、切分、语言或候选数量改变时重新检查。
+
 ```python
-import numpy as np
+# 独立可用的后处理函数；threshold 由独立验证集确定。
+from math import isfinite
 
-class ThresholdedReranker:
-    """带阈值截断的重排序器，用于抑制RAG幻觉"""
-    
-    def __init__(self, model_name='BAAI/bge-reranker-v2-m3', 
-                 threshold=0.3, min_results=0):
-        from sentence_transformers import CrossEncoder
-        self.model = CrossEncoder(model_name)
-        self.threshold = threshold
-        self.min_results = min_results  # 最少返回数量（0表示可返回空）
-    
-    def _sigmoid(self, x):
-        return 1 / (1 + np.exp(-np.array(x)))
-    
-    def rerank(self, query: str, documents: list, top_k: int = 5):
-        """
-        重排序并应用阈值截断
-        
-        关键：若所有文档相关性都低于阈值，返回空列表
-        这优于返回噪声——让下游系统知道"无可靠答案"
-        """
-        if not documents:
-            return [], "no_candidates"
-        
-        pairs = [(query, doc['text']) for doc in documents]
-        logits = self.model.predict(pairs)
-        probs = self._sigmoid(logits)
-        
-        scored_docs = []
-        for doc, prob in zip(documents, probs):
-            doc_copy = doc.copy()
-            doc_copy['rerank_score'] = float(prob)
-            scored_docs.append(doc_copy)
-        
-        # 按分数排序
-        scored_docs.sort(key=lambda x: x['rerank_score'], reverse=True)
-        
-        # 阈值过滤
-        filtered = [d for d in scored_docs if d['rerank_score'] >= self.threshold]
-        
-        # 判断结果状态
-        if len(filtered) == 0:
-            if self.min_results > 0:
-                # 强制返回top结果，但标记为低置信
-                return scored_docs[:self.min_results], "low_confidence"
-            else:
-                # 返回空，触发"无法回答"逻辑
-                return [], "no_relevant_docs"
-        
-        return filtered[:top_k], "success"
-
-# 使用示例
-reranker = ThresholdedReranker(threshold=0.3)
-
-# 正常查询
-results, status = reranker.rerank("RAG技术的核心原理是什么？", candidates)
-# status: "success", results: [相关文档...]
-
-# 短查询/无关查询
-results, status = reranker.rerank("Hello", candidates)
-# status: "no_relevant_docs", results: []
-# 下游系统应返回"抱歉，未找到相关信息"而非幻觉回答
+def select_evidence(documents, scores, *, threshold, top_k=5):
+    if top_k <= 0:
+        raise ValueError("top_k 必须为正")
+    if len(documents) != len(scores):
+        raise ValueError("候选与分数数量不一致")
+    if not isfinite(threshold) or not all(isfinite(float(s)) for s in scores):
+        raise ValueError("拒绝非有限分数")
+    ranked = sorted(
+        ({**doc, "rerank_score": float(score)} for doc, score in zip(documents, scores)),
+        key=lambda doc: doc["rerank_score"], reverse=True,
+    )
+    selected = [doc for doc in ranked if doc["rerank_score"] >= threshold][:top_k]
+    return {"documents": selected, "status": "ok" if selected else "insufficient_evidence"}
 ```
 
-::: tip 幻觉抑制的关键
-- **Min-Max归一化失败**：即使全是烂文档，也会制造出1.0分，LLM强行回答
-- **Sigmoid概率胜利**：提供绝对阈值，低于0.3时果断拒绝，避免污染LLM上下文
-:::
+不为凑满 top-k 强制补入低分文档。`ok` 只表示通过排序过滤，不代表每个答案要点都有依据；仍需检查证据覆盖、时间冲突和引用。重排器无法找回候选池之外的材料。
 
 ### 完整两阶段检索流水线
 
-```python
-class TwoStageRAGRetriever:
-    """生产级两阶段检索器"""
-    
-    def __init__(self, hybrid_retriever, reranker, 
-                 recall_k=100, rerank_k=10, threshold=0.3):
-        self.hybrid_retriever = hybrid_retriever
-        self.reranker = reranker
-        self.recall_k = recall_k
-        self.rerank_k = rerank_k
-        self.threshold = threshold
-    
-    def retrieve(self, query: str):
-        """
-        阶段1：召回（容忍噪声，追求高召回率）
-        阶段2：精排（消除噪声，保证高精度）
-        """
-        # 阶段1：混合检索快速召回
-        candidates = self.hybrid_retriever.retrieve(query, top_k=self.recall_k)
-        
-        if not candidates:
-            return {
-                'documents': [],
-                'status': 'no_candidates',
-                'message': '未检索到任何候选文档'
-            }
-        
-        # 阶段2：Cross-Encoder精排
-        pairs = [(query, doc['text']) for doc in candidates]
-        logits = self.reranker.predict(pairs)
-        probs = 1 / (1 + np.exp(-np.array(logits)))
-        
-        for doc, prob in zip(candidates, probs):
-            doc['rerank_score'] = float(prob)
-        
-        candidates.sort(key=lambda x: x['rerank_score'], reverse=True)
-        
-        # 阈值过滤
-        filtered = [d for d in candidates if d['rerank_score'] >= self.threshold]
-        
-        if not filtered:
-            return {
-                'documents': [],
-                'status': 'low_relevance',
-                'message': '未找到与查询相关的高质量文档',
-                'max_score': candidates[0]['rerank_score'] if candidates else 0
-            }
-        
-        return {
-            'documents': filtered[:self.rerank_k],
-            'status': 'success',
-            'message': f'找到 {len(filtered)} 个相关文档'
-        }
+生产链路应保存每一步的输入与输出，尤其是候选 ID、原始分数、模型 revision、截断后的文本和最终证据 ID。
 
-# 集成到RAG系统
-class RAGSystem:
-    def __init__(self, retriever, llm):
-        self.retriever = retriever
-        self.llm = llm
-    
-    def answer(self, query: str):
-        result = self.retriever.retrieve(query)
-        
-        if result['status'] != 'success':
-            # 关键：拒绝回答而非幻觉
-            return f"抱歉，{result['message']}，无法回答您的问题。"
-        
-        context = "\n\n".join([d['text'] for d in result['documents']])
-        return self.llm.generate(query, context)
+```text
+认证并确定可访问语料
+→ BM25 / 向量召回（统一稳定文档 ID、去重）
+→ 检查候选 Recall@K 的离线基线
+→ 对查询与候选成对打分（分数定义由模型卡决定）
+→ 按验证过的阈值与上下文预算选择证据
+→ 无充分依据时澄清或拒答
+→ 生成答案并校验引用是否支持对应声明
 ```
+
+召回 K、送入模型的证据数量和 token 预算是三个不同参数。重复切块可能挤占多个位置；多跳问题可能要求保留若干互补片段，单靠逐片相关性分数无法保证完整覆盖。
 
 ---
 
@@ -468,6 +324,8 @@ results = hierarchical.rerank("查询内容", large_candidates, stage1_top_k=20,
 
 ### 2. LLM-as-Judge 重排序
 
+下面是历史 Chat Completions 接口示例，模型 ID 与 SDK 支持需在运行时确认；正文前 200 个字符的裁剪会丢失后文证据，仅用于演示。生产应按 token 和证据边界裁剪，使用结构约束返回唯一候选 ID，并监控降级率。
+
 ```python
 from openai import OpenAI
 
@@ -509,8 +367,13 @@ class LLMReranker:
             
             # 提取数字序列
             import re
-            numbers = re.findall(r'\d+', result_text)
-            selected_indices = [int(n)-1 for n in numbers[:top_k] if 0 <= int(n)-1 < len(documents)]
+            import json
+            indices = json.loads(result_text)
+            if not isinstance(indices, list) or not all(type(n) is int for n in indices):
+                raise ValueError("排序输出必须是整数数组")
+            if len(set(indices)) != len(indices) or any(n < 1 or n > len(documents) for n in indices):
+                raise ValueError("排序包含重复或越界编号")
+            selected_indices = [n - 1 for n in indices[:top_k]]
             
             # 按LLM排序返回文档
             reranked_docs = []
@@ -532,12 +395,14 @@ results = llm_reranker.rerank(query, candidates, top_k=3)
 
 print("LLM重排序结果:")
 for doc in results:
-    print(f"排名: {doc['llm_rank']}")
+    print(f"排名: {doc.get('llm_rank', '原始排序降级')}")
     print(f"内容: {doc['text'][:100]}...")
     print("---")
 ```
 
 ### 3. 多信号融合重排序
+
+示例采用名次变换而非概率；需校验权重数量和非负性、路内去重，并记录失败的通道。任一路失败会改变融合标度，结果不可与全通道时的阈值直接比较。
 
 ```python
 class MultiSignalReranker:
@@ -560,7 +425,7 @@ class MultiSignalReranker:
                 ranked_docs = reranker.rerank(query, documents, top_k=len(documents))
                 
                 for j, doc in enumerate(ranked_docs):
-                    doc_id = doc.get('id', j)
+                    doc_id = doc['id']  # 稳定 ID；不能使用各路排序名次代替
                     if doc_id not in all_scores:
                         all_scores[doc_id] = {'doc': doc, 'scores': []}
                     
@@ -577,7 +442,7 @@ class MultiSignalReranker:
         for doc_id, data in all_scores.items():
             doc = data['doc'].copy()
             # 加权平均
-            final_score = sum(data['scores']) / len(data['scores'])
+            final_score = sum(data['scores'])  # 权重和已在配置中约定；缺失路不奖励
             doc['fusion_score'] = final_score
             final_docs.append(doc)
         
@@ -689,84 +554,19 @@ cached_reranker = CachedReranker(
 
 ### 1. 重排序效果评估
 
-```python
-import numpy as np
-from sklearn.metrics import ndcg_score
+评估必须通过稳定 ID 对齐标签与候选。重排后的字典可能新增分数字段，不能再用 `documents.index(doc)` 找原对象，也不能把原始顺序的标签与重排顺序的分数直接交给指标函数。
 
-class RerankEvaluator:
-    def __init__(self, test_data):
-        """
-        test_data: [
-            {
-                'query': 'query text',
-                'documents': [{'text': '...', 'relevance': 0/1}],
-            }
-        ]
-        """
-        self.test_data = test_data
-    
-    def evaluate_reranker(self, reranker, metrics=['ndcg', 'map', 'mrr']):
-        """评估重排序效果"""
-        results = {metric: [] for metric in metrics}
-        
-        for item in self.test_data:
-            query = item['query']
-            documents = item['documents']
-            
-            # 获取重排序结果
-            reranked = reranker.rerank(query, documents, top_k=len(documents))
-            
-            # 提取相关性标签和预测分数
-            y_true = [doc.get('relevance', 0) for doc in documents]
-            y_pred = []
-            
-            for doc in reranked:
-                # 找到原文档的相关性
-                original_idx = documents.index(doc)
-                y_pred.append(doc.get('rerank_score', 1.0))
-            
-            # 计算各项指标
-            if 'ndcg' in metrics:
-                ndcg = ndcg_score([y_true], [y_pred])
-                results['ndcg'].append(ndcg)
-            
-            if 'map' in metrics:
-                map_score = self._calculate_map(y_true, y_pred)
-                results['map'].append(map_score)
-            
-            if 'mrr' in metrics:
-                mrr_score = self._calculate_mrr(y_true, y_pred)
-                results['mrr'].append(mrr_score)
-        
-        # 计算平均值
-        avg_results = {k: np.mean(v) for k, v in results.items()}
-        return avg_results
-    
-    def _calculate_map(self, y_true, y_pred):
-        """计算平均精度均值"""
-        # 实现MAP计算逻辑
-        pass
-    
-    def _calculate_mrr(self, y_true, y_pred):
-        """计算平均倒数排名"""
-        # 实现MRR计算逻辑
-        pass
+做法一：按原始 ID 顺序构造 `y_true` 与预测分数，再交给同序的 NDCG 实现；做法二：直接按重排名次取得相关标签，计算 DCG 并用标注全集构造 IDCG。二值示例可复用[评估章节](/llms/rag/evaluation)的 `retrieval_metrics`。
 
-# 使用示例
-evaluator = RerankEvaluator(test_data)
-metrics = evaluator.evaluate_reranker(reranker)
-print("重排序评估结果:")
-for metric, value in metrics.items():
-    print(f"{metric.upper()}: {value:.3f}")
-```
+未标注相关性不等于不相关；评估集须说明标注覆盖。候选池固定时比较重排能力，候选池变化时另外报告 Recall@K；多跳问题再检查全部必要证据的联合覆盖。报表不得输出未实现的 MAP/MRR 或空列表平均值后将其当有效分数。
 
 ### 2. 参数调优指南
 
 | 参数 | 建议值 | 影响 | 调优策略 |
 |------|--------|------|----------|
-| **top_k** | 5-10 | 精排候选数量 | 根据下游LLM处理能力调整 |
-| **阈值** | 0.5-0.8 | 相关性过滤 | 通过验证集确定 |
-| **融合权重** | [0.6, 0.3, 0.1] | 多信号重要性 | A/B测试优化 |
+| **top_k** | 由证据预算确定 | 最终保留数量 | 根据下游LLM处理能力调整 |
+| **阈值** | 无通用数值 | 相关性过滤 | 通过验证集确定 |
+| **融合权重** | 验证集选择 | 多信号重要性 | A/B测试优化 |
 | **批量大小** | 16-64 | 处理效率 | 根据GPU显存调整 |
 
 ---
@@ -899,6 +699,12 @@ class DomainAdaptedReranker:
 ```
 
 ---
+
+## 重排验收：先固定候选，再比较模型
+
+第一轮只更换 reranker，冻结候选 ID 与内容，比较 NDCG@K、MRR、证据覆盖率和 p95 延迟；第二轮才联调召回 K 与 token 预算。否则候选池变化会掩盖真正收益。重排准确率提升但端到端质量不变时，检查重复证据、否定条件截断、引用错位和生成器利用率。
+
+LLM-as-Judge 重排还要测试输入顺序、长度偏好和候选文本中的注入内容。通过交换候选顺序、人工复核分歧样本来校准判断；缓存键包含查询、文档版本、模型与模板版本，不能只含查询字符串。
 
 ## 🔗 相关阅读
 

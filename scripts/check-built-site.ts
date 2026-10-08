@@ -2,6 +2,7 @@ import { readdir, readFile, stat } from 'node:fs/promises'
 import { relative, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { SITE_BASE, SITE_ORIGIN } from '../docs/.vitepress/config/site'
+import { validateBuiltReferences } from './built-references'
 
 const FORBIDDEN_PATH_SEGMENTS = ['_drafts', 'superpowers', '开发计划']
 const REQUIRED_OPEN_GRAPH = ['og:title', 'og:description', 'og:url', 'og:image']
@@ -115,6 +116,11 @@ export async function checkBuiltSite(dist: string): Promise<void> {
   const htmlFiles = files.filter(file => file.endsWith('.html')).sort()
   const inspectedHtmlFiles = htmlFiles.filter(file => relative(root, file).replaceAll('\\', '/') !== '404.html')
   const errors: string[] = []
+  const sources = new Map(await Promise.all(htmlFiles.map(async file => [
+    relative(root, file).replaceAll('\\', '/'), await readFile(file, 'utf8'),
+  ] as const)))
+  const filePaths = new Set(files.map(file => relative(root, file).replaceAll('\\', '/')))
+  errors.push(...validateBuiltReferences(sources, filePaths))
 
   for (const file of files) {
     const path = relative(root, file).replaceAll('\\', '/')
@@ -125,7 +131,7 @@ export async function checkBuiltSite(dist: string): Promise<void> {
   for (const file of inspectedHtmlFiles) {
     const path = relative(root, file).replaceAll('\\', '/')
 
-    const source = await readFile(file, 'utf8')
+    const source = sources.get(path)!
     validatePageHead(path, source, errors)
 
     const links = tags(source, 'link').map(parseAttributes)
@@ -159,6 +165,7 @@ export async function checkBuiltSite(dist: string): Promise<void> {
   }
 
   console.log(`Checked ${inspectedHtmlFiles.length} non-404 built HTML pages.`)
+  console.log(`Checked internal links, anchors and image src in ${htmlFiles.length} built HTML pages (including 404).`)
   if (errors.length) throw new Error(errors.join('\n'))
 }
 

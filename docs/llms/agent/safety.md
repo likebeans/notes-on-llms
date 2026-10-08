@@ -3,7 +3,7 @@ title: 安全与沙箱
 description: Agent 安全机制 - 从风险识别到沙箱隔离
 pageType: article
 module: agent
-updated: '2025-12-27'
+updated: '2026-10-08'
 contentStatus: needs-review
 tags:
   - agent
@@ -26,7 +26,7 @@ techVersion: 待复核（2026-08）
 > 来源：[AI智能体的牢笼：大模型沙箱技术深度解析](https://dd-ff.blog.csdn.net/article/details/151970698)
 
 ::: danger 新型安全威胁
-随着AI Agent获得**自主代码执行**能力，传统安全模型被打破：
+随着AI Agent获得**自主代码执行**能力，既有安全边界需要扩展到模型生成的动作：
 - 数据与代码界限模糊化
 - 提示注入成为新攻击向量
 - Agent可能被"越狱"执行恶意操作
@@ -50,7 +50,7 @@ techVersion: 待复核（2026-08）
 
 ### 护栏模式概述
 
-护栏（Guardrails）是确保智能体系统安全、可靠运行的关键机制。
+护栏（Guardrails）用于检测或限制风险。模型分类器和文本过滤器不是强制安全边界，授权、资源隔离和审计必须由模型之外的系统执行。
 
 | 护栏类型 | 作用 |
 |----------|------|
@@ -81,6 +81,11 @@ techVersion: 待复核（2026-08）
 ## 🛡️ 防御策略
 
 ### 1. 输入验证与过滤
+
+下面的正则仅是易解释的检测示例，不能可靠防止提示注入：正常技术文章也会包含 `system prompt`，恶意输入则能换语言、编码或转移到工具结果中。不要把“没有命中黑名单”当作安全证明，也不要未经说明修改用户数据。
+
+应将检索文档、网页、附件与工具输出作为不可信数据处理，保留来源；在执行动作时按当前用户、目标资源和授权范围重新检查。发现可疑文本时可以拒绝特定动作或要求补充证据，而不是认为过滤掉几个词后就可放行。
+
 
 ```python
 import re
@@ -134,6 +139,8 @@ class InputValidator:
 
 ### 2. 工具权限控制
 
+该示例只演示工具级允许列表。真实授权还应验证资源归属、读写范围和参数约束；拥有 `read_file` 权限不代表能读取所有路径，较高等级也不应自动获得所有业务权限。
+
 ```python
 from enum import Enum
 from typing import Set
@@ -164,7 +171,9 @@ class ToolPermissionManager:
     def can_use_tool(self, user_id: str, tool_name: str) -> bool:
         """检查用户是否可以使用工具"""
         user_level = self.user_permissions.get(user_id, PermissionLevel.READ_ONLY)
-        tool_level = self.tool_permissions.get(tool_name, PermissionLevel.ADMIN)
+        tool_level = self.tool_permissions.get(tool_name)
+        if tool_level is None:
+            return False  # 未注册工具默认拒绝，包括管理员
         return user_level.value >= tool_level.value
     
     def get_allowed_tools(self, user_id: str) -> Set[str]:
@@ -177,6 +186,8 @@ class ToolPermissionManager:
 ```
 
 ### 3. 速率限制与资源控制
+
+以下为单进程教学实现，不提供多线程原子性或跨实例配额。生产环境需要共享计数与原子更新；记录 `max_memory_mb` 或事后检查耗时本身不会限制进程资源，必须交给运行环境强制执行。
 
 ```python
 import time
@@ -229,79 +240,66 @@ class ResourceLimiter:
 
 ### 沙箱方案对比
 
-| 技术 | 隔离级别 | 性能开销 | 安全性 | 适用场景 |
-|------|----------|----------|--------|----------|
-| **Docker** | 容器级 | 低 | 中 | 通用隔离 |
-| **gVisor** | 内核级 | 中 | 高 | 高安全需求 |
-| **Firecracker** | 微虚拟机 | 低 | 高 | 多租户/Serverless |
-| **WebAssembly** | 字节码级 | 极低 | 中 | 轻量级隔离 |
-| **nsjail** | 命名空间 | 低 | 中高 | 进程隔离 |
+| 技术 | 边界机制 | 选型时核对 |
+| --- | --- | --- |
+| Docker | 命名空间、cgroups、能力与系统调用策略；通常共享宿主内核 | 挂载、用户权限、daemon 访问、内核与运行时补丁 |
+| gVisor | 用户态应用内核拦截并实现系统调用接口 | 系统调用兼容性、I/O 开销与运行时配置 |
+| Firecracker | microVM 隔离 | 镜像生命周期、宿主配置与设备暴露 |
+| WebAssembly | 运行时内存边界与受控宿主导入 | 哪些文件、网络和其他宿主能力被授予模块 |
+| nsjail | 进程级命名空间、资源和 seccomp 策略 | 策略完整性与宿主内核暴露面 |
+
+不存在脱离威胁模型的“安全性高/中”排行榜。容器的默认边界与虚拟机不同，gVisor 也不是给每个任务分配独立 Linux 内核。[Docker 安全文档](https://docs.docker.com/engine/security/)、[gVisor 架构说明](https://gvisor.dev/docs/)
 
 ### Docker沙箱实现
 
+下面是受限演示：只挂载当前任务的脚本目录，固定容器内文件名，关闭网络，限制 CPU、内存和进程数，并在退出路径移除容器。需要本地 Docker daemon 与 `docker` Python SDK；本页未运行容器集成测试。生产部署应固定经过审查的镜像摘要、独立宿主与日志配额，不能将本例当作不可信多租户执行平台。
+
 ```python
+from pathlib import Path
+from tempfile import TemporaryDirectory
 import docker
-import tempfile
-import os
+
 
 class DockerSandbox:
-    """Docker沙箱执行环境"""
-    
-    def __init__(self):
+    def __init__(self, image="python:3.11-slim", timeout=30):
         self.client = docker.from_env()
-        self.image = "python:3.11-slim"
-        self.timeout = 30
-        self.memory_limit = "512m"
-        self.cpu_limit = 1.0
-    
-    def execute_code(self, code: str) -> dict:
-        """在沙箱中执行代码"""
-        # 创建临时文件
-        with tempfile.NamedTemporaryFile(
-            mode='w', suffix='.py', delete=False
-        ) as f:
-            f.write(code)
-            code_path = f.name
-        
-        try:
-            # 运行容器
-            container = self.client.containers.run(
-                self.image,
-                command=f"python /code/script.py",
-                volumes={
-                    os.path.dirname(code_path): {
-                        'bind': '/code', 
-                        'mode': 'ro'  # 只读
-                    }
-                },
-                mem_limit=self.memory_limit,
-                cpu_period=100000,
-                cpu_quota=int(100000 * self.cpu_limit),
-                network_disabled=True,  # 禁用网络
-                read_only=True,         # 只读文件系统
-                detach=True,
-                remove=True
-            )
-            
-            # 等待执行完成
-            result = container.wait(timeout=self.timeout)
-            logs = container.logs().decode('utf-8')
-            
-            return {
-                "success": result["StatusCode"] == 0,
-                "output": logs,
-                "exit_code": result["StatusCode"]
-            }
-            
-        except docker.errors.ContainerError as e:
-            return {"success": False, "error": str(e)}
-        except Exception as e:
-            return {"success": False, "error": f"执行失败: {e}"}
-        finally:
-            os.unlink(code_path)
+        self.image = image
+        self.timeout = timeout
+
+    def execute_code(self, code):
+        if len(code.encode("utf-8")) > 100_000:
+            raise ValueError("代码超过演示允许大小")
+        with TemporaryDirectory() as directory:
+            script = Path(directory) / "script.py"
+            script.write_text(code, encoding="utf-8")
+            script.chmod(0o644)
+            Path(directory).chmod(0o755)
+            container = None
+            try:
+                container = self.client.containers.run(
+                    self.image, command=["python", "-I", "/code/script.py"],
+                    volumes={directory: {"bind": "/code", "mode": "ro"}},
+                    user="65534:65534", network_disabled=True, read_only=True,
+                    cap_drop=["ALL"], security_opt=["no-new-privileges:true"],
+                    mem_limit="512m", memswap_limit="512m",
+                    nano_cpus=1_000_000_000, pids_limit=64,
+                    tmpfs={"/tmp": "rw,noexec,nosuid,size=64m"},
+                    detach=True, auto_remove=False,
+                )
+                result = container.wait(timeout=self.timeout)
+                output = container.logs(tail=100).decode("utf-8", errors="replace")
+                return {"success": result["StatusCode"] == 0,
+                        "exit_code": result["StatusCode"], "output": output[:10000]}
+            finally:
+                if container is not None:
+                    container.remove(force=True)
 ```
 
+`wait(timeout=...)` 的超时只结束客户端等待，因此必须处理仍在运行的容器。示例在 `finally` 清理；若 daemon 失联，清理也可能失败，调度器还需按任务标签进行补偿清理。日志末尾行数与字符串截断只是展示限制，不能防止容器产生大量日志，实际系统需限制日志存储与读取字节数。[Docker SDK 容器接口](https://docker-py.readthedocs.io/en/stable/containers.html)
+
 ### 安全执行器整合
+
+下面保留职责组合的伪代码，`_error`、`_execute_tool` 等由应用实现。参数校验应按工具 schema 分别编写，不能对所有代码和字符串一律套同一个关键词黑名单。拒绝、异常和超时也要写审计事件，不能只记录成功路径。
 
 ```python
 class SafeToolExecutor:
@@ -362,7 +360,7 @@ class SafeToolExecutor:
             "tool": tool_name,
             "duration": time.time() - start_time,
             "success": result.get("success", True),
-            "args_hash": hash(str(args))  # 不记录原始参数
+            "args_summary": {"keys": sorted(args)}  # 仅演示字段级摘要，非完整审计
         })
 ```
 
@@ -373,6 +371,8 @@ class SafeToolExecutor:
 > 来源：[精通人机协同：使用LangGraph构建交互式智能体](https://dd-ff.blog.csdn.net/article/details/151149262)
 
 ### 高危操作需人工审批
+
+是否审批由既有授权、影响范围和可逆性决定，不只看工具名称。以下为节点片段，需配置持久化 checkpointer、稳定 `thread_id`，并实现幂等的 `perform_action`。恢复可能重跑节点，审批必须绑定未变更的具体提案；详见[人机协同](/llms/agent/human-in-the-loop)。
 
 ```python
 from langgraph.types import interrupt
@@ -401,6 +401,12 @@ def execute_action(state):
 ```
 
 ---
+
+## 用越界用例验收边界
+
+建立允许与拒绝的成对样本：读取当前任务文件应成功，读取其他租户文件应拒绝；正常联网工具访问允许域名，任意内网地址不能借模型参数绕过；工具返回“忽略规则”不能扩大权限。再演练无限循环、大量输出、子进程生成、取消与服务重启。
+
+验收看执行层证据：实际访问了哪些资源、容器是否残留、费用是否被限制、拒绝事件能否追踪到 run。模型口头承诺遵守规则不能替代这些检查。对风险类别的整理可参考 [OWASP LLM 应用安全项目](https://owasp.org/www-project-top-10-for-large-language-model-applications/)。
 
 ## 🔗 相关阅读
 

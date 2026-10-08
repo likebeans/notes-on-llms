@@ -3,7 +3,7 @@ title: "实时 3D 数字人落地全记录：SDK 深拆、接大模型、7 个�
 description: "CSDN 原文全文镜像：本文介绍了如何利用魔珐星云具身驱动SDK实现\"会说话的3D数字人\"项目。核心采用\"参数流+AI端渲\"架构，通过下发音频、表情、动作等多路参数实现本地实时渲染，具有低延迟、轻量化的优势。文章详细解析了speak接口的流式调用、SSML动作……"
 pageType: article
 module: multimodal
-updated: '2026-08-17'
+updated: '2026-10-08'
 contentStatus: needs-review
 tags:
   - "csdn-mirror"
@@ -22,11 +22,16 @@ author: likebeans
 ---
 
 ::: info CSDN 原文镜像
-本文为作者 CSDN 博客的全文镜像，原文发布于 2026-08-17。为适配本站结构，仅补充了站内元数据与来源说明，正文主体保持原文内容。
+本文为作者 CSDN 博客的全文镜像，原文发布于 2026-08-17。为适配本站结构，补充了站内元数据、来源说明与阅读导引，并修复代码高亮残留；原文主体与观点保留。
 
 - 原文链接：[https://blog.csdn.net/m0_63309778/article/details/163828282](https://blog.csdn.net/m0_63309778/article/details/163828282)
 - 站内分区：Multimodal / 实时 3D 数字人
 :::
+
+::: tip 站内导读：重点看流式状态与故障恢复
+本文适合与 [多模态 Agent](/llms/multimodal/rag-agent)和 [部署评测](/llms/multimodal/deployment)连读。把 LLM 文本分块、TTS/动作流与浏览器播放视为三个独立状态机：记录会话 ID、分块序号、结束标记、取消与重连结果，测试中途打断是否继续播旧内容、重试是否重复播报。延迟需从用户输入到首音频端到端测量；文中的接口、版本与营销数字是原文记录。凭证示例只说明调用形态，上线需按服务商支持的鉴权流程避免公开长期 Secret。
+:::
+
 
 <p>我用魔珐星云的具身驱动 SDK 完整落地了一个「会说话的 3D 数字人」项目&#xff0c;从接入、深拆技术、接大模型、踩坑&#xff0c;到做成开源项目 &#43; CI/CD 一键部署&#xff0c;全程记录在这里。</p> 
 <p>先看效果&#xff08;这是浏览器里<strong>实时渲染</strong>的数字人&#xff0c;不是录好的视频&#xff09;&#xff1a;</p> 
@@ -51,7 +56,7 @@ author: likebeans
 
 
 ```js
-sdk<span class="token punctuation">.</span><span class="token function">speak</span><span class="token punctuation">(</span>ssml<span class="token punctuation">,</span> is_start<span class="token punctuation">,</span> is_end<span class="token punctuation">)</span>
+sdk.speak(ssml, is_start, is_end)
 ```
 
  
@@ -65,11 +70,11 @@ sdk<span class="token punctuation">.</span><span class="token function">speak</s
 
 
 ```xml
-<span class="token tag"><span class="token tag"><span class="token punctuation"><</span>speak</span><span class="token punctuation">></span></span>
+<speak>
 热烈
-<span class="token tag"><span class="token tag"><span class="token punctuation"><</span>ue4event</span><span class="token punctuation">></span></span><span class="token tag"><span class="token tag"><span class="token punctuation"><</span>type</span><span class="token punctuation">></span></span>ka_intent<span class="token tag"><span class="token tag"><span class="token punctuation"></</span>type</span><span class="token punctuation">></span></span><span class="token tag"><span class="token tag"><span class="token punctuation"><</span>data</span><span class="token punctuation">></span></span><span class="token tag"><span class="token tag"><span class="token punctuation"><</span>ka_intent</span><span class="token punctuation">></span></span>Welcome<span class="token tag"><span class="token tag"><span class="token punctuation"></</span>ka_intent</span><span class="token punctuation">></span></span><span class="token tag"><span class="token tag"><span class="token punctuation"></</span>data</span><span class="token punctuation">></span></span><span class="token tag"><span class="token tag"><span class="token punctuation"></</span>ue4event</span><span class="token punctuation">></span></span>
+<ue4event><type>ka_intent</type><data><ka_intent>Welcome</ka_intent></data></ue4event>
 欢迎各位贵宾莅临指导！
-<span class="token tag"><span class="token tag"><span class="token punctuation"></</span>speak</span><span class="token punctuation">></span></span>
+</speak>
 ```
 
  
@@ -77,10 +82,10 @@ sdk<span class="token punctuation">.</span><span class="token function">speak</s
 
 
 ```xml
-<span class="token tag"><span class="token tag"><span class="token punctuation"><</span>speak</span><span class="token punctuation">></span></span>
-<span class="token tag"><span class="token tag"><span class="token punctuation"><</span>ue4event</span><span class="token punctuation">></span></span><span class="token tag"><span class="token tag"><span class="token punctuation"><</span>type</span><span class="token punctuation">></span></span>ka<span class="token tag"><span class="token tag"><span class="token punctuation"></</span>type</span><span class="token punctuation">></span></span><span class="token tag"><span class="token tag"><span class="token punctuation"><</span>data</span><span class="token punctuation">></span></span><span class="token tag"><span class="token tag"><span class="token punctuation"><</span>action_semantic</span><span class="token punctuation">></span></span>dance<span class="token tag"><span class="token tag"><span class="token punctuation"></</span>action_semantic</span><span class="token punctuation">></span></span><span class="token tag"><span class="token tag"><span class="token punctuation"></</span>data</span><span class="token punctuation">></span></span><span class="token tag"><span class="token tag"><span class="token punctuation"></</span>ue4event</span><span class="token punctuation">></span></span>
+<speak>
+<ue4event><type>ka</type><data><action_semantic>dance</action_semantic></data></ue4event>
 音乐响起来，一起跳舞吧！
-<span class="token tag"><span class="token tag"><span class="token punctuation"></</span>speak</span><span class="token punctuation">></span></span>
+</speak>
 ```
 
  
@@ -88,10 +93,10 @@ sdk<span class="token punctuation">.</span><span class="token function">speak</s
 
 
 ```xml
-<span class="token tag"><span class="token tag"><span class="token punctuation"><</span>speak</span><span class="token punctuation">></span></span>
-<span class="token tag"><span class="token tag"><span class="token punctuation"><</span>ue4event</span><span class="token punctuation">></span></span><span class="token tag"><span class="token tag"><span class="token punctuation"><</span>type</span><span class="token punctuation">></span></span>ka<span class="token tag"><span class="token tag"><span class="token punctuation"></</span>type</span><span class="token punctuation">></span></span><span class="token tag"><span class="token tag"><span class="token punctuation"><</span>data</span><span class="token punctuation">></span></span><span class="token tag"><span class="token tag"><span class="token punctuation"><</span>action_semantic</span><span class="token punctuation">></span></span>Hello<span class="token tag"><span class="token tag"><span class="token punctuation"></</span>action_semantic</span><span class="token punctuation">></span></span><span class="token tag"><span class="token tag"><span class="token punctuation"></</span>data</span><span class="token punctuation">></span></span><span class="token tag"><span class="token tag"><span class="token punctuation"></</span>ue4event</span><span class="token punctuation">></span></span>
+<speak>
+<ue4event><type>ka</type><data><action_semantic>Hello</action_semantic></data></ue4event>
 欢迎来到星云具身 3D 数字人平台～
-<span class="token tag"><span class="token tag"><span class="token punctuation"></</span>speak</span><span class="token punctuation">></span></span>
+</speak>
 ```
 
  
@@ -103,11 +108,11 @@ sdk<span class="token punctuation">.</span><span class="token function">speak</s
 
 
 ```js
-<span class="token function">onWidgetEvent</span><span class="token punctuation">(</span><span class="token parameter">data</span><span class="token punctuation">)</span> <span class="token punctuation">{<!-- --></span>
-<span class="token keyword">if</span> <span class="token punctuation">(</span>data<span class="token punctuation">.</span>type <span class="token operator">===</span> <span class="token string">'subtitle_on'</span><span class="token punctuation">)</span>  <span class="token punctuation">{<!-- --></span> <span class="token function">showSubtitle</span><span class="token punctuation">(</span>data<span class="token punctuation">.</span>text<span class="token punctuation">)</span><span class="token punctuation">;</span> <span class="token keyword">return</span><span class="token punctuation">;</span> <span class="token punctuation">}</span>
-<span class="token keyword">if</span> <span class="token punctuation">(</span>data<span class="token punctuation">.</span>type <span class="token operator">===</span> <span class="token string">'subtitle_off'</span><span class="token punctuation">)</span> <span class="token punctuation">{<!-- --></span> <span class="token function">hideSubtitle</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span> <span class="token keyword">return</span><span class="token punctuation">;</span> <span class="token punctuation">}</span>
-<span class="token comment">// 其它事件……</span>
-<span class="token punctuation">}</span>
+onWidgetEvent(data) {
+if (data.type === 'subtitle_on')  { showSubtitle(data.text); return; }
+if (data.type === 'subtitle_off') { hideSubtitle(); return; }
+// 其它事件……
+}
 ```
 
  
@@ -151,15 +156,15 @@ X-TOKEN = MD5( 小写路径 + 小写HTTP方法 + 排序JSON体 + Secret + 秒级
 
 
 ```js
-<span class="token keyword">function</span> <span class="token function">streamSpeak</span><span class="token punctuation">(</span><span class="token parameter">text<span class="token punctuation">,</span> onDone</span><span class="token punctuation">)</span> <span class="token punctuation">{<!-- --></span>
-<span class="token keyword">const</span> chunks <span class="token operator">=</span> <span class="token function">chunkText</span><span class="token punctuation">(</span>text<span class="token punctuation">)</span><span class="token punctuation">;</span>   <span class="token comment">// 按标点切成 8~12 字的小段</span>
-<span class="token keyword">let</span> i <span class="token operator">=</span> <span class="token number">0</span><span class="token punctuation">;</span>
-streamTimer <span class="token operator">=</span> <span class="token function">setInterval</span><span class="token punctuation">(</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">{<!-- --></span>
-sdk<span class="token punctuation">.</span><span class="token function">speak</span><span class="token punctuation">(</span>chunks<span class="token punctuation">[</span>i<span class="token punctuation">]</span><span class="token punctuation">,</span> i <span class="token operator">===</span> <span class="token number">0</span><span class="token punctuation">,</span> i <span class="token operator">===</span> chunks<span class="token punctuation">.</span>length <span class="token operator">-</span> <span class="token number">1</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
-i<span class="token operator">++</span><span class="token punctuation">;</span>
-<span class="token keyword">if</span> <span class="token punctuation">(</span>i <span class="token operator">>=</span> chunks<span class="token punctuation">.</span>length<span class="token punctuation">)</span> <span class="token function">done</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span> <span class="token comment">// 播完回调</span>
-<span class="token punctuation">}</span><span class="token punctuation">,</span> <span class="token number">320</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
-<span class="token punctuation">}</span>
+function streamSpeak(text, onDone) {
+const chunks = chunkText(text);   // 按标点切成 8~12 字的小段
+let i = 0;
+streamTimer = setInterval(() => {
+sdk.speak(chunks[i], i === 0, i === chunks.length - 1);
+i++;
+if (i >= chunks.length) done(); // 播完回调
+}, 320);
+}
 ```
 
  
@@ -169,51 +174,51 @@ i<span class="token operator">++</span><span class="token punctuation">;</span>
 
 
 ```js
-<span class="token keyword">async</span> <span class="token keyword">function</span> <span class="token function">talkWithLLM</span><span class="token punctuation">(</span><span class="token parameter">userText</span><span class="token punctuation">)</span> <span class="token punctuation">{<!-- --></span>
-sdk<span class="token punctuation">.</span><span class="token function">interactiveidle</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span> <span class="token comment">// 先让数字人进入互动待机</span>
+async function talkWithLLM(userText) {
+sdk.interactiveidle(); // 先让数字人进入互动待机
 
-<span class="token keyword">const</span> res <span class="token operator">=</span> <span class="token keyword">await</span> <span class="token function">fetch</span><span class="token punctuation">(</span><span class="token string">'https://your-llm-gateway/v1/chat/completions'</span><span class="token punctuation">,</span> <span class="token punctuation">{<!-- --></span>
-<span class="token literal-property property">method</span><span class="token operator">:</span> <span class="token string">'POST'</span><span class="token punctuation">,</span>
-<span class="token literal-property property">headers</span><span class="token operator">:</span> <span class="token punctuation">{<!-- --></span> <span class="token string-property property">'Content-Type'</span><span class="token operator">:</span> <span class="token string">'application/json'</span><span class="token punctuation">,</span> <span class="token literal-property property">Authorization</span><span class="token operator">:</span> <span class="token string">'Bearer xxx'</span> <span class="token punctuation">}</span><span class="token punctuation">,</span>
-<span class="token literal-property property">body</span><span class="token operator">:</span> <span class="token constant">JSON</span><span class="token punctuation">.</span><span class="token function">stringify</span><span class="token punctuation">(</span><span class="token punctuation">{<!-- --></span>
-<span class="token literal-property property">model</span><span class="token operator">:</span> <span class="token string">'your-model'</span><span class="token punctuation">,</span>
-<span class="token literal-property property">stream</span><span class="token operator">:</span> <span class="token boolean">true</span><span class="token punctuation">,</span>
-<span class="token literal-property property">messages</span><span class="token operator">:</span> <span class="token punctuation">[</span><span class="token punctuation">{<!-- --></span> <span class="token literal-property property">role</span><span class="token operator">:</span> <span class="token string">'user'</span><span class="token punctuation">,</span> <span class="token literal-property property">content</span><span class="token operator">:</span> userText <span class="token punctuation">}</span><span class="token punctuation">]</span><span class="token punctuation">,</span>
-<span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
-<span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+const res = await fetch('https://your-llm-gateway/v1/chat/completions', {
+method: 'POST',
+headers: { 'Content-Type': 'application/json', Authorization: 'Bearer xxx' },
+body: JSON.stringify({
+model: 'your-model',
+stream: true,
+messages: [{ role: 'user', content: userText }],
+}),
+});
 
-<span class="token keyword">const</span> reader <span class="token operator">=</span> res<span class="token punctuation">.</span>body<span class="token punctuation">.</span><span class="token function">getReader</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
-<span class="token keyword">const</span> decoder <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">TextDecoder</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
-<span class="token keyword">let</span> buffer <span class="token operator">=</span> <span class="token string">''</span><span class="token punctuation">,</span> pending <span class="token operator">=</span> <span class="token string">''</span><span class="token punctuation">,</span> isStart <span class="token operator">=</span> <span class="token boolean">true</span><span class="token punctuation">;</span>
+const reader = res.body.getReader();
+const decoder = new TextDecoder();
+let buffer = '', pending = '', isStart = true;
 
-<span class="token keyword">while</span> <span class="token punctuation">(</span><span class="token boolean">true</span><span class="token punctuation">)</span> <span class="token punctuation">{<!-- --></span>
-<span class="token keyword">const</span> <span class="token punctuation">{<!-- --></span> done<span class="token punctuation">,</span> value <span class="token punctuation">}</span> <span class="token operator">=</span> <span class="token keyword">await</span> reader<span class="token punctuation">.</span><span class="token function">read</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
-<span class="token keyword">if</span> <span class="token punctuation">(</span>done<span class="token punctuation">)</span> <span class="token keyword">break</span><span class="token punctuation">;</span>
-buffer <span class="token operator">+=</span> decoder<span class="token punctuation">.</span><span class="token function">decode</span><span class="token punctuation">(</span>value<span class="token punctuation">,</span> <span class="token punctuation">{<!-- --></span> <span class="token literal-property property">stream</span><span class="token operator">:</span> <span class="token boolean">true</span> <span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+while (true) {
+const { done, value } = await reader.read();
+if (done) break;
+buffer += decoder.decode(value, { stream: true });
 
-<span class="token keyword">const</span> lines <span class="token operator">=</span> buffer<span class="token punctuation">.</span><span class="token function">split</span><span class="token punctuation">(</span><span class="token string">'\n'</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
-buffer <span class="token operator">=</span> lines<span class="token punctuation">.</span><span class="token function">pop</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span> <span class="token comment">// 最后一个可能不完整，留到下次</span>
+const lines = buffer.split('\n');
+buffer = lines.pop(); // 最后一个可能不完整，留到下次
 
-<span class="token keyword">for</span> <span class="token punctuation">(</span><span class="token keyword">const</span> line <span class="token keyword">of</span> lines<span class="token punctuation">)</span> <span class="token punctuation">{<!-- --></span>
-<span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token operator">!</span>line<span class="token punctuation">.</span><span class="token function">startsWith</span><span class="token punctuation">(</span><span class="token string">'data:'</span><span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token keyword">continue</span><span class="token punctuation">;</span>
-<span class="token keyword">const</span> payload <span class="token operator">=</span> line<span class="token punctuation">.</span><span class="token function">slice</span><span class="token punctuation">(</span><span class="token number">5</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">trim</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
-<span class="token keyword">if</span> <span class="token punctuation">(</span>payload <span class="token operator">===</span> <span class="token string">'[DONE]'</span><span class="token punctuation">)</span> <span class="token keyword">continue</span><span class="token punctuation">;</span>
-<span class="token keyword">let</span> delta <span class="token operator">=</span> <span class="token string">''</span><span class="token punctuation">;</span>
-<span class="token keyword">try</span> <span class="token punctuation">{<!-- --></span> delta <span class="token operator">=</span> <span class="token constant">JSON</span><span class="token punctuation">.</span><span class="token function">parse</span><span class="token punctuation">(</span>payload<span class="token punctuation">)</span><span class="token punctuation">.</span>choices<span class="token operator">?.</span><span class="token punctuation">[</span><span class="token number">0</span><span class="token punctuation">]</span><span class="token operator">?.</span>delta<span class="token operator">?.</span>content <span class="token operator">||</span> <span class="token string">''</span><span class="token punctuation">;</span> <span class="token punctuation">}</span> <span class="token keyword">catch</span> <span class="token punctuation">{<!-- --></span><span class="token punctuation">}</span>
-<span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token operator">!</span>delta<span class="token punctuation">)</span> <span class="token keyword">continue</span><span class="token punctuation">;</span>
+for (const line of lines) {
+if (!line.startsWith('data:')) continue;
+const payload = line.slice(5).trim();
+if (payload === '[DONE]') continue;
+let delta = '';
+try { delta = JSON.parse(payload).choices?.[0]?.delta?.content || ''; } catch {}
+if (!delta) continue;
 
-pending <span class="token operator">+=</span> delta<span class="token punctuation">;</span>
-<span class="token comment">// 首段积攒一小段再开口，保证口型跟上后续输出速度</span>
-<span class="token keyword">if</span> <span class="token punctuation">(</span>pending<span class="token punctuation">.</span>length <span class="token operator">>=</span> <span class="token number">12</span><span class="token punctuation">)</span> <span class="token punctuation">{<!-- --></span>
-sdk<span class="token punctuation">.</span><span class="token function">speak</span><span class="token punctuation">(</span>pending<span class="token punctuation">,</span> isStart<span class="token punctuation">,</span> <span class="token boolean">false</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
-isStart <span class="token operator">=</span> <span class="token boolean">false</span><span class="token punctuation">;</span>
-pending <span class="token operator">=</span> <span class="token string">''</span><span class="token punctuation">;</span>
-<span class="token punctuation">}</span>
-<span class="token punctuation">}</span>
-<span class="token punctuation">}</span>
+pending += delta;
+// 首段积攒一小段再开口，保证口型跟上后续输出速度
+if (pending.length >= 12) {
+sdk.speak(pending, isStart, false);
+isStart = false;
+pending = '';
+}
+}
+}
 
-<span class="token keyword">if</span> <span class="token punctuation">(</span>pending<span class="token punctuation">)</span> sdk<span class="token punctuation">.</span><span class="token function">speak</span><span class="token punctuation">(</span>pending<span class="token punctuation">,</span> isStart<span class="token punctuation">,</span> <span class="token boolean">true</span><span class="token punctuation">)</span><span class="token punctuation">;</span> <span class="token comment">// 收尾：结束段</span>
-<span class="token punctuation">}</span>
+if (pending) sdk.speak(pending, isStart, true); // 收尾：结束段
+}
 ```
 
  
@@ -224,36 +229,36 @@ pending <span class="token operator">=</span> <span class="token string">''</spa
 
 
 ```js
-<span class="token keyword">class</span> <span class="token class-name">AvatarChat</span> <span class="token punctuation">{<!-- --></span>
-state <span class="token operator">=</span> <span class="token string">'idle'</span><span class="token punctuation">;</span>
-pendingText <span class="token operator">=</span> <span class="token string">''</span><span class="token punctuation">;</span>
+class AvatarChat {
+state = 'idle';
+pendingText = '';
 
-<span class="token keyword">async</span> <span class="token function">onUserSpeak</span><span class="token punctuation">(</span><span class="token parameter">text</span><span class="token punctuation">)</span> <span class="token punctuation">{<!-- --></span>
-sdk<span class="token punctuation">.</span><span class="token function">interactiveidle</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>          <span class="token comment">// 打断当前说话，回待机</span>
-<span class="token keyword">await</span> <span class="token keyword">this</span><span class="token punctuation">.</span><span class="token function">streamFromLLM</span><span class="token punctuation">(</span>text<span class="token punctuation">)</span><span class="token punctuation">;</span>
-<span class="token punctuation">}</span>
+async onUserSpeak(text) {
+sdk.interactiveidle();          // 打断当前说话，回待机
+await this.streamFromLLM(text);
+}
 
-<span class="token keyword">async</span> <span class="token function">streamFromLLM</span><span class="token punctuation">(</span><span class="token parameter">userText</span><span class="token punctuation">)</span> <span class="token punctuation">{<!-- --></span>
-<span class="token keyword">const</span> stream <span class="token operator">=</span> <span class="token keyword">await</span> <span class="token function">callLLMStream</span><span class="token punctuation">(</span>userText<span class="token punctuation">)</span><span class="token punctuation">;</span>
-<span class="token keyword">let</span> isStart <span class="token operator">=</span> <span class="token boolean">true</span><span class="token punctuation">;</span>
-<span class="token keyword">for</span> <span class="token keyword">await</span> <span class="token punctuation">(</span><span class="token keyword">const</span> delta <span class="token keyword">of</span> stream<span class="token punctuation">)</span> <span class="token punctuation">{<!-- --></span>
-<span class="token keyword">this</span><span class="token punctuation">.</span>pendingText <span class="token operator">+=</span> delta<span class="token punctuation">;</span>
-<span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token keyword">this</span><span class="token punctuation">.</span>pendingText<span class="token punctuation">.</span>length <span class="token operator">>=</span> <span class="token number">12</span><span class="token punctuation">)</span> <span class="token punctuation">{<!-- --></span>   <span class="token comment">// 首段积攒缓冲</span>
-sdk<span class="token punctuation">.</span><span class="token function">speak</span><span class="token punctuation">(</span><span class="token keyword">this</span><span class="token punctuation">.</span>pendingText<span class="token punctuation">,</span> isStart<span class="token punctuation">,</span> <span class="token boolean">false</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
-isStart <span class="token operator">=</span> <span class="token boolean">false</span><span class="token punctuation">;</span>
-<span class="token keyword">this</span><span class="token punctuation">.</span>pendingText <span class="token operator">=</span> <span class="token string">''</span><span class="token punctuation">;</span>
-<span class="token punctuation">}</span>
-<span class="token punctuation">}</span>
-<span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token keyword">this</span><span class="token punctuation">.</span>pendingText<span class="token punctuation">)</span> sdk<span class="token punctuation">.</span><span class="token function">speak</span><span class="token punctuation">(</span><span class="token keyword">this</span><span class="token punctuation">.</span>pendingText<span class="token punctuation">,</span> isStart<span class="token punctuation">,</span> <span class="token boolean">true</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
-<span class="token punctuation">}</span>
+async streamFromLLM(userText) {
+const stream = await callLLMStream(userText);
+let isStart = true;
+for await (const delta of stream) {
+this.pendingText += delta;
+if (this.pendingText.length >= 12) {   // 首段积攒缓冲
+sdk.speak(this.pendingText, isStart, false);
+isStart = false;
+this.pendingText = '';
+}
+}
+if (this.pendingText) sdk.speak(this.pendingText, isStart, true);
+}
 
-<span class="token function">onVoiceStateChange</span><span class="token punctuation">(</span><span class="token parameter">status</span><span class="token punctuation">)</span> <span class="token punctuation">{<!-- --></span>
-<span class="token keyword">if</span> <span class="token punctuation">(</span>status <span class="token operator">===</span> <span class="token string">'end'</span><span class="token punctuation">)</span> <span class="token punctuation">{<!-- --></span>
-sdk<span class="token punctuation">.</span><span class="token function">interactiveidle</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>  <span class="token comment">// 说完回待机，等下一轮</span>
-<span class="token keyword">this</span><span class="token punctuation">.</span>state <span class="token operator">=</span> <span class="token string">'idle'</span><span class="token punctuation">;</span>
-<span class="token punctuation">}</span>
-<span class="token punctuation">}</span>
-<span class="token punctuation">}</span>
+onVoiceStateChange(status) {
+if (status === 'end') {
+sdk.interactiveidle();  // 说完回待机，等下一轮
+this.state = 'idle';
+}
+}
+}
 ```
 
  
@@ -262,8 +267,8 @@ sdk<span class="token punctuation">.</span><span class="token function">interact
 
 
 ```js
-<span class="token keyword">const</span> recognition <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">webkitSpeechRecognition</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
-recognition<span class="token punctuation">.</span><span class="token function-variable function">onresult</span> <span class="token operator">=</span> <span class="token punctuation">(</span><span class="token parameter">e</span><span class="token punctuation">)</span> <span class="token operator">=></span> chat<span class="token punctuation">.</span><span class="token function">onUserSpeak</span><span class="token punctuation">(</span>e<span class="token punctuation">.</span>results<span class="token punctuation">[</span><span class="token number">0</span><span class="token punctuation">]</span><span class="token punctuation">[</span><span class="token number">0</span><span class="token punctuation">]</span><span class="token punctuation">.</span>transcript<span class="token punctuation">)</span><span class="token punctuation">;</span>
+const recognition = new webkitSpeechRecognition();
+recognition.onresult = (e) => chat.onUserSpeak(e.results[0][0].transcript);
 ```
 
  
@@ -298,14 +303,14 @@ recognition<span class="token punctuation">.</span><span class="token function-v
 
 
 ```bash
-<span class="token comment"># 本地</span>
-<span class="token function">cp</span> .env.example .env   <span class="token comment"># 填 XMOV_APP_ID / XMOV_APP_SECRET</span>
-<span class="token function">npm</span> start              <span class="token comment"># http://localhost:3000</span>
+# 本地
+cp .env.example .env   # 填 XMOV_APP_ID / XMOV_APP_SECRET
+npm start              # http://localhost:3000
 
-<span class="token comment"># Docker</span>
-<span class="token function">docker</span> run <span class="token parameter variable">-d</span> <span class="token parameter variable">-p</span> <span class="token number">3000</span>:3000 <span class="token punctuation">\</span>
-<span class="token parameter variable">-e</span> <span class="token assign-left variable">XMOV_APP_ID</span><span class="token operator">=</span>你的AppID <span class="token punctuation">\</span>
-<span class="token parameter variable">-e</span> <span class="token assign-left variable">XMOV_APP_SECRET</span><span class="token operator">=</span>你的AppSecret <span class="token punctuation">\</span>
+# Docker
+docker run -d -p 3000:3000 \
+-e XMOV_APP_ID=你的AppID \
+-e XMOV_APP_SECRET=你的AppSecret \
 ghcr.io/likebeans/xingyun3d:latest
 ```
 

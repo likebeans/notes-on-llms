@@ -3,7 +3,7 @@ title: "5 分钟，让网页里站着一个会说话的 3D 数字人"
 description: "CSDN 原文全文镜像：本文介绍了如何通过魔珐星云SDK在网页中实时渲染3D数字人，实现文本驱动语音、表情和动作同步。主要内容包括：效果展示（非预录视频，而是实时AI渲染）、接入步骤（引入SDK、创建实例、调用speak方法）、开源控制台项目封装（支持即兴对话……"
 pageType: article
 module: multimodal
-updated: '2026-08-17'
+updated: '2026-10-08'
 contentStatus: needs-review
 tags:
   - "csdn-mirror"
@@ -20,11 +20,16 @@ author: likebeans
 ---
 
 ::: info CSDN 原文镜像
-本文为作者 CSDN 博客的全文镜像，原文发布于 2026-08-17。为适配本站结构，仅补充了站内元数据与来源说明，正文主体保持原文内容。
+本文为作者 CSDN 博客的全文镜像，原文发布于 2026-08-17。为适配本站结构，补充了站内元数据、来源说明与阅读导引，并修复代码高亮残留；原文主体与观点保留。
 
 - 原文链接：[https://blog.csdn.net/m0_63309778/article/details/163828144](https://blog.csdn.net/m0_63309778/article/details/163828144)
 - 站内分区：Multimodal / 网页 3D 数字人
 :::
+
+::: tip 站内导读：接通演示之后验证交互
+本文演示“文本 → 语音/动作参数 → 浏览器渲染”的产品链路，可结合 [多模态部署](/llms/multimodal/deployment)阅读；它不等同于训练一个统一多模态模型。验收时分别测首次资源加载、首音频延迟、音画同步和低性能设备帧率，并覆盖断网/取消。`@latest`、SDK 方法、邀请码与赠送额度保留为发布时信息，复现需锁定版本并核对服务商文档。浏览器示例中的长期 Secret 不能作为生产公开页面的凭证方案，应按服务商支持的会话鉴权机制设计。
+:::
+
 
 <p>先放结论&#xff1a;这个效果不是我录的视频&#xff0c;是<strong>浏览器里实时渲染的 3D 数字人</strong>——你给一段文字&#xff0c;它实时合成语音、同步口型、配上表情和动作。</p>
 <p><img src="https://i-blog.csdnimg.cn/direct/4e9152ad664b4a94b6be668517a5430f.png" alt="在这里插入图片描述" /></p>
@@ -49,10 +54,10 @@ author: likebeans
 
 
 ```html
-<span class="token tag"><span class="token tag"><span class="token punctuation"><</span>div</span> <span class="token special-attr"><span class="token attr-name">style</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span><span class="token value css language-css"><span class="token property">width</span><span class="token punctuation">:</span> 540px<span class="token punctuation">;</span> <span class="token property">height</span><span class="token punctuation">:</span> 960px</span><span class="token punctuation">"</span></span></span><span class="token punctuation">></span></span>
-<span class="token tag"><span class="token tag"><span class="token punctuation"><</span>div</span> <span class="token attr-name">id</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>sdk<span class="token punctuation">"</span></span><span class="token punctuation">></span></span><span class="token tag"><span class="token tag"><span class="token punctuation"></</span>div</span><span class="token punctuation">></span></span>
-<span class="token tag"><span class="token tag"><span class="token punctuation"></</span>div</span><span class="token punctuation">></span></span>
-<span class="token tag"><span class="token tag"><span class="token punctuation"><</span>script</span> <span class="token attr-name">src</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>https://media.xingyun3d.com/xingyun3d/general/litesdk/xmovAvatar@latest.js<span class="token punctuation">"</span></span><span class="token punctuation">></span></span><span class="token script"></span><span class="token tag"><span class="token tag"><span class="token punctuation"></</span>script</span><span class="token punctuation">></span></span>
+<div style="width: 540px; height: 960px">
+<div id="sdk"></div>
+</div>
+<script src="https://media.xingyun3d.com/xingyun3d/general/litesdk/xmovAvatar@latest.js"></script>
 ```
 
 
@@ -60,21 +65,21 @@ author: likebeans
 
 
 ```js
-<span class="token keyword">const</span> sdk <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">XmovAvatar</span><span class="token punctuation">(</span><span class="token punctuation">{<!-- --></span>
-<span class="token literal-property property">containerId</span><span class="token operator">:</span> <span class="token string">'#sdk'</span><span class="token punctuation">,</span>           <span class="token comment">// 数字人渲染容器</span>
-<span class="token literal-property property">appId</span><span class="token operator">:</span> <span class="token string">'你的 App ID'</span><span class="token punctuation">,</span>           <span class="token comment">// 在应用中心创建驱动应用后获取</span>
-<span class="token literal-property property">appSecret</span><span class="token operator">:</span> <span class="token string">'你的 App Secret'</span><span class="token punctuation">,</span>
-<span class="token literal-property property">gatewayServer</span><span class="token operator">:</span> <span class="token string">'https://nebula-agent.xingyun3d.com/user/v1/ttsa/session'</span><span class="token punctuation">,</span>
-<span class="token literal-property property">hardwareAcceleration</span><span class="token operator">:</span> <span class="token string">'prefer-hardware'</span><span class="token punctuation">,</span> <span class="token comment">// 开启硬件加速</span>
-<span class="token function">onMessage</span><span class="token punctuation">(</span><span class="token parameter">message</span><span class="token punctuation">)</span> <span class="token punctuation">{<!-- --></span> <span class="token comment">/* 处理错误/消息 */</span> <span class="token punctuation">}</span><span class="token punctuation">,</span>
-<span class="token function">onVoiceStateChange</span><span class="token punctuation">(</span><span class="token parameter">status</span><span class="token punctuation">)</span> <span class="token punctuation">{<!-- --></span> <span class="token comment">/* status: start / end */</span> <span class="token punctuation">}</span><span class="token punctuation">,</span>
-<span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+const sdk = new XmovAvatar({
+containerId: '#sdk',           // 数字人渲染容器
+appId: '你的 App ID',           // 在应用中心创建驱动应用后获取
+appSecret: '你的 App Secret',
+gatewayServer: 'https://nebula-agent.xingyun3d.com/user/v1/ttsa/session',
+hardwareAcceleration: 'prefer-hardware', // 开启硬件加速
+onMessage(message) { /* 处理错误/消息 */ },
+onVoiceStateChange(status) { /* status: start / end */ },
+});
 
-<span class="token comment">// 初始化并监听资源下载进度</span>
-sdk<span class="token punctuation">.</span><span class="token function">init</span><span class="token punctuation">(</span><span class="token punctuation">{<!-- --></span>
-<span class="token literal-property property">initModel</span><span class="token operator">:</span> <span class="token string">'normal'</span><span class="token punctuation">,</span>
-<span class="token function-variable function">onDownloadProgress</span><span class="token operator">:</span> <span class="token punctuation">(</span><span class="token parameter">progress</span><span class="token punctuation">)</span> <span class="token operator">=></span> console<span class="token punctuation">.</span><span class="token function">log</span><span class="token punctuation">(</span>progress <span class="token operator">+</span> <span class="token string">'%'</span><span class="token punctuation">)</span><span class="token punctuation">,</span> <span class="token comment">// 必填</span>
-<span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+// 初始化并监听资源下载进度
+sdk.init({
+initModel: 'normal',
+onDownloadProgress: (progress) => console.log(progress + '%'), // 必填
+});
 ```
 
 
@@ -82,7 +87,7 @@ sdk<span class="token punctuation">.</span><span class="token function">init</sp
 
 
 ```js
-sdk<span class="token punctuation">.</span><span class="token function">speak</span><span class="token punctuation">(</span><span class="token string">'欢迎使用魔珐星云'</span><span class="token punctuation">,</span> <span class="token boolean">true</span><span class="token punctuation">,</span> <span class="token boolean">true</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+sdk.speak('欢迎使用魔珐星云', true, true);
 ```
 
 
@@ -101,11 +106,11 @@ sdk<span class="token punctuation">.</span><span class="token function">speak</s
 
 
 ```bash
-<span class="token comment"># 1. 填环境变量</span>
-<span class="token function">cp</span> .env.example .env   <span class="token comment"># 编辑 .env 填入 XMOV_APP_ID / XMOV_APP_SECRET</span>
-<span class="token comment"># 2. 启动（零依赖，Node ≥ 18.17）</span>
-<span class="token function">npm</span> start
-<span class="token comment"># 3. 打开 http://localhost:3000</span>
+# 1. 填环境变量
+cp .env.example .env   # 编辑 .env 填入 XMOV_APP_ID / XMOV_APP_SECRET
+# 2. 启动（零依赖，Node ≥ 18.17）
+npm start
+# 3. 打开 http://localhost:3000
 ```
 
 
@@ -113,9 +118,9 @@ sdk<span class="token punctuation">.</span><span class="token function">speak</s
 
 
 ```bash
-<span class="token function">docker</span> run <span class="token parameter variable">-d</span> <span class="token parameter variable">-p</span> <span class="token number">3000</span>:3000 <span class="token punctuation">\</span>
-<span class="token parameter variable">-e</span> <span class="token assign-left variable">XMOV_APP_ID</span><span class="token operator">=</span>你的AppID <span class="token punctuation">\</span>
-<span class="token parameter variable">-e</span> <span class="token assign-left variable">XMOV_APP_SECRET</span><span class="token operator">=</span>你的AppSecret <span class="token punctuation">\</span>
+docker run -d -p 3000:3000 \
+-e XMOV_APP_ID=你的AppID \
+-e XMOV_APP_SECRET=你的AppSecret \
 ghcr.io/likebeans/xingyun3d:latest
 ```
 

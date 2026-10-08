@@ -17,6 +17,8 @@ export const sidebar = {
         { text: '学习路径', link: '/guide/' },
         { text: '学习路线图', link: '/guide/roadmap' },
         { text: '前置知识', link: '/guide/prerequisites' },
+        { text: '按问题学习', link: '/guide/problems' },
+        { text: '文章检索与学习记录', link: '/guide/library' },
       ],
     },
   ],
@@ -26,6 +28,7 @@ export const sidebar = {
       text: '实践项目',
       items: [
         { text: '项目总览', link: '/practice/' },
+        { text: '可运行知识助手', link: '/practice/knowledge-assistant' },
       ],
     },
   ],
@@ -59,6 +62,7 @@ export const sidebar = {
       text: '资源库',
       items: [
         { text: '概述', link: '/resources/' },
+        { text: '技术核验与更新', link: '/resources/updates' },
         { text: '视频', link: '/resources/videos' },
         { text: '论文', link: '/resources/papers' },
         { text: '博客', link: '/resources/blogs' },

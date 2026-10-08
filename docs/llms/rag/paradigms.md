@@ -3,24 +3,50 @@ title: RAG 范式演进
 description: 从 Naive RAG 到 Agentic RAG 的技术演进历程
 pageType: article
 module: rag
-updated: '2025-12-27'
+updated: '2026-10-08'
 contentStatus: needs-review
 tags:
   - rag
 level: intermediate
 prerequisites:
   - /llms/prompt/
-reviewed: '2026-08-25'
-techVersion: 待复核（2026-08）
+reviewed: '2026-10-08'
+reviewScope: GraphRAG 查询类型与长上下文/检索选择的官方说明对照；历史范式示意未运行
+exampleStatus: not-run
+techVersion: 2026-10 定向资料复核；核验范围见 reviewScope，外部服务未运行
 ---
 
 # RAG 范式演进
 
+::: info 代码阅读约定
+本页中的类与选择函数用于解释架构决策，不是完整 SDK；检索器、生成器、图数据库、抽取器和评判器均需按项目实现。数字阈值与分支只是教学配置，不能作为生产默认值。
+:::
+
 > 理解RAG技术的发展脉络，掌握从基础到前沿的完整技术栈
+
+## 5 分钟核心结论
+
+这五种范式是可组合的工程结构。先测一个能回溯证据的基础 RAG，再依据失败类型加组件：找不到证据时改召回，证据太散时改组装，需要全库主题归纳时评估图与社区摘要，需要动态分解问题时才增加 Agent 循环。
+
+| 当前任务 | 阅读入口 | 首先控制的代价 |
+| --- | --- | --- |
+| 搭建可验收基线 | [Naive RAG](#paradigm-baseline) | 数据快照、证据 ID 与失败集 |
+| 改善找不到/放不下证据 | [Advanced RAG](#paradigm-advanced) | 候选 K、重排和上下文预算 |
+| 处理实体关系与全库主题 | [GraphRAG](#paradigm-graph) | 抽取错误、索引更新与查询成本 |
+| 多轮检索才能回答 | [Agentic RAG](#paradigm-agent) | 停止条件、工具次数与证据累积 |
+| 决定是否继续加组件 | [选型实验](#paradigm-experiment) | 独立留出集与新增组件的净收益 |
+
+### 长上下文与检索怎样组合
+
+资料少、版本稳定且每次都要通读时，可以把长上下文作为对照基线；知识库大、频繁更新或有访问边界时，检索承担选择证据与执行过滤的职责。窗口能装下不代表模型能用好，仍要测跨段证据、冲突和无答案问题。[Contextual Retrieval 官方说明](https://www.anthropic.com/engineering/contextual-retrieval)也讨论了长上下文与检索的选择；其中容量与成本案例依赖当时服务，不是通用阈值。
+
+工程实验保持回答模型、输出长度和问题集一致，比较“全量上下文”“文本检索 + 重排”“分层检索/图检索”。分别记录证据完整度、引用支持、TTFT、总 token 成本；长前缀缓存可减少重复处理，但不能弥补缺失或错误证据。
+
+> **2026-10-08 文档核验**：GraphRAG 查询类型与上下文检索说明已对照官方资料；本页架构类仍为教学示意，未部署图数据库或执行外部 API。
 
 ## 🎯 概述
 
-RAG（检索增强生成）技术自2020年提出以来，经历了多轮范式迭代。2024年被称为"RAG发展元年"，全年产生了超过1000篇相关论文。
+2020 年的 RAG 论文将参数化生成器与非参数化检索记忆联合起来；检索辅助语言建模的研究更早就已存在。本文按工程结构整理 Naive、Advanced、Modular、Graph 与 Agentic RAG，它们不是互斥的版本号，也不意味着后一种总比前一种好。
 
 ### 五大范式演进路线
 
@@ -63,6 +89,8 @@ Naive RAG → Advanced RAG → Modular RAG → GraphRAG → Agentic RAG
 
 ---
 
+<a id="paradigm-baseline"></a>
+
 ## 📚 范式一：Naive RAG
 
 ### 核心特点
@@ -99,7 +127,7 @@ def naive_rag(query, knowledge_base):
 📄 **文档** → 🔪 **切分** → 🧮 **Embedding** → 💾 **向量库** → 🔍 **检索** → 🤖 **LLM** → 💬 **答案**
 :::
 
-这个过程就像学生做阅读理解：先圈出关键段落，再结合问题总结答案。虽然简单，但已经能解决80%的基础场景——比如让LLM回答"公司年假政策"，只要把员工手册拆成向量，就能快速定位到相关条款。
+这个过程就像学生做阅读理解：先圈出关键段落，再结合问题总结答案。例如回答“公司年假政策”，可以先检索员工手册中的条款，再生成带来源的答案；但仍要区分地区、员工类型、生效时间和例外条件，不能只凭主题相似就作答。
 ### 局限性
 
 | 问题 | 表现 | 原因 |
@@ -124,6 +152,8 @@ def naive_rag(query, knowledge_base):
 
 ---
 
+<a id="paradigm-advanced"></a>
+
 ## ⚡ 范式二：Advanced RAG
 
 ### 核心改进
@@ -135,9 +165,13 @@ Advanced RAG在Naive RAG基础上引入**预检索优化**和**后检索优化**
 问题扩展，问题重写都可以将用户原本不专业，不容易被大模型理解的问题，转换成专业，容易被大模型理解的问题。
 HyDE（Hypothetical Document Embeddings）是一种改进检索的方法，它**生成可用于回答用户输入问题的假设文档**。这些文档来自LLM自身学习到的知识，向量化后用于从索引中检索文档。HyDE方法认为原始问题一般都比较短，而生成的假设文档可能会更好地与索引文档对齐。[HyDE](https://arxiv.org/abs/2206.05266)
 
-高级RAG中的检索一般都是使用混合检索，稠密向量检索和稀疏向量检索相结合，稠密向量检索是基于向量空间的，稀疏向量检索是基于关键词的。二者各有优势，稠密向量检索可以更好地表征文档的语义，稀疏向量检索可以更好地表征文档的关键词。二者加权后，得到最后的评分（默认是7：3的权重，即稠密向量检索占70%，稀疏向量检索占30%，但是好像这一直都是个玄学）。
+Advanced RAG 常通过查询、索引、重排与上下文组装改进基础流程；混合检索只是其中一种策略。BM25 与密集检索可能互补，先用 RRF 或经过验证的分数融合建立基线，没有通用的 7:3 权重。细节见[检索策略](/llms/rag/retrieval)。
 
 后检索，即Rerank，是根据文档的语义和用户的问题进行重新排序，选择最相关的文档。这个就跟embedding不太类似了，embedding是基于向量空间的，而Rerank是基于语义的。embedding是为了快，能够在向量空间中快速找到最相关的文档，而Rerank是基于语义的，能够找到最相关的文档。先找出top——k个相关文档，这个相关是基于向量距离度量的，不是基于语义的，即这些文档分块并不一定就可以解决用户的问题，只有经历rerank后，使用cross-encoder，即交叉编码器，就可以相较于Bi-Encoder，即双编码器，能够更好地表征文档的语义，找到最相关的文档。
+
+
+<details>
+<summary>展开长代码示例（接口与运行边界见正文）</summary>
 
 ```python
 class AdvancedRAG:
@@ -162,6 +196,8 @@ class AdvancedRAG:
         
         return answer
 ```
+
+</details>
 
 ### 关键技术
 
@@ -206,7 +242,7 @@ class AdvancedRAG:
 
 #### 重叠分块
 
-让相邻块重叠 **20%-30%**（如1024 token块重叠200 token），避免"一句话被劈成两半"的尴尬。
+重叠可补偿边界信息，但也会增加重复证据与索引成本。先按结构保留完整句子和条款，再把不同 overlap 作为实验变量；20% 等数值只应是候选配置。
 
 #### 格式适配分块
 
@@ -266,7 +302,7 @@ class ParentChildRetriever:
 └─────┘   └─────┘      └─────┘   └─────┘
 ```
 
-**优势**：先通过章节摘要快速排除无关部分，再深入细粒度内容，检索效率提升50%以上。
+**权衡**：先检索章节摘要可缩小候选，但摘要遗漏信息会造成早期漏召回。分别测量召回质量、延迟和摘要维护成本，不预设性能提升比例。
 
 ### 查询转换技术详解
 
@@ -340,7 +376,7 @@ def hyde_retrieval(query: str):
 
 #### 上下文压缩
 
-通过句子级相似度计算，从检索到的段落中筛选与问题相关的句子，**减少50%以上的token消耗**。
+可按问题筛选或压缩相关句子以控制 token，但须保留否定、适用范围、日期、单位和引用映射。比较压缩前后的证据覆盖与回答质量，不能只计算节省的 token。
 
 #### 来源追踪
 
@@ -357,6 +393,10 @@ def hyde_retrieval(query: str):
 ### 核心理念
 
 Modular RAG将RAG系统拆分为**可插拔的独立模块**，支持灵活组合。
+
+
+<details>
+<summary>展开长代码示例（接口与运行边界见正文）</summary>
 
 ```python
 class ModularRAG:
@@ -388,6 +428,8 @@ class ModularRAG:
         return context['answer']
 ```
 
+</details>
+
 ### 六大核心模块
 
 | 模块 | 职责 | 可选组件 |
@@ -400,6 +442,10 @@ class ModularRAG:
 | **编排模块** | 流程控制 | 条件分支、迭代、并行 |
 
 ### 模块组合示例
+
+
+<details>
+<summary>展开长代码示例（接口与运行边界见正文）</summary>
 
 ```python
 # 简单问答场景
@@ -430,13 +476,19 @@ multimodal_config = {
 }
 ```
 
+</details>
+
 > **相关文章**：[检索增强生成（RAG）综述：技术范式、核心组件与未来展望](https://dd-ff.blog.csdn.net/article/details/149274498)
 
 ---
 
+<a id="paradigm-graph"></a>
+
 ## 🕸️ 范式四：GraphRAG
 
 ### 核心思想
+
+广义 GraphRAG 指利用图结构组织检索；微软 [GraphRAG 原论文](https://arxiv.org/abs/2404.16130) 重点处理面向整个语料的主题归纳，通过实体图与社区摘要支持全局问题。不能把这项收益直接推广为所有多跳问答或因果推理都更准确。
 
 GraphRAG通过**知识图谱**增强RAG，解决传统RAG在**关系推理**和**全局理解**方面的不足。
 
@@ -465,6 +517,12 @@ GraphRAG（Graph-based Retrieval-Augmented Generation）是在传统 RAG 基础�
 > 传统 RAG 擅长“找相似文本”，GraphRAG 更擅长“理解和利用知识之间的关系”。
 
 
+### 当前实现：先选查询类型，再决定是否建图
+
+[Microsoft GraphRAG 查询文档](https://microsoft.github.io/graphrag/query/overview/)区分 Local、Global、DRIFT 与 Basic：Local 将实体相关图信息和原文片段结合；Global 在社区报告上做聚合，适合全库主题问题；DRIFT 把社区信息用于扩展局部问题与后续问题；Basic 提供向量 RAG 对照。不要把所有 GraphRAG 请求都实现成全库摘要。
+
+工程上按“实体事实、跨关系、全库主题”分桶比较。社区摘要必须能追溯原文，实体抽取或版本更新失败应显式记录；如果摘要级答案好看但原文支持不足，应回查抽取、归并和摘要链。上述为 2026-10-08 官方实现说明核验，具体 CLI 和默认配置以锁定的 release 为准。
+
 ### 传统RAG vs GraphRAG
 
 <div class="compare-box">
@@ -491,6 +549,12 @@ GraphRAG（Graph-based Retrieval-Augmented Generation）是在传统 RAG 基础�
 
 
 ### GraphRAG工作流程
+
+以下是架构伪代码，`EntityExtractor`、图数据库与社区检测由具体系统实现，不等同于微软项目 API。实体消歧、边的方向/有效时间、原文出处、重复关系与权限传播需要另行设计。
+
+
+<details>
+<summary>展开长代码示例（接口与运行边界见正文）</summary>
 
 ```python
 class GraphRAG:
@@ -547,9 +611,11 @@ class GraphRAG:
         return answer
 ```
 
+</details>
+
 ### 传统RAG的四大局限（GraphRAG解决的问题）
 
-深入分析后发现，传统RAG存在根本性局限：
+下面列的是单次平面 top-k 基线的常见缺口，不是所有非图 RAG 的必然局限。查询分解、层次摘要和迭代检索也能缓解部分问题；是否需要构图要通过对照实验判断：
 
 | 局限 | 表现 | GraphRAG解决方案 |
 |------|------|------------------|
@@ -567,7 +633,7 @@ class GraphRAG:
 | 流派 | 代表 | 核心焦点 | 技术特点 | 适用场景 |
 |------|------|----------|----------|----------|
 | **流派A：图作为事实数据库** | 蚂蚁集团(DB-GPT+TuGraph) | 事实、精度、路径 | 三元组抽取、Cypher/GQL查询、子图遍历 | 精确推理、事实问答、多跳推理 |
-| **流派B：图作为洞察结构** | 微软GraphRAG | 主题、摘要、社区 | Louvain社区检测、层级摘要、Map-Reduce聚合 | 全局理解、主题分析、数据集概览 |
+| **流派B：图作为洞察结构** | 微软GraphRAG | 主题、摘要、社区 | 社区检测、层级摘要、Map-Reduce聚合 | 全局理解、主题分析、数据集概览 |
 
 #### 流派A详解：三元组提取与子图遍历
 
@@ -575,9 +641,16 @@ class GraphRAG:
 
 ##### 什么是三元组？
 
+<details>
+<summary>深入：三元组与实体关系示例</summary>
+
 知识图谱的基本原子单元是 **(主语, 谓语, 宾语)** 的命题：
 - 例如：`(The Beatles, performed, 'Hello, Goodbye')`
 - 例如：`(马云, 创立, 阿里巴巴)`
+
+
+<details>
+<summary>展开长代码示例（接口与运行边界见正文）</summary>
 
 ```python
 # 流派A核心：从文本中提取精确的原子化事实
@@ -603,6 +676,11 @@ class FactDatabaseGraphRAG:
         results = self.graph_db.execute(cypher)
         return results
 ```
+
+</details>
+
+
+</details>
 
 ##### 蚂蚁集团技术栈
 
@@ -643,6 +721,10 @@ RETURN a.name
 
 这是一个复杂的、由多个工作流组成的数据管道：
 
+
+<details>
+<summary>展开完整流程与推演</summary>
+
 ```
 ┌────────────────────────────────────────────────────────────────┐
 │                    微软 GraphRAG 索引流程                        │
@@ -667,12 +749,21 @@ RETURN a.name
 └────────────────────────────────────────────────────────────────┘
 ```
 
+</details>
+
 ##### Louvain算法详解
+
+<details>
+<summary>深入：社区划分的完整解释与步骤</summary>
 
 这是一种高效的层级聚类算法，目标是最大化图的"模块性"(Modularity)：
 
 - **模块性**：衡量社区内部连接密度与社区之间连接密度的对比
 - **结果**：图被自动分割成多个"社区"或"主题集群"，同一社区内的节点彼此间联系更紧密
+
+
+<details>
+<summary>展开长代码示例（接口与运行边界见正文）</summary>
 
 ```python
 class InsightStructureGraphRAG:
@@ -704,6 +795,11 @@ class InsightStructureGraphRAG:
         return final_answer
 ```
 
+</details>
+
+
+</details>
+
 ##### Map-Reduce风格的全局查询
 
 1. **Map阶段**：每个社区摘要独立生成针对查询的部分响应
@@ -714,6 +810,10 @@ class InsightStructureGraphRAG:
 ### GRAG：知识图谱+RAG的"强强联合"
 
 单独的RAG擅长文本语义匹配，单独的KG擅长关系推理，而**GRAG（图增强RAG）** 则是"1+1>2"的组合：
+
+
+<details>
+<summary>展开完整流程与推演</summary>
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -744,6 +844,8 @@ class InsightStructureGraphRAG:
 └─────────────────────────────────────────────────────────────┘
 ```
 
+</details>
+
 **优势**：既保留了RAG对文本细节的捕捉能力，又借助KG的关系推理，让回答更有深度。
 
 ### 轻量级变体
@@ -769,6 +871,8 @@ GraphRAG系统依赖的图数据可以来自两个主要来源：
 > **相关文章**：[GraphRAG 技术教程：从核心概念到高级架构](https://dd-ff.blog.csdn.net/article/details/154530805)
 
 ---
+
+<a id="paradigm-agent"></a>
 
 ## 🤖 范式五：Agentic RAG
 
@@ -838,6 +942,12 @@ Agentic RAG将**AI Agent**与RAG结合，实现**自主决策**、**动态检索
 
 ### 核心实现
 
+实现示意中的模型、检索器与工具适配器需补齐；上线前还需步数/token/时间预算、失败退出、权限和 trace。循环更多次不自动提高正确率。
+
+
+<details>
+<summary>展开长代码示例（接口与运行边界见正文）</summary>
+
 ```python
 class AgenticRAG:
     """Agentic RAG核心实现"""
@@ -900,6 +1010,8 @@ class AgenticRAG:
         return self.tools[tool_name]
 ```
 
+</details>
+
 ### 架构分类
 
 | 架构 | 特点 | 适用场景 |
@@ -911,7 +1023,7 @@ class AgenticRAG:
 
 ### SELF-RAG：自反思检索
 
-**SELF-RAG（Self-Reflective Retrieval-Augmented Generation）** 是一种强调**“自我反思与自我纠错”**能力的 RAG 架构，核心思想是：
+[Self-RAG 原论文](https://arxiv.org/abs/2310.11511) 通过训练让模型生成检索与反思标记，并在推理时控制检索和生成。它不是给任意聊天模型加一句“检查一下”的同义词，核心思想是：
 
 > **模型在生成过程中，主动判断“要不要检索、检索是否有用、回答是否可信”，并据此自我调整。**
 
@@ -939,8 +1051,8 @@ class AgenticRAG:
 
 ## SELF-RAG 的主要优点
 
-1. **显著降低幻觉问题**
-   模型会拒绝或修正“无依据的生成”。
+1. **改善有据生成的候选方法**
+   需要验证训练后的反思信号能否识别实际业务中的无依据内容。
 
 2. **检索更“省”和更“准”**
    不必要时不检索，必要时多次检索，提高效率与质量。
@@ -948,8 +1060,8 @@ class AgenticRAG:
 3. **回答更稳健**
    对不确定问题更倾向于给出保守、可解释的答案。
 
-4. **无需复杂外部 Agent 框架**
-   相比 Agentic RAG，结构更轻量，易于落地。
+4. **控制机制不同**
+   原论文依赖专门训练与推理策略；通用 Agent 依赖应用循环，二者成本不能只看框架数量。
 
 ---
 
@@ -959,9 +1071,9 @@ class AgenticRAG:
 | ------ | ------ | -------- | ----------- |
 | 是否自我评估 | ❌      | ✅        | ✅           |
 | 检索决策   | 固定     | 自适应      | 自主规划        |
-| 推理深度   | 低      | 中        | 高           |
+| 控制位置   | 固定应用流程 | 训练后的反思标记 | 应用运行时与模型规划 |
 | 系统复杂度  | 低      | 中        | 高           |
-| 幻觉控制   | 一般     | 强        | 强           |
+| 幻觉控制   | 需评估证据支持 | 需校准反思信号 | 需验证工具与证据链 |
 
 ---
 
@@ -978,9 +1090,13 @@ class AgenticRAG:
 > **SELF-RAG 让模型在 RAG 中学会“先想清楚，再去查，再敢说”。**
 
 
+
+<details>
+<summary>展开长代码示例（接口与运行边界见正文）</summary>
+
 ```python
 class SelfRAG:
-    """SELF-RAG: 自反思RAG"""
+    """应用层反思循环伪代码；不是 Self-RAG 论文模型的复现。"""
     
     def __init__(self):
         self.retriever = Retriever()
@@ -1017,6 +1133,8 @@ class SelfRAG:
         
         return answer
 ```
+
+</details>
 
 > **相关文章**：
 > - [OpenAI Agent 工具全面开发者指南——从 RAG 到 Computer Use](https://dd-ff.blog.csdn.net/article/details/154445828)
@@ -1056,7 +1174,7 @@ class SelfRAG:
 | 挑战 | 表现 | 现状 |
 |------|------|------|
 | **没有"万能处理方案"** | 分块大小、KG实体粒度、检索组合都需按文档类型定制 | 无法一刀切 |
-| **动态文档处理难** | 文档更新时如何高效更新向量索引和KG关系 | 往往需重建整个库 |
+| **动态文档处理难** | 文档更新如何传播到片段、关系和摘要 | 依赖追踪决定增量重算范围 |
 | **成本与效果平衡** | 高级技术虽好，但高算力+长耗时 | 中小企业望而却步 |
 
 ---
@@ -1097,6 +1215,20 @@ def choose_rag_paradigm(requirements):
 ```
 
 ---
+
+<a id="paradigm-experiment"></a>
+
+## 选型实验：用失败类型决定新增组件
+
+| 已确认的瓶颈 | 最小增量实验 | 通过条件 |
+| --- | --- | --- |
+| 专名/编号漏召回 | 增加关键词召回 | 对应问题桶 Recall 改善，延迟可接受 |
+| 候选有证据但排序靠后 | 固定候选集加入 rerank | NDCG 和最终证据覆盖共同改善 |
+| 跨段关系经常丢失 | 父子分块/查询分解，再比较图检索 | 多跳全部证据覆盖提升，而非只命中一跳 |
+| 全库主题无法概括 | 层次摘要与图社区摘要对照 | 主题覆盖、来源一致性与索引成本可接受 |
+| 步骤依赖外部新信息 | 有界迭代检索 | 成功率收益超过额外调用、延迟和失败率 |
+
+同一组问题、语料快照与预算下进行消融，保留简单基线。GraphRAG 额外评估实体/关系抽取正确率、社区摘要忠实度和增量更新耗时；Agentic RAG 额外统计步数、重复查询率、循环退出原因与工具失败。架构名称本身不是验收结果。
 
 ## 🔗 相关阅读
 

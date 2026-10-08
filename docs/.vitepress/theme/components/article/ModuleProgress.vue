@@ -3,18 +3,23 @@ import { computed } from 'vue'
 import { MODULE_DEFINITIONS } from '../../../config/modules'
 import type { ModuleKey } from '../../../content/model'
 import { findModuleStep } from './moduleProgress'
+import { normalizeUrl } from '../../../content/selectors'
+import { useLearningRecords } from '../learning/useLearningRecords'
 
 const props = defineProps<{
   module: ModuleKey
   currentUrl: string
 }>()
 
+const { records, ready } = useLearningRecords()
 const definition = computed(() => (
   props.module === 'site' ? undefined : MODULE_DEFINITIONS[props.module]
 ))
 const currentStep = computed(() => (
   definition.value ? findModuleStep(definition.value.items, props.currentUrl) : undefined
 ))
+const learnable = computed(() => definition.value?.items.filter(item => normalizeUrl(item.link) !== normalizeUrl(definition.value!.path)) ?? [])
+const completedCount = computed(() => learnable.value.filter(item => records.value.entries[normalizeUrl(item.link)]?.completed).length)
 </script>
 
 <template>
@@ -27,13 +32,14 @@ const currentStep = computed(() => (
     <div
       class="nl-module-progress-track"
       role="progressbar"
-      :aria-valuemin="1"
-      :aria-valuemax="definition.items.length"
-      :aria-valuenow="currentStep"
-      :aria-valuetext="`第 ${currentStep} 节，共 ${definition.items.length} 节`"
+      :aria-valuemin="0"
+      :aria-valuemax="learnable.length"
+      :aria-valuenow="completedCount"
+      :aria-valuetext="`已完成 ${completedCount} 篇，共 ${learnable.length} 篇`"
     >
-      <span :style="{ width: `${(currentStep / definition.items.length) * 100}%` }" />
+      <span :style="{ width: `${learnable.length ? (completedCount / learnable.length) * 100 : 0}%` }" />
     </div>
-    <small>第 {{ currentStep }} / {{ definition.items.length }} 节</small>
+    <small>当前位置：第 {{ currentStep }} / {{ definition.items.length }} 节</small>
+    <small v-if="ready">已完成 {{ completedCount }} / {{ learnable.length }} 篇</small>
   </section>
 </template>

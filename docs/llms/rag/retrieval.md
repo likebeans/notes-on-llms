@@ -3,7 +3,7 @@ title: 检索策略优化
 description: RAG系统中的检索技术与策略详解
 pageType: article
 module: rag
-updated: '2026-08-26'
+updated: '2026-10-08'
 contentStatus: needs-review
 tags:
   - rag
@@ -15,6 +15,10 @@ techVersion: 2026-08（检索策略，部分工具细节待复核）
 ---
 
 # 检索策略优化
+
+::: info 代码阅读约定
+本页纯函数展示度量与 RRF；涉及 `vector_db`、`llm`、查询改写和多路路由的类是接口示意。实际适配器须统一文档 ID、返回类型、分数方向、超时与权限过滤，不能直接拼接不同库的返回对象。
+:::
 
 > 掌握多种检索技术，构建高效准确的RAG检索系统
 
@@ -102,6 +106,8 @@ similarity = dot_product(query_vector, document_vector)
 ### 相似度计算方法
 
 #### 1. 余弦相似度（推荐）
+
+标题保留旧链接；度量必须遵循模型训练与索引配置，余弦不是所有模型的通用最优选择。
 ```python
 import numpy as np
 
@@ -110,13 +116,15 @@ def cosine_similarity(vec1, vec2):
     dot_product = np.dot(vec1, vec2)
     norm1 = np.linalg.norm(vec1)
     norm2 = np.linalg.norm(vec2)
+    if norm1 == 0 or norm2 == 0:
+        raise ValueError("余弦相似度不接受零向量")
     return dot_product / (norm1 * norm2)
 
 # 示例
 query_vec = [0.1, 0.2, 0.3]
 doc_vec = [0.15, 0.18, 0.32]
 sim = cosine_similarity(query_vec, doc_vec)
-print(f"相似度: {sim:.3f}")  # 输出：0.999
+print(f"相似度: {sim:.3f}")  # 具体数值由上面的向量计算
 ```
 
 #### 2. 欧几里得距离
@@ -133,13 +141,15 @@ def euclidean_similarity(vec1, vec2):
 
 ### 实战代码
 
+下例是适配器接口示意，`vector_db.search` 需实现为所选数据库调用，并明确 `score` 越大越好；数据库返回距离时先转换方向。查询与入库须使用匹配的编码配置。
+
 ```python
 class DenseRetriever:
     def __init__(self, embedding_model, vector_db):
         self.embedding_model = embedding_model
         self.vector_db = vector_db
     
-    def retrieve(self, query: str, top_k: int = 5, threshold: float = 0.7):
+    def retrieve(self, query: str, top_k: int = 5, threshold: float | None = None):
         """稠密检索实现"""
         # 1. 查询向量化
         query_vector = self.embedding_model.encode(query)
@@ -154,7 +164,7 @@ class DenseRetriever:
         # 3. 相似度过滤
         filtered_results = []
         for result in results:
-            if result.score >= threshold:
+            if threshold is None or result.score >= threshold:
                 filtered_results.append(result)
         
         return filtered_results[:top_k]
@@ -218,6 +228,7 @@ class SparseRetriever:
             results.append({
                 'text': self.documents[idx],
                 'score': scores[idx],
+                'doc_id': str(idx),
                 'index': idx
             })
         
@@ -251,97 +262,35 @@ for result in results:
 
 #### 1. 分数加权融合
 
+加权融合的前提是两路分数经过明确的尺度变换，并使用相同的稳定文档 ID。余弦分数范围为 `[-1, 1]`，BM25 的范围依赖语料、分词器和实现；把 BM25 直接过 Sigmoid 并不能让两路分数具有相同语义。没有标注集时，先用下面的 RRF 建立基线。
+
+若要做线性融合，应在训练/验证集上拟合归一化或排序模型，再在独立测试集比较 Recall@K、NDCG@K、无答案误接受率及延迟。未被某一路召回表示“本路未观测”，不能不加说明地当成原始分数 0；可以对候选并集补算两路分数，或给学习排序器增加缺失标记。权重 0.7/0.3 只是一组待实验配置，不是行业默认值。
+
+两路检索适配器统一返回：
+
 ```python
-class HybridRetriever:
-    def __init__(self, dense_retriever, sparse_retriever, alpha=0.7):
-        self.dense_retriever = dense_retriever
-        self.sparse_retriever = sparse_retriever
-        self.alpha = alpha  # 稠密检索权重
-    
-    def retrieve(self, query: str, top_k: int = 5):
-        """混合检索实现"""
-        # 1. 分别获取稠密和稀疏检索结果
-        dense_results = self.dense_retriever.retrieve(query, top_k * 2)
-        sparse_results = self.sparse_retriever.retrieve(query, top_k * 2)
-        
-        # 2. 构建文档ID到分数的映射
-        doc_scores = {}
-        
-        # 稠密检索分数
-        for result in dense_results:
-            doc_id = result.get('doc_id', result.get('index'))
-            doc_scores[doc_id] = doc_scores.get(doc_id, {})
-            doc_scores[doc_id]['dense'] = result.score
-            doc_scores[doc_id]['text'] = result.text
-        
-        # 稀疏检索分数
-        for result in sparse_results:
-            doc_id = result.get('doc_id', result.get('index'))
-            doc_scores[doc_id] = doc_scores.get(doc_id, {})
-            doc_scores[doc_id]['sparse'] = result['score']
-            doc_scores[doc_id]['text'] = result['text']
-        
-        # 3. 分数归一化和融合
-        final_results = []
-        for doc_id, scores in doc_scores.items():
-            dense_score = scores.get('dense', 0)
-            sparse_score = scores.get('sparse', 0)
-            
-            # 归一化处理
-            dense_norm = self._normalize_score(dense_score, 'cosine')
-            sparse_norm = self._normalize_score(sparse_score, 'bm25')
-            
-            # 加权融合
-            final_score = self.alpha * dense_norm + (1 - self.alpha) * sparse_norm
-            
-            final_results.append({
-                'doc_id': doc_id,
-                'text': scores['text'],
-                'final_score': final_score,
-                'dense_score': dense_score,
-                'sparse_score': sparse_score
-            })
-        
-        # 4. 按最终分数排序
-        final_results.sort(key=lambda x: x['final_score'], reverse=True)
-        return final_results[:top_k]
-    
-    def _normalize_score(self, score, score_type):
-        """分数归一化"""
-        if score_type == 'cosine':
-            # 余弦相似度已在[0,1]范围内
-            return score
-        elif score_type == 'bm25':
-            # BM25分数归一化到[0,1]
-            return 1 / (1 + np.exp(-score))  # sigmoid归一化
-        return score
-
-# 使用示例
-hybrid_retriever = HybridRetriever(
-    dense_retriever=dense_retriever,
-    sparse_retriever=sparse_retriever,
-    alpha=0.7  # 70%稠密检索，30%稀疏检索
-)
-
-results = hybrid_retriever.retrieve("RAG系统架构设计", top_k=5)
-for result in results:
-    print(f"综合分数: {result['final_score']:.3f}")
-    print(f"稠密分数: {result['dense_score']:.3f}")
-    print(f"稀疏分数: {result['sparse_score']:.3f}")
-    print(f"内容: {result['text'][:100]}...")
-    print("---")
+# 接口约定示例；不是某个向量库的原生返回类型。
+result = {"doc_id": "handbook:v3:chunk-12", "text": "年假规定……", "score": 0.62}
 ```
 
 #### 2. 倒数排名融合（RRF）
 
+以下函数可独立运行；调用示例中的两路检索器需按上节契约返回同一文档空间的 `doc_id`。单路内部先去重，避免同一文档重复加分。
+
 ```python
 def reciprocal_rank_fusion(results_list, k=60):
-    """倒数排名融合算法"""
+    """输入为已按分数降序排列且包含稳定 doc_id 的字典列表。"""
+    if k < 0:
+        raise ValueError("k 必须非负")
     doc_scores = {}
     
     for results in results_list:
+        seen = set()
         for rank, result in enumerate(results):
-            doc_id = result.get('doc_id', result.get('index'))
+            doc_id = result["doc_id"]
+            if doc_id in seen:
+                continue
+            seen.add(doc_id)
             
             # RRF公式：1/(k + rank)
             rrf_score = 1 / (k + rank + 1)
@@ -555,305 +504,85 @@ for result in results:
 | 参数 | 建议值 | 影响 | 调优策略 |
 |------|--------|------|----------|
 | **top_k** | 5-20 | 召回数量 | 根据下游处理能力调整 |
-| **相似度阈值** | 0.7-0.85 | 结果质量 | 通过验证集确定最优值 |
-| **混合权重α** | 0.6-0.8 | 检索策略平衡 | A/B测试确定 |
+| **相似度阈值** | 无通用数值 | 结果质量 | 通过验证集确定最优值 |
+| **混合权重α** | 在验证集搜索 | 检索策略平衡 | A/B测试确定 |
 | **chunk_size** | 500-1000 | 文档粒度 | 平衡上下文与精确性 |
 
 ### 2. 检索质量评估
 
-```python
-class RetrievalEvaluator:
-    def __init__(self, test_queries, ground_truth):
-        self.test_queries = test_queries
-        self.ground_truth = ground_truth
-    
-    def evaluate_retrieval(self, retriever, top_k=5):
-        """评估检索性能"""
-        metrics = {
-            'recall': [],
-            'precision': [],
-            'mrr': [],  # Mean Reciprocal Rank
-            'ndcg': []  # Normalized Discounted Cumulative Gain
-        }
-        
-        for query_id, query in self.test_queries.items():
-            results = retriever.retrieve(query, top_k)
-            relevant_docs = self.ground_truth[query_id]
-            
-            # 计算各项指标
-            retrieved_docs = [r.get('doc_id') for r in results]
-            
-            # Recall@K
-            recall = len(set(retrieved_docs) & set(relevant_docs)) / len(relevant_docs)
-            metrics['recall'].append(recall)
-            
-            # Precision@K
-            precision = len(set(retrieved_docs) & set(relevant_docs)) / len(retrieved_docs)
-            metrics['precision'].append(precision)
-            
-            # MRR
-            mrr = self._calculate_mrr(retrieved_docs, relevant_docs)
-            metrics['mrr'].append(mrr)
-        
-        # 计算平均值
-        avg_metrics = {k: np.mean(v) for k, v in metrics.items()}
-        return avg_metrics
-    
-    def _calculate_mrr(self, retrieved, relevant):
-        """计算平均倒数排名"""
-        for i, doc_id in enumerate(retrieved):
-            if doc_id in relevant:
-                return 1.0 / (i + 1)
-        return 0.0
+统一使用[评估章节](/llms/rag/evaluation)中的去重 ID 指标函数，避免不同文章各实现一套 Recall/MRR/NDCG。查询的相关文档集合不能为空却仍被按普通 Recall 除零；无答案问题应单独评估。检索器返回对象或字典时先通过适配器转换，不要将 `.score` 与 `result['score']` 混写。
 
-# 使用示例
-test_queries = {
-    'q1': 'RAG技术原理',
-    'q2': '向量数据库选型',
-    # ... 更多测试查询
-}
-
-ground_truth = {
-    'q1': ['doc_1', 'doc_5', 'doc_12'],  # 相关文档ID
-    'q2': ['doc_3', 'doc_8'],
-    # ... 对应的相关文档
-}
-
-evaluator = RetrievalEvaluator(test_queries, ground_truth)
-metrics = evaluator.evaluate_retrieval(dense_retriever)
-
-print("检索性能评估:")
-for metric, value in metrics.items():
-    print(f"{metric.upper()}: {value:.3f}")
-```
+先冻结语料与切分，对同题比较检索路径；调参使用开发集，最终报告使用独立测试集。除了平均分，保留专名、跨语言、时间条件、多跳、权限过滤、无答案各桶的样本数与表现。若有答案查询的召回提高但无答案误接受率恶化，应报告这一取舍。
 
 ---
 
 ## 🔧 混合检索分数归一化
 
-> 来源：[混合搜索中的分数归一化方法深度解析](https://dd-ff.blog.csdn.net/article/details/156072979)
-
 ### 融合困境：支配性特征问题
 
-混合检索需要融合两种分数分布完全不同的检索结果：
-
-| 检索类型 | 分数特征 | 问题 |
-|----------|----------|------|
-| **BM25** | 无上界（0~50+），长尾分布 | 少数高分离群值 |
-| **向量相似度** | 有界（-1~1），高度集中 | 区分度低（如0.72 vs 0.88） |
-
-::: warning 直接融合的问题
-若直接线性融合 `α * BM25 + (1-α) * VectorScore`，BM25的大数值范围会完全淹没向量分数的小数值变化，导致语义信号失效。
-:::
+归一化解决数值尺度问题，校准解决分数与真实事件频率是否一致的问题，二者不能互换。同为 0.8 的余弦、排序分数和校准概率，含义不同。排序有效也不代表分数可以跨查询比较。
 
 ### 归一化方法对比
 
 #### 1. Min-Max归一化
 
-```python
-def min_max_normalize(scores):
-    """最大最小归一化"""
-    min_s, max_s = min(scores), max(scores)
-    if max_s == min_s:
-        return [0.5] * len(scores)
-    return [(s - min_s) / (max_s - min_s) for s in scores]
-```
-
-**致命缺陷：离群值敏感性**
-- 若存在极高分文档（BM25=100），而次优仅为20
-- Min-Max将100映射为1.0，将20压缩至0.11
-- 退化为"赢家通吃"机制，破坏混合搜索初衷
+对当前候选集做 `(s - min) / (max - min)` 可用于相对融合，但候选集变化会改变数值；全是无关文档时，最高分仍被映射为 1。空列表应返回空列表，所有分数相等时应明确固定输出或退回排名融合。
 
 #### 2. Sigmoid函数变换（推荐）
 
-```python
-import numpy as np
+这里保留旧标题以兼容链接，但不再把 Sigmoid 作为通用推荐。`sigmoid(s)` 只是单调变换，不会修复模型偏差，也不会自动得到 `P(相关 | s)`。按本次候选均值和标准差计算的 Sigmoid 仍是相对分数；均值、标准差本身也会受到离群值影响。
 
-def sigmoid_normalize(scores, center=None, slope=1.0):
-    """Sigmoid归一化
-    
-    Args:
-        scores: 原始分数列表
-        center: 中心点（映射为0.5的分数），默认使用均值
-        slope: 斜率控制曲线陡峭程度
-    """
-    scores = np.array(scores)
-    if center is None:
-        center = np.mean(scores)
-    
-    # 使用Z-Score思想动态调整
-    std = np.std(scores) if np.std(scores) > 0 else 1
-    normalized = 1 / (1 + np.exp(-slope * (scores - center) / std))
-    return normalized.tolist()
-
-# 示例对比
-scores = [100, 20, 15, 10, 5]
-print("Min-Max:", min_max_normalize(scores))
-# [1.0, 0.158, 0.105, 0.053, 0.0]
-
-print("Sigmoid:", sigmoid_normalize(scores, center=30))
-# [0.999, 0.378, 0.312, 0.251, 0.182]  # 保留更多区分度
-```
-
-**Sigmoid优势**：
-- **鲁棒性**：有效抑制离群值影响，保留非离群值的方差信息
-- **概率解释**：输出可解释为相关性的后验概率 P(相关|分数)
-- **阈值支持**：支持设置绝对质量阈值（如P<0.3则拒绝回答）
+需要概率时，应先定义标签（例如“片段足以支持该问题的关键答案”），在代表线上流量的独立校准集拟合 Platt scaling 或 isotonic regression，再检查可靠性分桶、Brier 分数和领域迁移后的偏差。阈值依据误接受/误拒绝成本选择，模型、语料或候选池变化后重新评估。
 
 ### Cross-Encoder Logits的Sigmoid变换
 
-在RAG重排序阶段，Cross-Encoder（如bge-reranker）输出的是**原始Logits**，必须通过Sigmoid转换：
+部分模型返回 logits，部分返回经过激活的分数或多个类别的输出。先确认模型卡和 SDK，避免重复 Sigmoid。对单个标量 logit 做 Sigmoid 不改变排序，因此只做 rerank 时不必转换。[Sentence Transformers 官方示例](https://sbert.net/docs/cross_encoder/usage/usage.html) 明确说明了这一点。
 
 ```python
-import numpy as np
+from math import exp
 
-def process_reranker_output(logits):
-    """处理Cross-Encoder输出的Logits
-    
-    Cross-Encoder训练目标是BCEWithLogitsLoss
-    - Logit > 0 意味着 P(相关) > 0.5
-    - 直接将Logits与Cosine相似度相加是数学谬误
-    """
-    def sigmoid(x):
-        return 1 / (1 + np.exp(-x))
-    
-    # 转换为概率
-    probabilities = [sigmoid(logit) for logit in logits]
-    
-    # 示例转换效果
-    # Logit 8.5  -> 0.9998 (高相关)
-    # Logit -2.3 -> 0.0911 (低相关)
-    
-    return probabilities
+def sigmoid(logit):
+    # 数值稳定的标量实现：输出只是压缩分数，不宣称已校准。
+    if logit >= 0:
+        return 1 / (1 + exp(-logit))
+    value = exp(logit)
+    return value / (1 + value)
 
-# 用于混合排序或阈值截断
 logits = [8.5, 2.1, -0.5, -2.3]
-probs = process_reranker_output(logits)
-# [0.9998, 0.891, 0.378, 0.091]
-
-# 阈值过滤：若所有文档 P < 0.3，系统可拒绝回答
-threshold = 0.3
-valid_results = [(i, p) for i, p in enumerate(probs) if p >= threshold]
+scores = [sigmoid(value) for value in logits]
 ```
 
-::: tip RAG幻觉抑制
-- **Min-Max失败**：即使全是烂文档，也会制造出1.0分，导致LLM强行回答
-- **Sigmoid胜利**：提供绝对概率阈值，可在低置信时拒绝回答
-:::
-
----
+拒答应综合证据覆盖、冲突、权限和校准后的阈值。仅有高排序分数，不能证明资料足以回答，更不能保证生成过程不会出错。
 
 ## 🔴 异构向量空间失配问题
 
-> 来源：[异构向量空间失配机制与负余弦相似度的深层拓扑学解析](https://dd-ff.blog.csdn.net/article/details/156068492)
-
 ### 核心问题：Embedding模型不一致
 
-::: danger 关键警告
-在RAG系统中，**索引（Indexing）和检索（Retrieval）阶段必须使用完全相同的Embedding模型**。使用不同模型会导致向量空间失配，产生大量负余弦相似度。
-:::
+检索要求查询与文档编码器属于**兼容、共同训练或明确对齐的检索空间**。它们不必共享权重：[DPR](https://arxiv.org/abs/2004.04906) 就使用查询与段落编码器。不能把两个任意模型的输出仅因维数相等就混用。
 
 ### 负相似度的数学本质
 
-余弦相似度的含义：
-- **cosine ≈ 1**：语义高度相关（夹角接近0°）
-- **cosine ≈ 0**：语义正交/无关（夹角90°）
-- **cosine < 0**：语义对立或数学上的反向（夹角>90°）
-
-**异构模型下的点积失效**：
-
-```python
-# 模型A的向量空间与模型B的向量空间存在未知变换
-# V_A = R * V_B + t  (R是旋转矩阵，t是平移向量)
-
-# 实际检索时计算的是：
-# sim(q_A, d_B) = cos(q_A, d_B)
-# 由于R和t的随机性，等价于两个随机高维向量的点积
-```
-
-**高维空间的随机正交性**（Johnson-Lindenstrauss引理）：
-- 两个随机高维向量的夹角高度集中在90°附近
-- 约50%的文档会呈现负分
-- 这不是"低相关"，而是**检索系统彻底失效**
+余弦为负只表示夹角大于 90°，不表示语言上的否定、反义，也不能据此诊断模型失配。同一合法模型的无关句对也可产生负分。随机单位向量的高维近正交现象需要特定分布假设；它不能推出真实模型混用后必有一半负分，Johnson–Lindenstrauss 引理也不是这条诊断的依据。
 
 ### 失配的三大根源
 
 #### 1. 分词器（Tokenizer）失配
 
-```python
-# 不同模型的分词完全不同
-# 单词 "Apple" 在模型A中ID=1037，在模型B中ID=592
-# 混用导致完全的随机映射
-
-# 特殊Token问题
-# 入库模型可能将语义压缩在 [CLS] (ID 101)
-# 检索模型试图从 <s> (ID 0) 提取
-# 结果是随机初始化的噪声
-```
+将 A 模型的 tokenizer 直接接到 B 权重上属于输入契约错误；两个独立模型各用自己的 tokenizer，则不是 token ID 相撞的问题，而是其输出坐标和训练目标没有保证兼容。查询前缀、文档前缀和池化方法也属于模型契约。
 
 #### 2. 各向异性与锥形效应
 
-```
-模型A的向量分布       模型B的向量分布
-     ↗ 锥形区域A          ↖ 锥形区域B
-    /                        \
-   /                          \
-  /  中心轴方向不同            \
-```
-
-- 预训练模型生成的向量并非均匀分布，而是挤压在狭窄的圆锥体内
-- 两个模型的圆锥中心轴方向独立随机形成
-- 当夹角较大时，所有向量点积均倾向于负值
+嵌入分布可能有偏置，但不能仅凭示意图推断不同模型的中心轴随机、相互排斥或必然负分。应对同一批正负样本绘制分数分布，检查方差、范数、重复向量和召回变化。
 
 #### 3. 训练目标函数差异
 
-| 训练方式 | 空间利用 | 混用后果 |
-|----------|----------|----------|
-| **MLM (BERT)** | 向量聚拢在小区域 | 查询可能落在入库向量簇的"背面" |
-| **对比学习 (SimCSE/E5)** | 激进利用球面 | 系统性负分 |
+句子相似度、问答检索、分类和代码检索的相关性定义并不相同。模型即使维数、架构一致，也可能因训练任务或版本变化而不兼容。
 
 ### 解决方案
 
-```python
-class EmbeddingConsistencyManager:
-    """确保Embedding模型全生命周期一致性"""
-    
-    def __init__(self, model_name, model_version):
-        self.model_signature = {
-            "name": model_name,
-            "version": model_version,
-            "tokenizer_hash": self._hash_tokenizer()
-        }
-    
-    def index_document(self, doc, metadata):
-        """索引时记录模型签名"""
-        embedding = self.model.encode(doc)
-        metadata["embedding_signature"] = self.model_signature
-        return embedding, metadata
-    
-    def validate_retrieval(self, query_signature, index_signature):
-        """检索前验证模型一致性"""
-        if query_signature != index_signature:
-            raise ValueError(
-                f"模型不匹配！索引使用 {index_signature}，"
-                f"查询使用 {query_signature}。请重建索引。"
-            )
-    
-    def reindex_on_upgrade(self, new_model):
-        """模型升级时重建索引"""
-        # 1. 遍历原始文本重新计算Embedding
-        # 2. 过渡期采用双写与灰度策略
-        # 3. 切勿交叉查询
-        pass
-```
+将模型 revision、tokenizer、query/document 前缀、池化、归一化、维数、距离函数与索引版本共同保存。先验证原始文本到向量的链路，再用小规模精确搜索与 ANN 对照：精确搜索也差时查编码/语料；只有 ANN 差时查索引参数和过滤。
 
-::: warning 工程建议
-1. **版本控制**：在元数据中存储模型签名（架构+权重版本+分词器配置）
-2. **重建索引**：模型升级时必须遍历原始文本重新计算Embedding
-3. **Procrustes对齐**：若只有旧向量，可尝试训练线性变换矩阵对齐到新空间
-:::
-
----
+升级时构建独立新索引，用对应查询编码器做影子流量和回归；回填完成后切换别名，并保留回滚版本。线性空间对齐需要同一批文本的成对旧/新向量和独立测试，不能在只有一组旧向量时凭空求解。
 
 ## 📉 短查询高分异常与Rerank修正
 
@@ -862,7 +591,7 @@ class EmbeddingConsistencyManager:
 ### 问题现象
 
 ::: danger 反直觉的病态现象
-输入"Hello"、"系统"、"测试"等**短查询或高频通用词**，混合检索系统往往以**极高置信度**返回大量**完全不相关**的文档。
+输入"Hello"、"系统"、"测试"等**短查询或高频通用词**，混合检索系统往往以**较高排序分数**返回大量**完全不相关**的文档。
 :::
 
 在RAG系统中，这种召回噪声是致命的——它直接污染LLM的输入上下文，导致幻觉。
@@ -871,67 +600,25 @@ class EmbeddingConsistencyManager:
 
 #### 1. IDF权重崩溃
 
-```python
-# BM25的IDF公式
-# IDF(q) = log((N - n(q) + 0.5) / (n(q) + 0.5))
-
-# 对于"Hello"这样的高频词：
-# n(q) ≈ N (几乎所有文档都包含)
-# IDF → 0 或负数
-
-# 后果：BM25退化为"包含该词密度"的排序器
-# 丧失对语义相关性的区分度
-```
+高频词通常区分度低，但 IDF 的符号取决于实现，并非所有 BM25 都返回负值。还应检查中文分词、停用词、专名和字段权重；“Hello”也可能是代码检索中的有效关键词。先确认查询意图，不能按长度一刀切。
 
 #### 2. 文档长度归一化的副作用
 
-当IDF失效时，长度归一化开始主导：
-- **长文档**：惩罚项大，得分被压缩
-- **短文档**（如"Hello World"）：惩罚项小，得分相对较高
-
-**结论**：短查询下，BM25倾向于将"短小且内容贫乏"的碎片排在前面。
+长度归一化会改变排序，短片段有时得分更高，但并不意味着内容贫乏。用长短文档分桶检查错误，再调 `b`、字段或切分策略。
 
 ### 稠密检索的几何陷阱
 
 #### 1. 语义熵与向量模糊性
 
-| 查询类型 | 语义熵 | 向量位置 |
-|----------|--------|----------|
-| 长查询（具体问题） | 高 | 指向狭窄区域 |
-| 短查询（如"System"） | 低 | 落在"中心地带" |
+“系统”缺少任务范围，可能有多个合理解释；这种歧义应通过对话状态、澄清或路由处理。不能由查询长短推导向量位置或“语义熵”。
 
 #### 2. 各向异性与枢纽点问题
 
-```
-高维向量空间示意：
-
-        *  *                     <- 正常文档（分布在外围）
-      *      *
-     *   ●    *   ← "用户协议"等通用文档（枢纽点Hub）
-      *  ◆   *    ← "Hello"查询向量（也在中心）
-        *  *
-
-枢纽点(Hub)：位于流形中心，成为大量其他点的"最近邻"
-短查询向量：因缺乏指向性，也落在中心
-
-结果：查询"Hello"检索到毫无关系的"用户协议"
-     仅仅因为它们在几何上都是"模糊"的中心点
-```
+若相同通用文档在大量无关查询中反复进入 top-k，应统计文档命中频率，并排查模板文本、重复切块和向量范数。枢纽效应只是可能解释，需要分布证据支持。
 
 ### RRF融合的放大效应
 
-```python
-# RRF融合算法
-# score = Σ 1/(k + rank)
-
-# 问题放大机制：
-# - BM25将无关短文档排第1（因长度偏置）
-# - 向量检索将通用文档排第1（因枢纽效应）
-# - RRF看到两者均居榜首，给予极高融合分
-
-# RRF假设"排名高即相关"
-# 无法检测"排名高是因为系统失效"
-```
+RRF 根据名次融合，不读取原始分数，也不判断问题是否有答案。多路检索同时把无关片段排高时，融合仍会保留它；这是方法的边界，不能把融合分数称为“较高排序分数”。公式及候选窗口参数见 [Elasticsearch RRF 文档](https://www.elastic.co/docs/reference/elasticsearch/rest-apis/reciprocal-rank-fusion)。
 
 ### 解决方案：神经重排序（Rerank）
 
@@ -940,69 +627,22 @@ class EmbeddingConsistencyManager:
 | 架构 | 计算方式 | 优势 | 劣势 |
 |------|----------|------|------|
 | **Bi-Encoder** | 独立编码，向量点积 | 快速，支持ANN | 受几何陷阱影响 |
-| **Cross-Encoder** | `[CLS] Q [SEP] D`联合编码 | 精确，消除几何噪声 | 计算成本高 |
+| **Cross-Encoder** | `[CLS] Q [SEP] D`联合编码 | 联合建模词元交互，仍可能误排 | 计算成本高 |
 
 #### Rerank如何修正短查询异常
 
-```python
-class TwoStageRetriever:
-    """两阶段检索流水线"""
-    
-    def __init__(self, hybrid_retriever, reranker, threshold=0.3):
-        self.hybrid_retriever = hybrid_retriever
-        self.reranker = reranker
-        self.threshold = threshold
-    
-    def retrieve(self, query, top_k=5, recall_k=100):
-        """
-        阶段1：召回（允许包含噪声）
-        阶段2：重排序（清除系统性噪声）
-        """
-        # 阶段1：混合检索快速召回
-        candidates = self.hybrid_retriever.retrieve(query, top_k=recall_k)
-        
-        # 阶段2：Cross-Encoder精细打分
-        pairs = [(query, doc['text']) for doc in candidates]
-        rerank_scores = self.reranker.score(pairs)
-        
-        # 应用Sigmoid转换为概率
-        probs = [1 / (1 + np.exp(-s)) for s in rerank_scores]
-        
-        # 合并分数并排序
-        for doc, prob in zip(candidates, probs):
-            doc['rerank_score'] = prob
-        
-        # 阈值过滤：低于阈值的结果不返回
-        filtered = [d for d in candidates if d['rerank_score'] >= self.threshold]
-        filtered.sort(key=lambda x: x['rerank_score'], reverse=True)
-        
-        # 如果所有结果都被过滤，返回空（优于返回噪声）
-        if not filtered:
-            return []  # 触发"无法回答"逻辑
-        
-        return filtered[:top_k]
-
-# 使用示例
-from sentence_transformers import CrossEncoder
-
-reranker = CrossEncoder('BAAI/bge-reranker-v2-m3')
-two_stage = TwoStageRetriever(hybrid_retriever, reranker)
-
-# 即使查询"Hello"，Rerank也能识别出无关文档
-results = two_stage.retrieve("Hello", top_k=5)
-# 若所有候选相关性都<0.3，返回空列表，避免污染LLM上下文
-```
+联合编码可补充匹配信号，但不是短查询问题的万能修复。先区分有效短查询（产品型号、错误码）与缺少任务意图的输入；后者可能应澄清或走普通对话。可运行的排序过滤函数与分数契约见[重排章节](/llms/rag/rerank)，此处不重复一套固定 0.3 阈值实现。
 
 #### Rerank修正机制
 
-1. **消除几何噪声**：通过自注意力机制逐词分析，识别"Hello"与"用户协议"无蕴含关系
-2. **解决长度偏置**：阅读完整上下文，识别孤立词汇无法回答查询
-3. **分数校准**：输出0-1概率值，支持绝对阈值截断
+1. **细粒度交互**：评估候选是否真正覆盖问题，而非只共享主题词
+2. **截断检查**：确认输入上限未删掉关键条件，联合编码也可能受长度偏差影响
+3. **分数校准**：如需拒答阈值，另用带标签数据校准；输出在 0–1 范围不等于已经校准
 
 ::: tip 工程建议
 - 召回阶段多检索一些候选（如Top-100），容忍噪声
 - Rerank阶段使用高质量Cross-Encoder进行精排
-- 设置合理阈值（如0.3），低于阈值时返回"无法回答"而非噪声
+- 在验证集上确定阈值，并评估无答案误接受率和有答案误拒绝率；无证据时明确拒答
 :::
 
 ---
@@ -1072,6 +712,15 @@ class BatchRetriever:
 ```
 
 ---
+
+## 检索实验与故障定位
+
+固定语料快照、权限过滤和 chunk ID，按专名/编号、口语改写、跨文档、无答案分桶，比较 BM25、向量、RRF 三条基线。分别记录候选 Recall@K、重排后 NDCG@K、最终证据覆盖、p95 延迟；不要用答案流畅度代替检索标签。
+
+- 原始文档有答案但标准证据未入库：修解析、切分和版本。
+- 精确向量搜索命中、ANN 不命中：调索引或过滤，别先换模型。
+- 候选池已命中但 top-k 丢失：修融合或重排。
+- top-k 有依据但答案错误：转查上下文截断、引用和生成。
 
 ## 相关阅读
 

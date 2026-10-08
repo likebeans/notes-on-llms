@@ -3,7 +3,7 @@ title: 工具调用详解
 description: Agent 工具调用机制 - Function Calling与MCP协议
 pageType: article
 module: agent
-updated: '2026-08-26'
+updated: '2026-10-08'
 contentStatus: needs-review
 tags:
   - agent
@@ -11,8 +11,10 @@ level: advanced
 prerequisites:
   - /llms/prompt/
   - /llms/rag/
-reviewed: '2026-08-26'
-techVersion: 2026-08（工具调用，部分平台 API 细节待复核）
+reviewed: '2026-10-08'
+reviewScope: Responses strict、调用结果关联；MCP 新旧版本边界；未调用真实模型 API
+exampleStatus: not-run
+techVersion: Responses 函数调用文档核验 2026-10-08；API 示例未实跑；FastMCP 2.12.5 接口示意
 ---
 
 # 工具调用详解
@@ -98,71 +100,73 @@ techVersion: 2026-08（工具调用，部分平台 API 细节待复核）
 
 ### 五步执行流程
 
+以下示例使用 Responses API 展示“发送工具定义 → 收到调用 → 应用执行 → 回传结果 → 模型继续”。运行前需安装兼容版本的 `openai`，设置 `OPENAI_API_KEY` 和支持函数调用的 `OPENAI_MODEL`。天气函数**固定返回模拟数据**，示例不连接真实天气服务，也未在本页执行 API 测试。
+
 ```python
-# 1. 定义工具（函数描述）
-tools = [
-    {
-        "type": "function",
-        "function": {
-            "name": "get_weather",
-            "description": "获取指定城市的天气信息",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "city": {
-                        "type": "string",
-                        "description": "城市名称，如：北京、上海"
-                    },
-                    "unit": {
-                        "type": "string",
-                        "enum": ["celsius", "fahrenheit"],
-                        "description": "温度单位"
-                    }
-                },
-                "required": ["city"]
-            }
-        }
-    }
-]
-
-# 2. 发送请求，模型决策
-response = client.chat.completions.create(
-    model="gpt-4",
-    messages=[{"role": "user", "content": "北京今天天气怎么样？"}],
-    tools=tools,
-    tool_choice="auto"  # 让模型自主决定是否调用工具
-)
-
-# 3. 模型返回结构化调用指令
-# response.choices[0].message.tool_calls[0]:
-# {
-#     "id": "call_abc123",
-#     "type": "function",
-#     "function": {
-#         "name": "get_weather",
-#         "arguments": '{"city": "北京", "unit": "celsius"}'
-#     }
-# }
-
-# 4. 执行函数
 import json
-args = json.loads(response.choices[0].message.tool_calls[0].function.arguments)
-result = get_weather(**args)  # {"temperature": 25, "condition": "晴"}
+import os
+from openai import OpenAI
 
-# 5. 将结果返回给模型，生成最终回复
-messages.append(response.choices[0].message)
-messages.append({
-    "role": "tool",
-    "tool_call_id": "call_abc123",
-    "content": json.dumps(result)
-})
+client = OpenAI()
+model = os.environ["OPENAI_MODEL"]
 
-final_response = client.chat.completions.create(
-    model="gpt-4",
-    messages=messages
-)
-# "北京今天天气晴朗，气温25摄氏度，适合外出活动。"
+def get_weather(city, unit):
+    return {"city": city, "unit": unit, "temperature": 25,
+            "condition": "晴", "simulated": True}
+
+tools = [{
+    "type": "function",
+    "name": "get_weather",
+    "description": "返回指定城市的模拟摄氏天气，仅用于接口演示。",
+    "strict": True,
+    "parameters": {
+        "type": "object",
+        "properties": {
+            "city": {"type": "string"},
+            "unit": {"type": "string", "enum": ["celsius"]}
+        },
+        "required": ["city", "unit"],
+        "additionalProperties": False
+    }
+}]
+items = [{"role": "user", "content": "演示查询北京天气，注明数据为模拟。"}]
+for _ in range(4):
+    response = client.responses.create(model=model, input=items, tools=tools)
+    # 保留所有返回 item，包括模型继续运行所需的上下文项。
+    items.extend(response.output)
+    calls = [item for item in response.output if item.type == "function_call"]
+    if not calls:
+        print(response.output_text)
+        break
+    for call in calls:
+        try:
+            args = json.loads(call.arguments)
+            if call.name != "get_weather" or not isinstance(args, dict):
+                raise ValueError("未知工具或参数结构")
+            if set(args) != {"city", "unit"}:
+                raise ValueError("参数字段不符合约定")
+            if not isinstance(args["city"], str) or not 1 <= len(args["city"]) <= 100:
+                raise ValueError("城市名称无效")
+            if args["unit"] != "celsius":
+                raise ValueError("不支持的单位")
+            result = get_weather(**args)
+        except (ValueError, TypeError) as exc:
+            result = {"error": str(exc)}
+        items.append({"type": "function_call_output", "call_id": call.call_id,
+                      "output": json.dumps(result, ensure_ascii=False)})
+else:
+    raise RuntimeError("达到模型轮数上限，尚未得到最终回答")
 ```
+
+严格 schema 约束的是参数形状，不验证业务事实、用户身份或权限；真实执行器仍要检查资源范围、幂等性、超时和输出大小。模型可能返回零个、一个或多个调用，结果必须对应原 `call_id`，不能写死示例 ID。Responses 与 Chat Completions 的字段层级不同，迁移时不可只替换方法名。[官方函数调用文档](https://developers.openai.com/api/docs/guides/function-calling)
+
+### 严格参数与执行状态（2026-10-08 核验）
+
+当前 Responses 文档说明：省略 `strict` 时会尝试转换成严格模式，不兼容时可能回退为 best effort；Chat Completions 默认行为不同。因此可复现接口应显式写 `strict: true`，每层对象关闭额外字段，所有属性列入 `required`，可空值用 `null` 联合类型表达。不能把“请求成功”当成严格约束确已生效。[Function calling 官方约束](https://developers.openai.com/api/docs/guides/function-calling#strict-mode)
+
+上例的轮数限制是教学停止条件。真实写操作还应持久化 `operation_id`、幂等键、参数摘要和执行状态：`pending → running → succeeded / failed / unknown`。网络超时落到 `unknown` 时，先查外部操作记录；不要让模型换一个调用 ID 重新提交同一笔动作。`call_id` 关联模型消息，业务幂等键关联真实副作用，两者职责不同。
+
+验收时至少注入三个故障：合法 JSON 但无资源权限、上游已提交但响应丢失、模型返回多个有先后依赖的调用。期望分别是拒绝执行、查状态后恢复、按依赖顺序调度；不能用并发或自动重试掩盖这些分支。
 
 ### 函数描述的重要性
 
@@ -198,6 +202,8 @@ final_response = client.chat.completions.create(
 
 ### 并行工具调用
 
+下例是独立于厂商 SDK 的概念示意，`execute_tool` 需实现。仅并行执行彼此独立的调用；对同一记录写入或有前置依赖的调用，按顺序执行。`gather` 也不自带并发上限，取消与部分失败策略见[并行化](/llms/agent/parallelization)。
+
 ```python
 # 模型可以一次返回多个工具调用
 # 用户："北京和上海今天天气怎么样？"
@@ -230,19 +236,22 @@ async def execute_tools(tool_calls):
 
 ### MCP vs Function Calling
 
-| 特性 | Function Calling | MCP |
-|------|------------------|-----|
-| **标准化** | 各厂商实现不同 | 统一协议规范 |
-| **工具发现** | 需手动定义 | 支持动态发现 |
-| **传输方式** | HTTP/WebSocket | Stdio/SSE/HTTP |
-| **状态管理** | 无内置支持 | 支持会话状态 |
-| **生态系统** | 厂商锁定 | 跨平台通用 |
+| 比较项 | Function Calling | MCP |
+| --- | --- | --- |
+| 所处层次 | 模型 API 表达工具定义与调用意图 | 应用与工具/资源服务之间的协议 |
+| 工具定义 | 由应用提交给模型，格式依厂商 API | 客户端可向服务器发现工具，再适配给模型 |
+| 执行方 | 自定义函数通常由应用执行 | MCP 服务器执行工具，客户端接收结果 |
+| 能否组合 | 可以把 MCP 工具转换成模型工具定义 | 不能替代模型的选择能力或业务授权 |
+
+本节 FastMCP 代码只演示工具接口风格；可复现实验统一见 [MCP 快速入门](/llms/mcp/quickstart)。截至 2026-10-08 已核对的 MCP 2026-07-28 规范采用逐请求版本与能力元数据，旧版初始化握手属于兼容流程；不能通过更换版本字符串让旧 SDK 自动支持新生命周期。新版变化与固定教学基线见 [MCP 版本边界](/llms/mcp/#版本与边界)。
 
 ### FastMCP快速入门
 
+以下是 `fastmcp` 包接口风格的演示，需要固定安装版本后验证。天气和新闻均为桩数据；启动成功只说明服务能够暴露工具，不代表接入了真实外部数据。
+
 ```python
 # 安装
-# pip install fastmcp
+# pip install fastmcp==2.12.5
 
 from fastmcp import FastMCP
 
@@ -275,7 +284,7 @@ def search_news(query: str, limit: int = 5) -> list:
     Returns:
         新闻列表
     """
-    return [{"title": f"关于{query}的新闻", "url": "..."}]
+    return [{"title": f"关于{query}的模拟新闻", "simulated": True}]
 
 # 运行服务器
 if __name__ == "__main__":
@@ -285,7 +294,8 @@ if __name__ == "__main__":
 ### MCP资源与提示模板
 
 ```python
-# 定义资源（静态数据）
+# 定义资源（本例返回固定配置；资源也可以是动态读取）
+import json
 @mcp.resource("config://app")
 def get_app_config() -> str:
     """获取应用配置"""
@@ -309,6 +319,8 @@ def analyze_data(data_type: str) -> str:
 
 ### 六种核心工具
 
+下表列常见能力类别，不是完整且永久不变的工具清单；具体工具名、模型支持和参数以选用 API 的文档为准。
+
 | 工具 | 功能 | 适用场景 |
 |------|------|----------|
 | **file_search** | 托管式RAG | 知识库问答、文档分析 |
@@ -320,51 +332,39 @@ def analyze_data(data_type: str) -> str:
 
 ### file_search：托管式RAG
 
+旧版 Assistants API 的官方移除日期为 **2026-08-26**，不再把 `client.assistants.create` 作为新项目示例。[官方弃用记录](https://developers.openai.com/api/docs/deprecations)
+
+先创建向量存储、上传文件并等待索引处理完成，再发起检索。下面假设 `OPENAI_VECTOR_STORE_ID` 指向已就绪且当前用户有权访问的存储；它不是一个真实示例 ID。
+
 ```python
+import os
 from openai import OpenAI
 
 client = OpenAI()
-
-# 1. 创建向量存储
-vector_store = client.vector_stores.create(name="知识库")
-
-# 2. 上传文件
-file = client.files.create(
-    file=open("document.pdf", "rb"),
-    purpose="assistants"
+response = client.responses.create(
+    model=os.environ["OPENAI_MODEL"],
+    input="总结资料中的主要结论，并给出文件引用。",
+    tools=[{"type": "file_search",
+            "vector_store_ids": [os.environ["OPENAI_VECTOR_STORE_ID"]]}],
+    include=["file_search_call.results"]
 )
-
-# 3. 添加到向量存储
-client.vector_stores.files.create(
-    vector_store_id=vector_store.id,
-    file_id=file.id
-)
-
-# 4. 创建带file_search的Assistant
-assistant = client.assistants.create(
-    name="知识助手",
-    model="gpt-4-turbo",
-    tools=[{"type": "file_search"}],
-    tool_resources={
-        "file_search": {"vector_store_ids": [vector_store.id]}
-    }
-)
+print(response.output_text)
 ```
+
+除了最终文本，还应检查响应中的引用与实际检索结果；无命中文档时不可假装找到了证据。[File search 官方指南](https://developers.openai.com/api/docs/guides/tools-file-search)
 
 ### code_interpreter：安全沙箱执行
 
 ```python
-# 创建带代码解释器的Assistant
-assistant = client.assistants.create(
-    name="数据分析师",
-    model="gpt-4-turbo",
-    tools=[{"type": "code_interpreter"}],
-    instructions="你是一个数据分析专家，使用Python进行数据处理和可视化。"
+response = client.responses.create(
+    model=os.environ["OPENAI_MODEL"],
+    input="用 Python 计算 1 到 100 的整数平方和，并说明计算方法。",
+    tools=[{"type": "code_interpreter", "container": {"type": "auto"}}]
 )
-
-# 用户可以上传数据文件，Assistant会自动分析
-# "请分析这份销售数据，生成趋势图"
+print(response.output_text)
 ```
+
+这里沿用前一段的 `client` 和模型配置，模型需支持该工具。托管执行环境的生命周期、文件访问与费用由服务定义；生产系统仍需校验上传数据、生成文件与业务结果，不能把“在沙箱里运行”理解为“结果必然正确”。[Code Interpreter 官方指南](https://developers.openai.com/api/docs/guides/tools-code-interpreter)
 
 ---
 
@@ -386,11 +386,13 @@ assistant = client.assistants.create(
 | 技术 | 隔离级别 | 性能 | 适用场景 |
 |------|----------|------|----------|
 | **Docker** | 容器级 | 高 | 通用隔离 |
-| **gVisor** | 内核级 | 中 | 高安全需求 |
+| **gVisor** | 用户态应用内核 | 依系统调用与负载而变 | 减少应用直接接触宿主内核 |
 | **Firecracker** | 微虚拟机 | 高 | 多租户环境 |
-| **WebAssembly** | 字节码级 | 极高 | 轻量级隔离 |
+| **WebAssembly** | 运行时与宿主导入能力边界 | 依运行时与负载而变 | 受限模块执行 |
 
 ### 安全最佳实践
+
+下面是执行器职责的伪代码：`RateLimiter`、`timeout`、`self.tools` 和校验/过滤函数需实现。同步函数超时不能只靠上下文管理器名称表达，应由可终止的进程或服务请求实现。
 
 ```python
 class SafeToolExecutor:
@@ -429,80 +431,36 @@ class SafeToolExecutor:
 
 ### 工具定义与绑定
 
+窄接口通常比任意代码字符串更容易验证。计算器不要使用 `eval(expression)` 执行用户输入，下面将能力限制为两个整数相乘。
+
 ```python
+import os
 from langchain_core.tools import tool
-from langgraph.prebuilt import create_react_agent
-
-# 使用@tool装饰器定义工具
-@tool
-def calculator(expression: str) -> str:
-    """计算数学表达式
-    
-    Args:
-        expression: 数学表达式，如 "2 + 3 * 4"
-    
-    Returns:
-        计算结果
-    """
-    return str(eval(expression))
+from langchain.agents import create_agent
 
 @tool
-def web_search(query: str) -> str:
-    """搜索网络信息
-    
-    Args:
-        query: 搜索关键词
-    
-    Returns:
-        搜索结果摘要
-    """
-    # 实际实现调用搜索API
-    return f"关于'{query}'的搜索结果..."
+def multiply(a: int, b: int) -> int:
+    """将两个绝对值不超过一百万的整数相乘。"""
+    if type(a) is not int or type(b) is not int:
+        raise ValueError("仅接受整数")
+    if abs(a) > 1_000_000 or abs(b) > 1_000_000:
+        raise ValueError("输入超过允许范围")
+    return a * b
 
-# 绑定工具到模型
-tools = [calculator, web_search]
-model_with_tools = model.bind_tools(tools)
-
-# 创建ReAct Agent
-agent = create_react_agent(model, tools)
+agent = create_agent(model=os.environ["LANGCHAIN_MODEL"], tools=[multiply])
 ```
+
+`LANGCHAIN_MODEL` 需设置为所安装 provider 集成支持的模型标识，并配置对应凭证。当前官方入口使用 `create_agent`，旧教程中的 `langgraph.prebuilt.create_react_agent` 应结合项目固定版本迁移。[LangChain Agents 文档](https://docs.langchain.com/oss/python/langchain/agents)
 
 ### 自定义工具节点
 
-```python
-from langgraph.graph import StateGraph, END
+自建 LangGraph 图时，核心边为 `START → model → tools → model`；只有模型发出了工具调用才走工具节点，否则结束。工具返回后通常回到模型，而不是继续绕工具节点。
 
-def tool_node(state):
-    """执行工具调用"""
-    messages = state["messages"]
-    last_message = messages[-1]
-    
-    tool_calls = last_message.tool_calls
-    results = []
-    
-    for tool_call in tool_calls:
-        tool_name = tool_call["name"]
-        tool_args = tool_call["args"]
-        
-        # 查找并执行工具
-        tool = next(t for t in tools if t.name == tool_name)
-        result = tool.invoke(tool_args)
-        
-        results.append({
-            "role": "tool",
-            "content": result,
-            "tool_call_id": tool_call["id"]
-        })
-    
-    return {"messages": results}
+状态应保留消息追加/合并规则；每个工具结果关联调用 ID。还要处理未知工具、参数错误、异常、最大轮数和消息裁剪。优先使用固定版本框架提供的工具节点，再围绕它补充业务授权与审计，避免重新实现一套不完整协议。
 
-# 构建图
-graph = StateGraph(State)
-graph.add_node("agent", agent_node)
-graph.add_node("tools", tool_node)
-graph.add_edge("agent", "tools")
-graph.add_conditional_edges("tools", should_continue)
-```
+## 调用链的验收
+
+测试应覆盖无需工具、单调用、多调用、无效参数、权限拒绝、工具超时和工具返回恶意指令。通过标准包括：调用与结果 ID 一一关联；失败没有伪装成功；未知工具无法执行；读到的外部内容不能授予新权限；结果过大时有可追溯的截断说明。最终答案必须与真实工具结果一致。
 
 ---
 

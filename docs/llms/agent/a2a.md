@@ -3,7 +3,7 @@ title: 智能体间通信
 description: A2A协议 - 跨框架智能体协作的开放标准
 pageType: article
 module: agent
-updated: '2025-12-27'
+updated: '2026-10-08'
 contentStatus: needs-review
 tags:
   - agent
@@ -17,7 +17,7 @@ techVersion: 待复核（2026-08）
 
 # 智能体间通信（A2A）
 
-> 让不同框架的AI智能体无缝协作
+> 为远端智能体提供可发现、可追踪、可协商的任务接口
 
 ## 🎯 核心概念
 
@@ -26,7 +26,7 @@ techVersion: 待复核（2026-08）
 ### 什么是A2A？
 
 ::: tip 定义
-**Agent2Agent (A2A)** 是Google推出的开放标准协议，使基于不同框架（LangGraph、CrewAI、ADK等）构建的AI智能体能够无缝协调、任务委派和信息交换。
+**Agent2Agent (A2A)** 是面向独立智能体应用的开放互操作协议。客户端可发现能力、发送消息、跟踪任务和取得产物，而不必知道远端内部使用哪个模型或框架。协议解决接口一致性，不保证业务语义、权限和可靠性自动一致。
 :::
 
 ### 为什么需要A2A？
@@ -39,7 +39,7 @@ techVersion: 待复核（2026-08）
 
 ### 行业支持
 
-Atlassian、Box、LangChain、MongoDB、Salesforce、SAP、ServiceNow、Microsoft等均支持A2A协议。
+接入时检查双方实际支持的协议版本、传输绑定和能力，不以厂商名单代替兼容性测试。本文于 2026-10-08 对照 [A2A 规范](https://a2a-protocol.org/latest/specification/)复核了发现路径与操作名称；示例聚焦概念，落地应固定协议及 SDK 版本。
 
 ---
 
@@ -72,17 +72,19 @@ Atlassian、Box、LangChain、MongoDB、Salesforce、SAP、ServiceNow、Microsof
 
 ### 示例
 
-```json
-{
-  "name": "WeatherBot",
-  "description": "提供天气预报",
-  "url": "http://weather.example.com/a2a",
-  "capabilities": { "streaming": true },
-  "skills": [
-    { "id": "get_weather", "name": "获取天气" }
-  ]
-}
+下面是用于评审的能力清单，**不是可直接提交的 Agent Card JSON**。卡片字段和必填规则随协议版本变化，应由对应 SDK 类型生成并验证。
+
+```text
+名称：WeatherBot
+职责：查询城市天气，返回数据来源与观测时间
+输入：城市、日期范围、单位
+输出：结构化天气产物或信息不足状态
+接口：服务 URL、支持的协议版本与绑定
+能力：是否支持流式更新、推送通知
+认证：所需认证方案与访问范围
 ```
+
+能力声明不是授权凭据。卡片里的 URL、技能描述和文件地址也可能来自不可信服务，客户端应验证服务来源并约束访问范围。
 
 ---
 
@@ -90,7 +92,7 @@ Atlassian、Box、LangChain、MongoDB、Salesforce、SAP、ServiceNow、Microsof
 
 | 策略 | 说明 | 适用场景 |
 |------|------|----------|
-| **Well-Known URI** | 标准路径`/.well-known/agent.json` | 公共服务 |
+| **Well-Known URI** | 规范发现路径 `/.well-known/agent-card.json` | 公共服务 |
 | **托管注册中心** | 集中目录查询 | 企业环境 |
 | **直接配置** | 私下嵌入共享 | 私有系统 |
 
@@ -103,20 +105,19 @@ Atlassian、Box、LangChain、MongoDB、Salesforce、SAP、ServiceNow、Microsof
 | 属性 | 说明 |
 |------|------|
 | **唯一ID** | 任务标识符 |
-| **状态** | submitted → working → completed |
+| **状态** | 可能经历提交、处理中、需要输入/授权，最后完成、失败、拒绝或取消；枚举按版本使用 |
 | **contextId** | 关联多次交互 |
 
 ### 消息（Message）
 
 | 组成 | 说明 |
 |------|------|
-| **attributes** | 元数据（优先级、时间等） |
+| **metadata** | 可选扩展元数据，不能代替权限与业务约束 |
 | **parts** | 实际内容（文本、文件、JSON） |
 
 ### 通信协议
 
-- **传输**：HTTP(S)
-- **格式**：JSON-RPC 2.0
+规范区分操作语义与传输绑定，包含 JSON-RPC、gRPC 和 HTTP+JSON/REST。客户端应选择卡片声明支持的接口，不能假定所有服务只接受 JSON-RPC。
 
 ---
 
@@ -124,19 +125,27 @@ Atlassian、Box、LangChain、MongoDB、Salesforce、SAP、ServiceNow、Microsof
 
 | 机制 | 方法 | 适用场景 |
 |------|------|----------|
-| **同步请求/响应** | `sendTask` | 快速即时操作 |
-| **异步轮询** | 返回taskId定期查询 | 长时间任务 |
-| **流式更新(SSE)** | `sendTaskSubscribe` | 实时增量结果 |
+| **请求/响应** | 发送消息；v1.0 操作名 `SendMessage` | 短任务或返回待跟踪任务 |
+| **异步轮询** | 保存任务 ID，通过 `GetTask` 查询 | 长时间任务 |
+| **流式更新** | `SendStreamingMessage`；已有任务使用订阅操作 | 实时状态与产物更新 |
 | **推送通知(Webhooks)** | 注册URL推送 | 超长运行任务 |
 
 ---
+
+旧文章中的 `sendTask`、`sendTaskSubscribe`，以及早期 JSON-RPC 的 `message/send`，不应与 v1.0 操作名混写。也不能把 SDK 的 Python 方法名直接当作线上 RPC 名称。发送成功仅表示请求被处理或接收，需继续检查任务状态与产物。
+
+## 任务生命周期与互操作验收
+
+`messageId` 标识一条消息，任务 ID 标识一次可跟踪工作，`contextId` 关联上下文；业务侧还应保存自己的请求 ID 和幂等记录。客户端断开流后，远端任务可能继续运行。恢复连接先核对任务状态与已有产物，再按支持的机制恢复观察，避免重复创建任务。
+
+联调至少覆盖：卡片与客户端版本不兼容、远端要求补充输入、流中断后查询、取消与完成同时发生、推送通知重复、过期凭证。完成状态和最终产物应交叉核验。应用层的重试与去重设计见[异常处理](/llms/agent/exception-handling)。
 
 ## 🔐 安全性
 
 | 机制 | 说明 |
 |------|------|
-| **双向TLS** | 加密认证连接 |
-| **审计日志** | 记录所有通信 |
+| **TLS / 可选双向 TLS** | 验证服务端身份；是否使用客户端证书由部署和认证方案决定 |
+| **审计日志** | 关联调用、任务与产物，敏感内容按权限留存 |
 | **卡片声明** | 明确认证要求 |
 | **凭证处理** | OAuth/API密钥通过HTTP标头 |
 
@@ -180,9 +189,9 @@ Atlassian、Box、LangChain、MongoDB、Salesforce、SAP、ServiceNow、Microsof
 
 ## 🔗 相关阅读
 
-- [多智能体协作](/llms/agent/multi-agent) - A2A是实现协作的通信基础
+- [多智能体协作](/llms/agent/multi-agent) - 跨服务协作时可选的通信协议
 - [工具调用](/llms/agent/tool-calling) - MCP处理工具交互
 
 > **参考文献**：
-> - [Google A2A Protocol](https://github.com/google/A2A)
+> - [Google A2A Protocol](https://github.com/a2aproject/A2A)
 > - [Agentic Design Patterns](https://github.com/ginobefun/agentic-design-patterns-cn)

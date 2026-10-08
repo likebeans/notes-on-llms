@@ -1,0 +1,217 @@
+{
+  "dataset_version": "fictional-study-center-v1",
+  "description": "全部资料与问题均为虚构教学数据；开发回归集，不是独立测试集。",
+  "queries": [
+    {
+      "id": "q01",
+      "question": "开放时间是什么？",
+      "gold_evidence": [
+        "hours#p001s001"
+      ],
+      "expected_answer_contains": [
+        "09:00–17:00"
+      ],
+      "bucket": "literal"
+    },
+    {
+      "id": "q02",
+      "question": "办卡材料有哪些？",
+      "gold_evidence": [
+        "membership#p001s001"
+      ],
+      "expected_answer_contains": [
+        "有效身份证明"
+      ],
+      "bucket": "literal"
+    },
+    {
+      "id": "q03",
+      "question": "办卡费用是多少？",
+      "gold_evidence": [
+        "membership#p002s001"
+      ],
+      "expected_answer_contains": [
+        "费用为零"
+      ],
+      "bucket": "literal"
+    },
+    {
+      "id": "q04",
+      "question": "借阅期限是多久？",
+      "gold_evidence": [
+        "loan#p001s001"
+      ],
+      "expected_answer_contains": [
+        "21 天"
+      ],
+      "bucket": "literal"
+    },
+    {
+      "id": "q05",
+      "question": "借阅上限是多少？",
+      "gold_evidence": [
+        "loan#p002s001"
+      ],
+      "expected_answer_contains": [
+        "4 本书"
+      ],
+      "bucket": "literal"
+    },
+    {
+      "id": "q06",
+      "question": "续借条件是什么？",
+      "gold_evidence": [
+        "renewal#p001s001"
+      ],
+      "expected_answer_contains": [
+        "未被他人预约",
+        "尚未逾期"
+      ],
+      "bucket": "conditions"
+    },
+    {
+      "id": "q07",
+      "question": "还书地点是什么？",
+      "gold_evidence": [
+        "returns#p001s001"
+      ],
+      "expected_answer_contains": [
+        "一楼服务台"
+      ],
+      "bucket": "literal"
+    },
+    {
+      "id": "q08",
+      "question": "研讨室预约如何办理？",
+      "gold_evidence": [
+        "rooms#p001s001"
+      ],
+      "expected_answer_contains": [
+        "提前 1 天",
+        "2–6 人"
+      ],
+      "bucket": "literal"
+    },
+    {
+      "id": "q09",
+      "question": "打印价格是多少？",
+      "gold_evidence": [
+        "printing#p001s001"
+      ],
+      "expected_answer_contains": [
+        "0.20 元"
+      ],
+      "bucket": "literal"
+    },
+    {
+      "id": "q10",
+      "question": "访客网络名称是什么？",
+      "gold_evidence": [
+        "wifi#p001s001"
+      ],
+      "expected_answer_contains": [
+        "STAR-GUEST"
+      ],
+      "bucket": "literal"
+    },
+    {
+      "id": "q11",
+      "question": "无障碍入口在哪里？",
+      "gold_evidence": [
+        "accessibility#p001s001"
+      ],
+      "expected_answer_contains": [
+        "建筑东侧"
+      ],
+      "bucket": "literal"
+    },
+    {
+      "id": "q12",
+      "question": "活动报名如何办理？",
+      "gold_evidence": [
+        "events#p001s001"
+      ],
+      "expected_answer_contains": [
+        "公开二维码",
+        "20 人"
+      ],
+      "bucket": "literal"
+    },
+    {
+      "id": "q13",
+      "question": "续借时长是多久？",
+      "gold_evidence": [
+        "renewal#p002s001"
+      ],
+      "expected_answer_contains": [
+        "14 天"
+      ],
+      "bucket": "literal"
+    },
+    {
+      "id": "q14",
+      "question": "周一能去看书吗？",
+      "gold_evidence": [
+        "hours#p002s001"
+      ],
+      "expected_answer_contains": [
+        "周一闭馆"
+      ],
+      "bucket": "paraphrase"
+    },
+    {
+      "id": "q15",
+      "question": "借阅期限、续借时长",
+      "gold_evidence": [
+        "loan#p001s001",
+        "renewal#p002s001"
+      ],
+      "expected_answer_contains": [
+        "21 天",
+        "14 天"
+      ],
+      "bucket": "multi-evidence"
+    },
+    {
+      "id": "q16",
+      "question": "开放时间、无障碍入口",
+      "gold_evidence": [
+        "hours#p001s001",
+        "accessibility#p001s001"
+      ],
+      "expected_answer_contains": [
+        "09:00–17:00",
+        "建筑东侧"
+      ],
+      "bucket": "multi-evidence"
+    },
+    {
+      "id": "q17",
+      "question": "借阅押金是多少？",
+      "gold_evidence": [],
+      "expected_answer_contains": [],
+      "bucket": "unanswerable-near-miss"
+    },
+    {
+      "id": "q18",
+      "question": "馆长姓名是什么？",
+      "gold_evidence": [],
+      "expected_answer_contains": [],
+      "bucket": "unanswerable"
+    },
+    {
+      "id": "q19",
+      "question": "停车收费是多少？",
+      "gold_evidence": [],
+      "expected_answer_contains": [],
+      "bucket": "unanswerable"
+    },
+    {
+      "id": "q20",
+      "question": "明天会下雨吗？",
+      "gold_evidence": [],
+      "expected_answer_contains": [],
+      "bucket": "unanswerable"
+    }
+  ]
+}

@@ -3,7 +3,7 @@ title: "从 Agent Run 到 Agent LongTask：以 Coding Agent 为例理解长时�
 description: "CSDN 原文全文镜像：摘要：Agent LongTask 与普通 Agent Run 的本质区别 本文深入探讨了 Agent 系统中 LongTask 与普通 Run 的核心差异。关键结论是：LongTask 并非简单的时间延长版 Agent Run，而是系……"
 pageType: article
 module: agent
-updated: '2026-08-12'
+updated: '2026-10-08'
 contentStatus: needs-review
 tags:
   - "csdn-mirror"
@@ -24,10 +24,16 @@ author: likebeans
 ---
 
 ::: info CSDN 原文镜像
-本文为作者 CSDN 博客的全文镜像，原文发布于 2026-08-12。为适配本站结构，仅补充了站内元数据与来源说明，正文主体保持原文内容。
+本文为作者 CSDN 博客的全文镜像，原文发布于 2026-08-12。本站补充导读与相关主线链接，并修复代码展示；原文观点、来源与发布时间保留。
 
 - 原文链接：[https://blog.csdn.net/m0_63309778/article/details/163697628](https://blog.csdn.net/m0_63309778/article/details/163697628)
 - 站内分区：Agent / Agent LongTask
+:::
+
+::: tip 站内导读与实践边界
+本文适合在单次工具循环已经跑通后阅读，理解长任务如何跨进程、等待审批和恢复执行。Run 与 LongTask 是本文的架构抽象，不是通用协议中的统一术语；恢复验证应覆盖进程崩溃、重复任务和写入结果未知，而不只测试暂停后继续生成文字。
+
+继续阅读：[记忆系统](/llms/agent/memory)、[人机协同](/llms/agent/human-in-the-loop)。
 :::
 
 <p><img src="https://i-blog.csdnimg.cn/direct/2fe438692d9b42e1970b13946ebbf7ed.png" alt="" /></p>

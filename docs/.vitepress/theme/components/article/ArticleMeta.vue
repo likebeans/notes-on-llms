@@ -4,7 +4,7 @@ import { withBase } from 'vitepress'
 const props = defineProps<{
   level?: 'beginner' | 'intermediate' | 'advanced'
   readingTime: number
-  prerequisites?: string[]
+  prerequisites?: { href: string; title: string }[]
   techVersion?: string
 }>()
 
@@ -37,12 +37,12 @@ const toHref = (href: string) => isExternal(href) ? href : withBase(href)
       <dd>
         <a
           v-for="prerequisite in props.prerequisites"
-          :key="prerequisite"
-          :href="toHref(prerequisite)"
-          :target="isExternal(prerequisite) ? '_blank' : undefined"
-          :rel="isExternal(prerequisite) ? 'noreferrer' : undefined"
+          :key="prerequisite.href"
+          :href="toHref(prerequisite.href)"
+          :target="isExternal(prerequisite.href) ? '_blank' : undefined"
+          :rel="isExternal(prerequisite.href) ? 'noreferrer' : undefined"
         >
-          {{ prerequisite }}
+          {{ prerequisite.title }}
         </a>
       </dd>
     </div>

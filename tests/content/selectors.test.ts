@@ -84,7 +84,7 @@ describe('findAdjacentArticle', () => {
 })
 
 describe('content loader transform', () => {
-  it('filters internal and draft pages, validates public metadata, and derives metrics', () => {
+  it('filters internal and draft pages, validates public metadata, and derives metrics', async () => {
     type RawPage = { url: string; src: string; frontmatter: Record<string, unknown> }
     const article = (url: string, frontmatter: Record<string, unknown>, src: string): RawPage => ({ url, frontmatter, src })
     const publicFrontmatter = {
@@ -92,24 +92,24 @@ describe('content loader transform', () => {
       prerequisites: [], updated: '2026-08-25', reviewed: '2026-08-25', contentStatus: 'verified',
       techVersion: '2026', tags: ['test']
     }
-    const transform = (loader as unknown as { transform(raw: RawPage[]): ContentIndexItem[] }).transform
+    const transform = (loader as unknown as { transform(raw: RawPage[]): Promise<ContentIndexItem[]> }).transform
     const longSource = `---\nignored: true\n---\n${'word '.repeat(700)}`
     const raw: RawPage[] = [
       article('/开发计划.html', {}, 'invalid internal content'),
       article('/superpowers/internal.html', {}, 'invalid internal content'),
       article('/llms/rag/draft.html', { ...publicFrontmatter, title: '草稿', contentStatus: 'draft' }, 'draft'),
       article('/llms/rag/long.html', publicFrontmatter, longSource),
-      article('/llms/rag/references/index.html', { ...publicFrontmatter, title: '参考资料' }, '正文\n\n## 参考资料\n- 第一项\n* 第二项'),
+      article('/llms/rag/references/index.html', { ...publicFrontmatter, title: '参考资料' }, '正文\n\n## 参考资料\n- [第一项](https://example.com/a)\n* [第二项](https://example.com/b)\n\n正文[额外来源](https://example.com/c)'),
       article('/llms/rag/sources.html', { ...publicFrontmatter, title: 'SourceList 参考资料' }, `正文\n\n<SourceList :items="[\n  { title: '第一项', href: 'https://example.com/one' },\n  { title: '第二项', href: 'https://example.com/two' }\n]" />`)
     ]
 
-    const result = transform(raw)
+    const result = await transform(raw)
     expect(result.map(item => item.title)).toEqual(['公开文章', '参考资料', 'SourceList 参考资料'])
     expect(result[0]).toMatchObject({ url: '/llms/rag/long', readingTime: 2, sourceCount: 0 })
-    expect(result[1]).toMatchObject({ url: '/llms/rag/references/', readingTime: 1, sourceCount: 2 })
+    expect(result[1]).toMatchObject({ url: '/llms/rag/references/', readingTime: 1, sourceCount: 3 })
     expect(result[2]).toMatchObject({ url: '/llms/rag/sources', readingTime: 1, sourceCount: 2 })
-    expect(() => transform([
+    await expect(transform([
       article('/llms/rag/invalid.html', { ...publicFrontmatter, reviewed: undefined }, 'invalid public metadata')
-    ])).toThrow('/llms/rag/invalid.html: reviewed is required for a published article')
+    ])).rejects.toThrow('/llms/rag/invalid.html: reviewed is required for a published article')
   })
 })

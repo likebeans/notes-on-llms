@@ -3,7 +3,7 @@ title: "Agent 到底该怎么评？从 RAG 指标到科学的 Agent Evaluation �
 description: "CSDN 原文全文镜像：这个 Agent 到底怎样才算完成任务？case:input:messages:content: \"帮我退掉订单 A123\"order:id: A123expected:outcome:required:forbidden:respon……"
 pageType: article
 module: agent
-updated: '2026-08-26'
+updated: '2026-10-08'
 contentStatus: needs-review
 tags:
   - "csdn-mirror"
@@ -24,10 +24,16 @@ author: likebeans
 ---
 
 ::: info CSDN 原文镜像
-本文为作者 CSDN 博客的全文镜像，原文发布于 2026-08-26。为适配本站结构，仅补充了站内元数据与来源说明，正文主体保持原文内容。
+本文为作者 CSDN 博客的全文镜像，原文发布于 2026-08-26。本站补充导读与相关主线链接，并修复代码展示；原文观点、来源与发布时间保留。
 
 - 原文链接：[https://blog.csdn.net/m0_63309778/article/details/164094411](https://blog.csdn.net/m0_63309778/article/details/164094411)
 - 站内分区：Agent / Agent Evaluation
+:::
+
+::: tip 站内导读与实践边界
+本文围绕结果、工具、轨迹、会话和系统分层评测，建议先为自己的任务写出独立验收断言再阅读指标。最终成功不能只取模型自报状态；可选路径不宜强行匹配唯一轨迹，安全违规也不能被总分平均掉。文中的示例数字与代码应视为方法演示。
+
+继续阅读：[Agent 评估方法](/llms/agent/evaluation)、[评估与监控](/llms/agent/evaluation-monitoring)。
 :::
 
 <p><img src="https://i-blog.csdnimg.cn/direct/48fad3bd08fc42c7ae3471264a02ecd6.png" alt="" /></p>
@@ -367,22 +373,22 @@ trajectory == expected_trajectory
 
 
 ```yaml
-<span class="token key atrule">trajectory</span><span class="token punctuation">:</span>
+trajectory:
 
-<span class="token key atrule">required</span><span class="token punctuation">:</span>
-<span class="token punctuation">-</span> get_order
-<span class="token punctuation">-</span> check_refund_policy
+required:
+- get_order
+- check_refund_policy
 
-<span class="token key atrule">partial_order</span><span class="token punctuation">:</span>
-<span class="token punctuation">-</span> get_order < check_refund_policy
-<span class="token punctuation">-</span> check_refund_policy < create_return_request
+partial_order:
+- get_order < check_refund_policy
+- check_refund_policy < create_return_request
 
-<span class="token key atrule">forbidden</span><span class="token punctuation">:</span>
-<span class="token punctuation">-</span> force_refund
-<span class="token punctuation">-</span> modify_database_directly
+forbidden:
+- force_refund
+- modify_database_directly
 
-<span class="token key atrule">max_calls</span><span class="token punctuation">:</span>
-<span class="token key atrule">get_order</span><span class="token punctuation">:</span> <span class="token number">2</span>
+max_calls:
+get_order: 2
 ```
 
 
@@ -625,28 +631,28 @@ Overall Score
 
 
 ```yaml
-<span class="token key atrule">quality_gate</span><span class="token punctuation">:</span>
+quality_gate:
 
-<span class="token key atrule">hard</span><span class="token punctuation">:</span>
-<span class="token key atrule">forbidden_tool_call_rate</span><span class="token punctuation">:</span> <span class="token number">0</span>
-<span class="token key atrule">permission_violation_rate</span><span class="token punctuation">:</span> <span class="token number">0</span>
-<span class="token key atrule">pii_leakage_rate</span><span class="token punctuation">:</span> <span class="token number">0</span>
+hard:
+forbidden_tool_call_rate: 0
+permission_violation_rate: 0
+pii_leakage_rate: 0
 
-<span class="token key atrule">outcome</span><span class="token punctuation">:</span>
-<span class="token key atrule">task_success_rate</span><span class="token punctuation">:</span>
-<span class="token key atrule">min</span><span class="token punctuation">:</span> <span class="token number">0.90</span>
+outcome:
+task_success_rate:
+min: 0.90
 
-<span class="token key atrule">reliability</span><span class="token punctuation">:</span>
-<span class="token key atrule">pass_power_3</span><span class="token punctuation">:</span>
-<span class="token key atrule">min</span><span class="token punctuation">:</span> <span class="token number">0.80</span>
+reliability:
+pass_power_3:
+min: 0.80
 
-<span class="token key atrule">performance</span><span class="token punctuation">:</span>
-<span class="token key atrule">p95_latency</span><span class="token punctuation">:</span>
-<span class="token key atrule">max</span><span class="token punctuation">:</span> <span class="token number">8000</span>
+performance:
+p95_latency:
+max: 8000
 
-<span class="token key atrule">cost</span><span class="token punctuation">:</span>
-<span class="token key atrule">cost_per_success</span><span class="token punctuation">:</span>
-<span class="token key atrule">max</span><span class="token punctuation">:</span> <span class="token number">0.05</span>
+cost:
+cost_per_success:
+max: 0.05
 ```
 
 
@@ -714,8 +720,8 @@ Success Rate = 70%
 
 
 ```yaml
-<span class="token key atrule">run</span><span class="token punctuation">:</span>
-<span class="token key atrule">repetitions</span><span class="token punctuation">:</span> <span class="token number">5</span>
+run:
+repetitions: 5
 ```
 
 
@@ -1436,57 +1442,57 @@ Phoenix
 
 
 ```yaml
-<span class="token key atrule">spec_version</span><span class="token punctuation">:</span> <span class="token string">"1"</span>
+spec_version: "1"
 
-<span class="token key atrule">case</span><span class="token punctuation">:</span>
+case:
 
-<span class="token key atrule">id</span><span class="token punctuation">:</span> refund_shipped_order
+id: refund_shipped_order
 
-<span class="token key atrule">input</span><span class="token punctuation">:</span>
-<span class="token key atrule">messages</span><span class="token punctuation">:</span>
-<span class="token punctuation">-</span> <span class="token key atrule">role</span><span class="token punctuation">:</span> user
-<span class="token key atrule">content</span><span class="token punctuation">:</span> <span class="token string">"帮我退掉订单 A123"</span>
+input:
+messages:
+- role: user
+content: "帮我退掉订单 A123"
 
-<span class="token key atrule">environment</span><span class="token punctuation">:</span>
+environment:
 
-<span class="token key atrule">initial_state</span><span class="token punctuation">:</span>
-<span class="token key atrule">order</span><span class="token punctuation">:</span>
-<span class="token key atrule">id</span><span class="token punctuation">:</span> A123
-<span class="token key atrule">status</span><span class="token punctuation">:</span> shipped
+initial_state:
+order:
+id: A123
+status: shipped
 
-<span class="token key atrule">expected</span><span class="token punctuation">:</span>
+expected:
 
-<span class="token key atrule">outcome</span><span class="token punctuation">:</span>
+outcome:
 
-<span class="token punctuation">-</span> <span class="token key atrule">type</span><span class="token punctuation">:</span> database
-<span class="token key atrule">path</span><span class="token punctuation">:</span> return_request.order_id
-<span class="token key atrule">equals</span><span class="token punctuation">:</span> A123
+- type: database
+path: return_request.order_id
+equals: A123
 
-<span class="token punctuation">-</span> <span class="token key atrule">type</span><span class="token punctuation">:</span> database
-<span class="token key atrule">path</span><span class="token punctuation">:</span> return_request.status
-<span class="token key atrule">equals</span><span class="token punctuation">:</span> created
+- type: database
+path: return_request.status
+equals: created
 
-<span class="token key atrule">trajectory</span><span class="token punctuation">:</span>
+trajectory:
 
-<span class="token key atrule">required</span><span class="token punctuation">:</span>
-<span class="token punctuation">-</span> get_order
-<span class="token punctuation">-</span> check_refund_policy
+required:
+- get_order
+- check_refund_policy
 
-<span class="token key atrule">partial_order</span><span class="token punctuation">:</span>
-<span class="token punctuation">-</span> get_order < check_refund_policy
+partial_order:
+- get_order < check_refund_policy
 
-<span class="token key atrule">forbidden</span><span class="token punctuation">:</span>
-<span class="token punctuation">-</span> force_refund
+forbidden:
+- force_refund
 
-<span class="token key atrule">response</span><span class="token punctuation">:</span>
+response:
 
-<span class="token key atrule">assertions</span><span class="token punctuation">:</span>
-<span class="token punctuation">-</span> 应告知用户需要退货
-<span class="token punctuation">-</span> 不得承诺立即退款
+assertions:
+- 应告知用户需要退货
+- 不得承诺立即退款
 
-<span class="token key atrule">run</span><span class="token punctuation">:</span>
+run:
 
-<span class="token key atrule">repetitions</span><span class="token punctuation">:</span> <span class="token number">5</span>
+repetitions: 5
 ```
 
 
@@ -1555,15 +1561,15 @@ Destroy / Reset
 
 
 ```yaml
-<span class="token key atrule">assertions</span><span class="token punctuation">:</span>
+assertions:
 
-<span class="token punctuation">-</span> <span class="token key atrule">sql</span><span class="token punctuation">:</span>
-<span class="token key atrule">query</span><span class="token punctuation">:</span> <span class="token punctuation">></span><span class="token scalar string">
+- sql:
+query: >
 SELECT status
 FROM refund
-WHERE order_id = 'A123'</span>
+WHERE order_id = 'A123'
 
-<span class="token key atrule">equals</span><span class="token punctuation">:</span> CREATED
+equals: CREATED
 ```
 
 

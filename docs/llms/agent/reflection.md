@@ -3,7 +3,7 @@ title: 反思模式
 description: Reflection - 智能体的自我改进机制
 pageType: article
 module: agent
-updated: '2025-12-27'
+updated: '2026-10-08'
 contentStatus: needs-review
 tags:
   - agent
@@ -125,7 +125,7 @@ techVersion: 待复核（2026-08）
 │           │                                                     │
 │           ▼                                                     │
 │      ┌────────────┐                                             │
-│      │  完美了？  │                                             │
+│      │  达标了吗？│                                             │
 │      └─────┬──────┘                                             │
 │            │                                                    │
 │     ┌──────┴──────┐                                             │
@@ -140,82 +140,34 @@ techVersion: 待复核（2026-08）
 
 | 优势 | 说明 |
 |------|------|
-| **避免认知偏见** | 评论者以全新视角审视 |
+| **分离检查职责** | 单独分配审查任务，减少生成与检查争用同一提示 |
 | **专业化评估** | 评论者可以是特定领域专家 |
 | **结构化反馈** | 反馈更有针对性、更系统 |
-| **更高客观性** | 不会"护短" |
+| **可审计反馈** | 评论者必须给出证据；不同角色仍可能共享偏差 |
 
 ### 代码实现
 
-**核心思路**：用两个不同的系统提示词分别创建生产者和评论者，然后在循环中交替调用。
+下面是控制循环的接口示意。`generate(task, previous, feedback)`、`review(task, candidate)` 和 `verify(candidate)` 是需要实现的适配函数，分别负责生成、结构化评审和独立验证；不是可直接调用的 SDK。`review` 至少返回 `issues` 列表，`verify` 返回布尔值。模型评审只能提出问题，不能取代测试或证据校验。
 
 ```python
-# 1. 定义两个角色的提示词
-producer_prompt = """你是一个代码生成专家。根据用户需求编写代码。"""
-
-critic_prompt = """你是一位高级软件工程师。
-审查以下代码，指出问题并给出改进建议。
-如果代码已完美，只需回复"LGTM"。"""
-
-# 2. 生成初始输出
-current_output = llm.invoke(producer_prompt + user_task)
-
-# 3. 反思循环
-max_iterations = 3
-for i in range(max_iterations):
-    # 评论者审查
-    critique = llm.invoke(critic_prompt + current_output)
-    
-    # 检查是否满意
-    if "LGTM" in critique:
-        break
-    
-    # 生产者根据反馈修改
-    refine_prompt = f"""
-    原始代码：{current_output}
-    审查反馈：{critique}
-    请根据反馈改进代码。
-    """
-    current_output = llm.invoke(producer_prompt + refine_prompt)
-
-# 4. 返回最终结果
-return current_output
+def refine(task, generate, review, verify, max_revisions=2):
+    candidate = generate(task, None, None)
+    for attempt in range(max_revisions + 1):
+        feedback = review(task, candidate)
+        passed = verify(candidate)
+        if passed and not feedback["issues"]:
+            return {"status": "passed", "output": candidate}
+        if attempt == max_revisions:
+            return {"status": "needs_review", "output": candidate,
+                    "feedback": feedback, "verification_passed": passed}
+        candidate = generate(task, candidate, feedback)
 ```
 
-**LangChain 实现**：
+生成器每次修订都应收到原始任务、原稿和具体反馈，防止只追随最新评论而丢失原始要求。评审结果要先做 schema 校验；字符串中出现 `LGTM` 不能作为通过条件，例如“并非 LGTM”也包含这个片段。
 
-```python
-from langchain_openai import ChatOpenAI
-from langchain_core.prompts import ChatPromptTemplate
+[Self-Refine](https://arxiv.org/abs/2303.17651)研究了同一模型生成反馈并修订的方式；另有研究发现，缺乏外部反馈的自我纠错可能不能修复推理错误，甚至把正确答案改错。这些结论依赖研究中的模型和任务，不能泛化成“反思总有效”或“总无效”。[自我纠错研究](https://arxiv.org/abs/2310.01798)
 
-# 创建两个链
-producer_chain = ChatPromptTemplate.from_messages([
-    ("system", producer_prompt),
-    ("human", "{task}")
-]) | ChatOpenAI()
-
-critic_chain = ChatPromptTemplate.from_messages([
-    ("system", critic_prompt),
-    ("human", "请审查：{output}")
-]) | ChatOpenAI()
-
-# 循环调用
-output = producer_chain.invoke({"task": user_task})
-for _ in range(max_iterations):
-    critique = critic_chain.invoke({"output": output})
-    if is_satisfied(critique):
-        break
-    output = producer_chain.invoke({"task": f"{user_task}\n反馈：{critique}"})
-```
-
-**实现要点**：
-
-| 要点 | 说明 |
-|------|------|
-| **不同角色** | 生产者和评论者用不同的系统提示词 |
-| **停止条件** | 评论者说"LGTM"或达到最大迭代次数 |
-| **反馈传递** | 把评论者的反馈作为生产者下一轮的输入 |
-| **结构化反馈** | 评论者应给出具体问题和改进建议 |
+**实现要点**：保留修订历史；硬性验证失败时不得标记完成；达到轮数或费用上限后明确返回未达标状态。验收时同时统计“错变对”和“对变错”的比例，并与不反思的基线比较。代码任务使用测试、静态检查和需求断言；事实写作用原文逐条支持关键主张。
 
 ---
 
@@ -262,6 +214,8 @@ for _ in range(max_iterations):
 ## 🔬 实战案例：代码审查智能体
 
 ### 场景描述
+
+以下代码审查对话为教学构造，评分与反馈不是实际运行记录。
 
 用户请求："帮我写一个计算阶乘的Python函数"
 

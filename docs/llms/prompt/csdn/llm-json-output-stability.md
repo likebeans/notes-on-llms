@@ -3,7 +3,7 @@ title: "大模型输出 JSON 不完整怎么办？从 Prompt 问题到工程稳�
 description: "CSDN 原文全文镜像：文章摘要：大模型输出JSON不完整是一个常见的工程稳定性问题，表现为语法不完整或内容缺失。原因包括输出长度限制、输入上下文过长、Schema设计复杂等。解决方案需从多层面治理：优先使用结构化输出能力，避免一次性生成大JSON，建立JSO……"
 pageType: article
 module: prompt
-updated: '2026-07-09'
+updated: '2026-10-08'
 contentStatus: needs-review
 tags:
   - "csdn-mirror"
@@ -19,10 +19,16 @@ author: likebeans
 ---
 
 ::: info CSDN 原文镜像
-本文为作者 CSDN 博客的全文镜像，原文发布于 2026-07-09。为适配本站结构，仅补充了站内元数据与来源说明，正文主体保持原文内容。
+本文为作者 CSDN 博客的全文镜像，原文发布于 2026-07-09。本站保留原文主体与发布时间，补充主题导读，并修复代码块中残留的语法高亮标签；技术结论仍需结合原文时点与当前文档判断。
 
 - 原文链接：[https://blog.csdn.net/m0_63309778/article/details/162718633](https://blog.csdn.net/m0_63309778/article/details/162718633)
 - 站内分区：Prompt / 结构化输出稳定性
+:::
+
+::: tip 站内阅读提示
+阅读时先区分四类失败：响应被截断、JSON 语法不合法、Schema 不匹配、业务内容错误。结构化输出不能免除拒答/完成状态处理；修复 JSON 后仍需重新校验，不可把补出的字段当作真实事实。接入 SDK 与参数以所选版本官方文档为准。
+
+主线关联：[结构化输出与校验](/llms/prompt/advanced) · [上下文预算](/llms/prompt/context)
 :::
 
 <p><img src="https://i-blog.csdnimg.cn/direct/cfc3f78d89a74ffb91ec559c12d1451a.png" alt="在这里插入图片描述" /></p>
@@ -36,12 +42,12 @@ author: likebeans
 
 
 ```json
-<span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"projectName"</span><span class="token operator">:</span> <span class="token string">"某某项目"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"budget"</span><span class="token operator">:</span> <span class="token string">"120万元"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"requirements"</span><span class="token operator">:</span> <span class="token punctuation">[</span>
-<span class="token string">"投标人须具备相关资质"</span><span class="token punctuation">,</span>
-<span class="token string">"项目负责人须具备相关经验"</span>
+{<!-- -->
+"projectName": "某某项目",
+"budget": "120万元",
+"requirements": [
+"投标人须具备相关资质",
+"项目负责人须具备相关经验"
 ```
 
 
@@ -50,11 +56,11 @@ author: likebeans
 
 
 ```json
-<span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"projectName"</span><span class="token operator">:</span> <span class="token string">"某某项目"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"budget"</span><span class="token operator">:</span> <span class="token keyword">null</span><span class="token punctuation">,</span>
-<span class="token string-property property">"requirements"</span><span class="token operator">:</span> <span class="token punctuation">[</span><span class="token punctuation">]</span>
-<span class="token punctuation">}</span>
+{<!-- -->
+"projectName": "某某项目",
+"budget": null,
+"requirements": []
+}
 ```
 
 
@@ -77,7 +83,7 @@ author: likebeans
 
 
 ```ts
-<span class="token constant">JSON</span><span class="token punctuation">.</span><span class="token function">stringify</span><span class="token punctuation">(</span>data<span class="token punctuation">)</span>
+JSON.stringify(data)
 ```
 
 
@@ -100,9 +106,9 @@ author: likebeans
 
 
 ```json
-<span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"title"</span><span class="token operator">:</span> <span class="token string">"文件上传一致性治理"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"tags"</span><span class="token operator">:</span> <span class="token punctuation">[</span><span class="token string">"大模型"</span><span class="token punctuation">,</span> <span class="token string">"工程化"</span><span class="token punctuation">,</span> <span class="token string">"JSON"</span>
+{<!-- -->
+"title": "文件上传一致性治理",
+"tags": ["大模型", "工程化", "JSON"
 ```
 
 
@@ -115,13 +121,13 @@ author: likebeans
 
 
 ```json
-<span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"basicInfo"</span><span class="token operator">:</span> <span class="token punctuation">{<!-- --></span><span class="token punctuation">}</span><span class="token punctuation">,</span>
-<span class="token string-property property">"timeline"</span><span class="token operator">:</span> <span class="token punctuation">[</span><span class="token punctuation">]</span><span class="token punctuation">,</span>
-<span class="token string-property property">"qualificationRequirements"</span><span class="token operator">:</span> <span class="token punctuation">[</span><span class="token punctuation">]</span><span class="token punctuation">,</span>
-<span class="token string-property property">"scoringRules"</span><span class="token operator">:</span> <span class="token punctuation">[</span><span class="token punctuation">]</span><span class="token punctuation">,</span>
-<span class="token string-property property">"riskPoints"</span><span class="token operator">:</span> <span class="token punctuation">[</span><span class="token punctuation">]</span>
-<span class="token punctuation">}</span>
+{<!-- -->
+"basicInfo": {<!-- -->},
+"timeline": [],
+"qualificationRequirements": [],
+"scoringRules": [],
+"riskPoints": []
+}
 ```
 
 
@@ -129,15 +135,15 @@ author: likebeans
 
 
 ```json
-<span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"basicInfo"</span><span class="token operator">:</span> <span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"projectName"</span><span class="token operator">:</span> <span class="token string">"某某项目"</span>
-<span class="token punctuation">}</span><span class="token punctuation">,</span>
-<span class="token string-property property">"timeline"</span><span class="token operator">:</span> <span class="token punctuation">[</span><span class="token punctuation">]</span><span class="token punctuation">,</span>
-<span class="token string-property property">"qualificationRequirements"</span><span class="token operator">:</span> <span class="token punctuation">[</span><span class="token punctuation">]</span><span class="token punctuation">,</span>
-<span class="token string-property property">"scoringRules"</span><span class="token operator">:</span> <span class="token punctuation">[</span><span class="token punctuation">]</span><span class="token punctuation">,</span>
-<span class="token string-property property">"riskPoints"</span><span class="token operator">:</span> <span class="token punctuation">[</span><span class="token punctuation">]</span>
-<span class="token punctuation">}</span>
+{<!-- -->
+"basicInfo": {<!-- -->
+"projectName": "某某项目"
+},
+"timeline": [],
+"qualificationRequirements": [],
+"scoringRules": [],
+"riskPoints": []
+}
 ```
 
 
@@ -152,23 +158,23 @@ author: likebeans
 
 
 ```json
-<span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"documents"</span><span class="token operator">:</span> <span class="token punctuation">[</span>
-<span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"title"</span><span class="token operator">:</span> <span class="token string">"..."</span><span class="token punctuation">,</span>
-<span class="token string-property property">"sections"</span><span class="token operator">:</span> <span class="token punctuation">[</span>
-<span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"heading"</span><span class="token operator">:</span> <span class="token string">"..."</span><span class="token punctuation">,</span>
-<span class="token string-property property">"clauses"</span><span class="token operator">:</span> <span class="token punctuation">[</span>
-<span class="token string">"..."</span><span class="token punctuation">,</span>
-<span class="token string">"..."</span><span class="token punctuation">,</span>
-<span class="token string">"..."</span>
-<span class="token punctuation">]</span>
-<span class="token punctuation">}</span>
-<span class="token punctuation">]</span>
-<span class="token punctuation">}</span>
-<span class="token punctuation">]</span>
-<span class="token punctuation">}</span>
+{<!-- -->
+"documents": [
+{<!-- -->
+"title": "...",
+"sections": [
+{<!-- -->
+"heading": "...",
+"clauses": [
+"...",
+"...",
+"..."
+]
+}
+]
+}
+]
+}
 ```
 
 
@@ -185,26 +191,26 @@ author: likebeans
 
 
 ```json
-<span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"project"</span><span class="token operator">:</span> <span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"basic"</span><span class="token operator">:</span> <span class="token punctuation">{<!-- --></span><span class="token punctuation">}</span><span class="token punctuation">,</span>
-<span class="token string-property property">"buyer"</span><span class="token operator">:</span> <span class="token punctuation">{<!-- --></span><span class="token punctuation">}</span><span class="token punctuation">,</span>
-<span class="token string-property property">"supplier"</span><span class="token operator">:</span> <span class="token punctuation">{<!-- --></span><span class="token punctuation">}</span><span class="token punctuation">,</span>
-<span class="token string-property property">"timeline"</span><span class="token operator">:</span> <span class="token punctuation">[</span><span class="token punctuation">]</span><span class="token punctuation">,</span>
-<span class="token string-property property">"qualification"</span><span class="token operator">:</span> <span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"company"</span><span class="token operator">:</span> <span class="token punctuation">[</span><span class="token punctuation">]</span><span class="token punctuation">,</span>
-<span class="token string-property property">"personnel"</span><span class="token operator">:</span> <span class="token punctuation">[</span><span class="token punctuation">]</span><span class="token punctuation">,</span>
-<span class="token string-property property">"performance"</span><span class="token operator">:</span> <span class="token punctuation">[</span><span class="token punctuation">]</span><span class="token punctuation">,</span>
-<span class="token string-property property">"financial"</span><span class="token operator">:</span> <span class="token punctuation">[</span><span class="token punctuation">]</span>
-<span class="token punctuation">}</span><span class="token punctuation">,</span>
-<span class="token string-property property">"scoring"</span><span class="token operator">:</span> <span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"business"</span><span class="token operator">:</span> <span class="token punctuation">[</span><span class="token punctuation">]</span><span class="token punctuation">,</span>
-<span class="token string-property property">"technical"</span><span class="token operator">:</span> <span class="token punctuation">[</span><span class="token punctuation">]</span><span class="token punctuation">,</span>
-<span class="token string-property property">"price"</span><span class="token operator">:</span> <span class="token punctuation">[</span><span class="token punctuation">]</span>
-<span class="token punctuation">}</span><span class="token punctuation">,</span>
-<span class="token string-property property">"risks"</span><span class="token operator">:</span> <span class="token punctuation">[</span><span class="token punctuation">]</span>
-<span class="token punctuation">}</span>
-<span class="token punctuation">}</span>
+{<!-- -->
+"project": {<!-- -->
+"basic": {<!-- -->},
+"buyer": {<!-- -->},
+"supplier": {<!-- -->},
+"timeline": [],
+"qualification": {<!-- -->
+"company": [],
+"personnel": [],
+"performance": [],
+"financial": []
+},
+"scoring": {<!-- -->
+"business": [],
+"technical": [],
+"price": []
+},
+"risks": []
+}
+}
 ```
 
 
@@ -262,17 +268,17 @@ author: likebeans
 
 
 ```json
-<span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"title"</span><span class="token operator">:</span> <span class="token string">"string"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"summary"</span><span class="token operator">:</span> <span class="token string">"string"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"keywords"</span><span class="token operator">:</span> <span class="token punctuation">[</span><span class="token string">"string"</span><span class="token punctuation">]</span><span class="token punctuation">,</span>
-<span class="token string-property property">"sections"</span><span class="token operator">:</span> <span class="token punctuation">[</span>
-<span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"heading"</span><span class="token operator">:</span> <span class="token string">"string"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"summary"</span><span class="token operator">:</span> <span class="token string">"string"</span>
-<span class="token punctuation">}</span>
-<span class="token punctuation">]</span>
-<span class="token punctuation">}</span>
+{<!-- -->
+"title": "string",
+"summary": "string",
+"keywords": ["string"],
+"sections": [
+{<!-- -->
+"heading": "string",
+"summary": "string"
+}
+]
+}
 ```
 
 
@@ -286,9 +292,9 @@ author: likebeans
 
 
 ```json
-<span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"qualificationRequirements"</span><span class="token operator">:</span> <span class="token punctuation">[</span><span class="token punctuation">]</span>
-<span class="token punctuation">}</span>
+{<!-- -->
+"qualificationRequirements": []
+}
 ```
 
 
@@ -325,13 +331,13 @@ author: likebeans
 
 
 ```json
-<span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"basicInfo"</span><span class="token operator">:</span> <span class="token punctuation">{<!-- --></span><span class="token punctuation">}</span><span class="token punctuation">,</span>
-<span class="token string-property property">"timeline"</span><span class="token operator">:</span> <span class="token punctuation">[</span><span class="token punctuation">]</span><span class="token punctuation">,</span>
-<span class="token string-property property">"qualificationRequirements"</span><span class="token operator">:</span> <span class="token punctuation">[</span><span class="token punctuation">]</span><span class="token punctuation">,</span>
-<span class="token string-property property">"scoringRules"</span><span class="token operator">:</span> <span class="token punctuation">[</span><span class="token punctuation">]</span><span class="token punctuation">,</span>
-<span class="token string-property property">"riskPoints"</span><span class="token operator">:</span> <span class="token punctuation">[</span><span class="token punctuation">]</span>
-<span class="token punctuation">}</span>
+{<!-- -->
+"basicInfo": {<!-- -->},
+"timeline": [],
+"qualificationRequirements": [],
+"scoringRules": [],
+"riskPoints": []
+}
 ```
 
 
@@ -339,39 +345,39 @@ author: likebeans
 
 
 ```json
-<span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"basicInfo"</span><span class="token operator">:</span> <span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"projectName"</span><span class="token operator">:</span> <span class="token string">"xxx"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"budget"</span><span class="token operator">:</span> <span class="token string">"xxx"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"buyer"</span><span class="token operator">:</span> <span class="token string">"xxx"</span>
-<span class="token punctuation">}</span>
-<span class="token punctuation">}</span>
+{<!-- -->
+"basicInfo": {<!-- -->
+"projectName": "xxx",
+"budget": "xxx",
+"buyer": "xxx"
+}
+}
 ```
 
 
 
 
 ```json
-<span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"timeline"</span><span class="token operator">:</span> <span class="token punctuation">[</span>
-<span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"name"</span><span class="token operator">:</span> <span class="token string">"报名截止时间"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"date"</span><span class="token operator">:</span> <span class="token string">"2026-07-10"</span>
-<span class="token punctuation">}</span>
-<span class="token punctuation">]</span>
-<span class="token punctuation">}</span>
+{<!-- -->
+"timeline": [
+{<!-- -->
+"name": "报名截止时间",
+"date": "2026-07-10"
+}
+]
+}
 ```
 
 
 
 
 ```json
-<span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"qualificationRequirements"</span><span class="token operator">:</span> <span class="token punctuation">[</span>
-<span class="token string">"要求一"</span><span class="token punctuation">,</span>
-<span class="token string">"要求二"</span>
-<span class="token punctuation">]</span>
-<span class="token punctuation">}</span>
+{<!-- -->
+"qualificationRequirements": [
+"要求一",
+"要求二"
+]
+}
 ```
 
 
@@ -388,17 +394,17 @@ author: likebeans
 
 
 ```json
-<span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"page"</span><span class="token operator">:</span> <span class="token number">1</span><span class="token punctuation">,</span>
-<span class="token string-property property">"pageSize"</span><span class="token operator">:</span> <span class="token number">20</span><span class="token punctuation">,</span>
-<span class="token string-property property">"hasMore"</span><span class="token operator">:</span> <span class="token boolean">true</span><span class="token punctuation">,</span>
-<span class="token string-property property">"items"</span><span class="token operator">:</span> <span class="token punctuation">[</span>
-<span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"index"</span><span class="token operator">:</span> <span class="token number">1</span><span class="token punctuation">,</span>
-<span class="token string-property property">"content"</span><span class="token operator">:</span> <span class="token string">"..."</span>
-<span class="token punctuation">}</span>
-<span class="token punctuation">]</span>
-<span class="token punctuation">}</span>
+{<!-- -->
+"page": 1,
+"pageSize": 20,
+"hasMore": true,
+"items": [
+{<!-- -->
+"index": 1,
+"content": "..."
+}
+]
+}
 ```
 
 
@@ -414,17 +420,17 @@ author: likebeans
 
 
 ```json
-<span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"page"</span><span class="token operator">:</span> <span class="token number">2</span><span class="token punctuation">,</span>
-<span class="token string-property property">"pageSize"</span><span class="token operator">:</span> <span class="token number">20</span><span class="token punctuation">,</span>
-<span class="token string-property property">"hasMore"</span><span class="token operator">:</span> <span class="token boolean">false</span><span class="token punctuation">,</span>
-<span class="token string-property property">"items"</span><span class="token operator">:</span> <span class="token punctuation">[</span>
-<span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"index"</span><span class="token operator">:</span> <span class="token number">21</span><span class="token punctuation">,</span>
-<span class="token string-property property">"content"</span><span class="token operator">:</span> <span class="token string">"..."</span>
-<span class="token punctuation">}</span>
-<span class="token punctuation">]</span>
-<span class="token punctuation">}</span>
+{<!-- -->
+"page": 2,
+"pageSize": 20,
+"hasMore": false,
+"items": [
+{<!-- -->
+"index": 21,
+"content": "..."
+}
+]
+}
 ```
 
 
@@ -456,20 +462,20 @@ author: likebeans
 
 
 ```ts
-<span class="token keyword">import</span> <span class="token punctuation">{<!-- --></span> z <span class="token punctuation">}</span> <span class="token keyword">from</span> <span class="token string">"zod"</span><span class="token punctuation">;</span>
+import {<!-- --> z } from "zod";
 
-<span class="token keyword">const</span> ExtractResultSchema <span class="token operator">=</span> z<span class="token punctuation">.</span><span class="token function">object</span><span class="token punctuation">(</span><span class="token punctuation">{<!-- --></span>
-title<span class="token operator">:</span> z<span class="token punctuation">.</span><span class="token function">string</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">nullable</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
-summary<span class="token operator">:</span> z<span class="token punctuation">.</span><span class="token function">string</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">nullable</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
-keywords<span class="token operator">:</span> z<span class="token punctuation">.</span><span class="token function">array</span><span class="token punctuation">(</span>z<span class="token punctuation">.</span><span class="token function">string</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
-risks<span class="token operator">:</span> z<span class="token punctuation">.</span><span class="token function">array</span><span class="token punctuation">(</span>z<span class="token punctuation">.</span><span class="token function">string</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
-<span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+const ExtractResultSchema = z.object({<!-- -->
+title: z.string().nullable(),
+summary: z.string().nullable(),
+keywords: z.array(z.string()),
+risks: z.array(z.string()),
+});
 
-<span class="token keyword">function</span> <span class="token function">parseAndValidate</span><span class="token punctuation">(</span>raw<span class="token operator">:</span> <span class="token builtin">string</span><span class="token punctuation">)</span> <span class="token punctuation">{<!-- --></span>
-<span class="token keyword">const</span> cleaned <span class="token operator">=</span> <span class="token function">cleanModelOutput</span><span class="token punctuation">(</span>raw<span class="token punctuation">)</span><span class="token punctuation">;</span>
-<span class="token keyword">const</span> parsed <span class="token operator">=</span> <span class="token constant">JSON</span><span class="token punctuation">.</span><span class="token function">parse</span><span class="token punctuation">(</span>cleaned<span class="token punctuation">)</span><span class="token punctuation">;</span>
-<span class="token keyword">return</span> ExtractResultSchema<span class="token punctuation">.</span><span class="token function">parse</span><span class="token punctuation">(</span>parsed<span class="token punctuation">)</span><span class="token punctuation">;</span>
-<span class="token punctuation">}</span>
+function parseAndValidate(raw: string) {<!-- -->
+const cleaned = cleanModelOutput(raw);
+const parsed = JSON.parse(cleaned);
+return ExtractResultSchema.parse(parsed);
+}
 ```
 
 
@@ -477,30 +483,30 @@ risks<span class="token operator">:</span> z<span class="token punctuation">.</s
 
 
 ````ts
-<span class="token keyword">function</span> <span class="token function">cleanModelOutput</span><span class="token punctuation">(</span>raw<span class="token operator">:</span> <span class="token builtin">string</span><span class="token punctuation">)</span><span class="token operator">:</span> <span class="token builtin">string</span> <span class="token punctuation">{<!-- --></span>
-<span class="token keyword">return</span> raw
-<span class="token punctuation">.</span><span class="token function">trim</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
-<span class="token punctuation">.</span><span class="token function">replace</span><span class="token punctuation">(</span><span class="token regex"><span class="token regex-delimiter">/</span><span class="token regex-source language-regex">^```json\s*</span><span class="token regex-delimiter">/</span><span class="token regex-flags">i</span></span><span class="token punctuation">,</span> <span class="token string">""</span><span class="token punctuation">)</span>
-<span class="token punctuation">.</span><span class="token function">replace</span><span class="token punctuation">(</span><span class="token regex"><span class="token regex-delimiter">/</span><span class="token regex-source language-regex">^```\s*</span><span class="token regex-delimiter">/</span><span class="token regex-flags">i</span></span><span class="token punctuation">,</span> <span class="token string">""</span><span class="token punctuation">)</span>
-<span class="token punctuation">.</span><span class="token function">replace</span><span class="token punctuation">(</span><span class="token regex"><span class="token regex-delimiter">/</span><span class="token regex-source language-regex">```$</span><span class="token regex-delimiter">/</span><span class="token regex-flags">i</span></span><span class="token punctuation">,</span> <span class="token string">""</span><span class="token punctuation">)</span>
-<span class="token punctuation">.</span><span class="token function">trim</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
-<span class="token punctuation">}</span>
+function cleanModelOutput(raw: string): string {<!-- -->
+return raw
+.trim()
+.replace(/^```json\s*/i, "")
+.replace(/^```\s*/i, "")
+.replace(/```$/i, "")
+.trim();
+}
 ````
 
 
-<p>Schema 校验至少要解决三类问题&#xff1a;</p>
+<p>Schema 校验至少要解决三类问题：</p>
 
 <table><thead><tr><th>校验类型</th><th>目标</th></tr></thead><tbody><tr><td>语法校验</td><td>JSON 是否能 parse</td></tr><tr><td>结构校验</td><td>字段类型是否正确</td></tr><tr><td>业务校验</td><td>字段是否满足业务完整性</td></tr></tbody></table><p>只做 <code>JSON.parse</code> 是不够的。</p>
-<p>因为下面这个 JSON 可以 parse&#xff0c;但业务上可能不可接受&#xff1a;</p>
+<p>因为下面这个 JSON 可以 parse，但业务上可能不可接受：</p>
 
 
 ```json
-<span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"title"</span><span class="token operator">:</span> <span class="token keyword">null</span><span class="token punctuation">,</span>
-<span class="token string-property property">"summary"</span><span class="token operator">:</span> <span class="token keyword">null</span><span class="token punctuation">,</span>
-<span class="token string-property property">"keywords"</span><span class="token operator">:</span> <span class="token punctuation">[</span><span class="token punctuation">]</span><span class="token punctuation">,</span>
-<span class="token string-property property">"risks"</span><span class="token operator">:</span> <span class="token punctuation">[</span><span class="token punctuation">]</span>
-<span class="token punctuation">}</span>
+{<!-- -->
+"title": null,
+"summary": null,
+"keywords": [],
+"risks": []
+}
 ```
 
 
@@ -511,9 +517,9 @@ risks<span class="token operator">:</span> z<span class="token punctuation">.</s
 
 
 ```json
-<span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"title"</span><span class="token operator">:</span> <span class="token string">"大模型工程化"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"tags"</span><span class="token operator">:</span> <span class="token punctuation">[</span><span class="token string">"LLM"</span><span class="token punctuation">,</span> <span class="token string">"JSON"</span><span class="token punctuation">,</span> <span class="token string">"结构化输出"</span>
+{<!-- -->
+"title": "大模型工程化",
+"tags": ["LLM", "JSON", "结构化输出"
 ```
 
 
@@ -521,10 +527,10 @@ risks<span class="token operator">:</span> z<span class="token punctuation">.</s
 
 
 ```json
-<span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"title"</span><span class="token operator">:</span> <span class="token string">"大模型工程化"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"tags"</span><span class="token operator">:</span> <span class="token punctuation">[</span><span class="token string">"LLM"</span><span class="token punctuation">,</span> <span class="token string">"JSON"</span><span class="token punctuation">,</span> <span class="token string">"结构化输出"</span><span class="token punctuation">]</span>
-<span class="token punctuation">}</span>
+{<!-- -->
+"title": "大模型工程化",
+"tags": ["LLM", "JSON", "结构化输出"]
+}
 ```
 
 
@@ -595,10 +601,10 @@ Schema 校验
 
 
 ```json
-<span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"continueFrom"</span><span class="token operator">:</span> <span class="token number">21</span><span class="token punctuation">,</span>
-<span class="token string-property property">"items"</span><span class="token operator">:</span> <span class="token punctuation">[</span><span class="token punctuation">]</span>
-<span class="token punctuation">}</span>
+{<!-- -->
+"continueFrom": 21,
+"items": []
+}
 ```
 
 
@@ -672,10 +678,10 @@ qualificationRequirements 不应该为空。
 
 
 ```json
-<span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"value"</span><span class="token operator">:</span> <span class="token string">"投标人须具备建筑工程施工总承包三级及以上资质"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"evidence"</span><span class="token operator">:</span> <span class="token string">"原文引用片段..."</span>
-<span class="token punctuation">}</span>
+{<!-- -->
+"value": "投标人须具备建筑工程施工总承包三级及以上资质",
+"evidence": "原文引用片段..."
+}
 ```
 
 
@@ -810,98 +816,98 @@ Schema:
 
 
 ````ts
-<span class="token keyword">import</span> <span class="token punctuation">{<!-- --></span> z <span class="token punctuation">}</span> <span class="token keyword">from</span> <span class="token string">"zod"</span><span class="token punctuation">;</span>
+import {<!-- --> z } from "zod";
 
-<span class="token keyword">const</span> ResultSchema <span class="token operator">=</span> z<span class="token punctuation">.</span><span class="token function">object</span><span class="token punctuation">(</span><span class="token punctuation">{<!-- --></span>
-title<span class="token operator">:</span> z<span class="token punctuation">.</span><span class="token function">string</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">nullable</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
-summary<span class="token operator">:</span> z<span class="token punctuation">.</span><span class="token function">string</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">nullable</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
-keywords<span class="token operator">:</span> z<span class="token punctuation">.</span><span class="token function">array</span><span class="token punctuation">(</span>z<span class="token punctuation">.</span><span class="token function">string</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
-risks<span class="token operator">:</span> z<span class="token punctuation">.</span><span class="token function">array</span><span class="token punctuation">(</span>z<span class="token punctuation">.</span><span class="token function">string</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
-<span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+const ResultSchema = z.object({<!-- -->
+title: z.string().nullable(),
+summary: z.string().nullable(),
+keywords: z.array(z.string()),
+risks: z.array(z.string()),
+});
 
-<span class="token keyword">type</span> <span class="token class-name">ExtractResult</span> <span class="token operator">=</span> z<span class="token punctuation">.</span>infer<span class="token operator"><</span><span class="token keyword">typeof</span> ResultSchema<span class="token operator">></span><span class="token punctuation">;</span>
+type ExtractResult = z.infer<typeof ResultSchema>;
 
-<span class="token keyword">function</span> <span class="token function">cleanOutput</span><span class="token punctuation">(</span>raw<span class="token operator">:</span> <span class="token builtin">string</span><span class="token punctuation">)</span><span class="token operator">:</span> <span class="token builtin">string</span> <span class="token punctuation">{<!-- --></span>
-<span class="token keyword">return</span> raw
-<span class="token punctuation">.</span><span class="token function">trim</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
-<span class="token punctuation">.</span><span class="token function">replace</span><span class="token punctuation">(</span><span class="token regex"><span class="token regex-delimiter">/</span><span class="token regex-source language-regex">^```json\s*</span><span class="token regex-delimiter">/</span><span class="token regex-flags">i</span></span><span class="token punctuation">,</span> <span class="token string">""</span><span class="token punctuation">)</span>
-<span class="token punctuation">.</span><span class="token function">replace</span><span class="token punctuation">(</span><span class="token regex"><span class="token regex-delimiter">/</span><span class="token regex-source language-regex">^```\s*</span><span class="token regex-delimiter">/</span><span class="token regex-flags">i</span></span><span class="token punctuation">,</span> <span class="token string">""</span><span class="token punctuation">)</span>
-<span class="token punctuation">.</span><span class="token function">replace</span><span class="token punctuation">(</span><span class="token regex"><span class="token regex-delimiter">/</span><span class="token regex-source language-regex">```$</span><span class="token regex-delimiter">/</span><span class="token regex-flags">i</span></span><span class="token punctuation">,</span> <span class="token string">""</span><span class="token punctuation">)</span>
-<span class="token punctuation">.</span><span class="token function">trim</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
-<span class="token punctuation">}</span>
+function cleanOutput(raw: string): string {<!-- -->
+return raw
+.trim()
+.replace(/^```json\s*/i, "")
+.replace(/^```\s*/i, "")
+.replace(/```$/i, "")
+.trim();
+}
 
-<span class="token keyword">async</span> <span class="token keyword">function</span> <span class="token function">repairJson</span><span class="token punctuation">(</span>raw<span class="token operator">:</span> <span class="token builtin">string</span><span class="token punctuation">)</span><span class="token operator">:</span> <span class="token builtin">Promise</span><span class="token operator"><</span><span class="token builtin">string</span><span class="token operator">></span> <span class="token punctuation">{<!-- --></span>
-<span class="token comment">// 实际项目中可以接入 json repair 库，或者调用模型做修复</span>
-<span class="token keyword">return</span> raw<span class="token punctuation">;</span>
-<span class="token punctuation">}</span>
+async function repairJson(raw: string): Promise<string> {<!-- -->
+// 实际项目中可以接入 json repair 库，或者调用模型做修复
+return raw;
+}
 
-<span class="token keyword">async</span> <span class="token keyword">function</span> <span class="token function">callModel</span><span class="token punctuation">(</span>input<span class="token operator">:</span> <span class="token builtin">string</span><span class="token punctuation">)</span><span class="token operator">:</span> <span class="token builtin">Promise</span><span class="token operator"><</span><span class="token builtin">string</span><span class="token operator">></span> <span class="token punctuation">{<!-- --></span>
-<span class="token comment">// 调用大模型</span>
-<span class="token keyword">return</span> <span class="token string">""</span><span class="token punctuation">;</span>
-<span class="token punctuation">}</span>
+async function callModel(input: string): Promise<string> {<!-- -->
+// 调用大模型
+return "";
+}
 
-<span class="token keyword">function</span> <span class="token function">businessValidate</span><span class="token punctuation">(</span>result<span class="token operator">:</span> ExtractResult<span class="token punctuation">)</span> <span class="token punctuation">{<!-- --></span>
-<span class="token keyword">const</span> errors<span class="token operator">:</span> <span class="token builtin">string</span><span class="token punctuation">[</span><span class="token punctuation">]</span> <span class="token operator">=</span> <span class="token punctuation">[</span><span class="token punctuation">]</span><span class="token punctuation">;</span>
+function businessValidate(result: ExtractResult) {<!-- -->
+const errors: string[] = [];
 
-<span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token operator">!</span>result<span class="token punctuation">.</span>title<span class="token punctuation">)</span> <span class="token punctuation">{<!-- --></span>
-errors<span class="token punctuation">.</span><span class="token function">push</span><span class="token punctuation">(</span><span class="token string">"title is empty"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
-<span class="token punctuation">}</span>
+if (!result.title) {<!-- -->
+errors.push("title is empty");
+}
 
-<span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token operator">!</span>result<span class="token punctuation">.</span>summary<span class="token punctuation">)</span> <span class="token punctuation">{<!-- --></span>
-errors<span class="token punctuation">.</span><span class="token function">push</span><span class="token punctuation">(</span><span class="token string">"summary is empty"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
-<span class="token punctuation">}</span>
+if (!result.summary) {<!-- -->
+errors.push("summary is empty");
+}
 
-<span class="token keyword">return</span> <span class="token punctuation">{<!-- --></span>
-ok<span class="token operator">:</span> errors<span class="token punctuation">.</span>length <span class="token operator">===</span> <span class="token number">0</span><span class="token punctuation">,</span>
-errors<span class="token punctuation">,</span>
-<span class="token punctuation">}</span><span class="token punctuation">;</span>
-<span class="token punctuation">}</span>
+return {<!-- -->
+ok: errors.length === 0,
+errors,
+};
+}
 
-<span class="token keyword">async</span> <span class="token keyword">function</span> <span class="token function">extractWithRetry</span><span class="token punctuation">(</span>input<span class="token operator">:</span> <span class="token builtin">string</span><span class="token punctuation">,</span> maxRetry <span class="token operator">=</span> <span class="token number">2</span><span class="token punctuation">)</span> <span class="token punctuation">{<!-- --></span>
-<span class="token keyword">let</span> lastError<span class="token operator">:</span> <span class="token builtin">unknown</span><span class="token punctuation">;</span>
+async function extractWithRetry(input: string, maxRetry = 2) {<!-- -->
+let lastError: unknown;
 
-<span class="token keyword">for</span> <span class="token punctuation">(</span><span class="token keyword">let</span> i <span class="token operator">=</span> <span class="token number">0</span><span class="token punctuation">;</span> i <span class="token operator"><=</span> maxRetry<span class="token punctuation">;</span> i<span class="token operator">++</span><span class="token punctuation">)</span> <span class="token punctuation">{<!-- --></span>
-<span class="token keyword">try</span> <span class="token punctuation">{<!-- --></span>
-<span class="token keyword">const</span> raw <span class="token operator">=</span> <span class="token keyword">await</span> <span class="token function">callModel</span><span class="token punctuation">(</span>input<span class="token punctuation">)</span><span class="token punctuation">;</span>
-<span class="token keyword">const</span> cleaned <span class="token operator">=</span> <span class="token function">cleanOutput</span><span class="token punctuation">(</span>raw<span class="token punctuation">)</span><span class="token punctuation">;</span>
+for (let i = 0; i <= maxRetry; i++) {<!-- -->
+try {<!-- -->
+const raw = await callModel(input);
+const cleaned = cleanOutput(raw);
 
-<span class="token keyword">let</span> parsed<span class="token operator">:</span> <span class="token builtin">unknown</span><span class="token punctuation">;</span>
+let parsed: unknown;
 
-<span class="token keyword">try</span> <span class="token punctuation">{<!-- --></span>
-parsed <span class="token operator">=</span> <span class="token constant">JSON</span><span class="token punctuation">.</span><span class="token function">parse</span><span class="token punctuation">(</span>cleaned<span class="token punctuation">)</span><span class="token punctuation">;</span>
-<span class="token punctuation">}</span> <span class="token keyword">catch</span> <span class="token punctuation">{<!-- --></span>
-<span class="token keyword">const</span> repaired <span class="token operator">=</span> <span class="token keyword">await</span> <span class="token function">repairJson</span><span class="token punctuation">(</span>cleaned<span class="token punctuation">)</span><span class="token punctuation">;</span>
-parsed <span class="token operator">=</span> <span class="token constant">JSON</span><span class="token punctuation">.</span><span class="token function">parse</span><span class="token punctuation">(</span>repaired<span class="token punctuation">)</span><span class="token punctuation">;</span>
-<span class="token punctuation">}</span>
+try {<!-- -->
+parsed = JSON.parse(cleaned);
+} catch {<!-- -->
+const repaired = await repairJson(cleaned);
+parsed = JSON.parse(repaired);
+}
 
-<span class="token keyword">const</span> result <span class="token operator">=</span> ResultSchema<span class="token punctuation">.</span><span class="token function">parse</span><span class="token punctuation">(</span>parsed<span class="token punctuation">)</span><span class="token punctuation">;</span>
-<span class="token keyword">const</span> businessCheck <span class="token operator">=</span> <span class="token function">businessValidate</span><span class="token punctuation">(</span>result<span class="token punctuation">)</span><span class="token punctuation">;</span>
+const result = ResultSchema.parse(parsed);
+const businessCheck = businessValidate(result);
 
-<span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token operator">!</span>businessCheck<span class="token punctuation">.</span>ok<span class="token punctuation">)</span> <span class="token punctuation">{<!-- --></span>
-<span class="token keyword">throw</span> <span class="token keyword">new</span> <span class="token class-name">Error</span><span class="token punctuation">(</span>
-<span class="token template-string"><span class="token template-punctuation string">`</span><span class="token string">Business validation failed: </span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">${<!-- --></span>businessCheck<span class="token punctuation">.</span>errors<span class="token punctuation">.</span><span class="token function">join</span><span class="token punctuation">(</span><span class="token string">", "</span><span class="token punctuation">)</span><span class="token interpolation-punctuation punctuation">}</span></span><span class="token template-punctuation string">`</span></span>
-<span class="token punctuation">)</span><span class="token punctuation">;</span>
-<span class="token punctuation">}</span>
+if (!businessCheck.ok) {<!-- -->
+throw new Error(
+`Business validation failed: ${<!-- -->businessCheck.errors.join(", ")}`
+);
+}
 
-<span class="token keyword">return</span> result<span class="token punctuation">;</span>
-<span class="token punctuation">}</span> <span class="token keyword">catch</span> <span class="token punctuation">(</span>error<span class="token punctuation">)</span> <span class="token punctuation">{<!-- --></span>
-lastError <span class="token operator">=</span> error<span class="token punctuation">;</span>
-<span class="token punctuation">}</span>
-<span class="token punctuation">}</span>
+return result;
+} catch (error) {<!-- -->
+lastError = error;
+}
+}
 
-<span class="token keyword">throw</span> lastError<span class="token punctuation">;</span>
-<span class="token punctuation">}</span>
+throw lastError;
+}
 ````
 
 
-<p>这个示例体现了几个关键点&#xff1a;</p>
-<ul><li>不直接信任模型输出&#xff1b;</li><li>先清洗&#xff1b;</li><li>再解析&#xff1b;</li><li>解析失败尝试修复&#xff1b;</li><li>修复后继续 Schema 校验&#xff1b;</li><li>Schema 通过后还要做业务校验&#xff1b;</li><li>失败可以重试&#xff1b;</li><li>重试仍失败要抛出明确错误。</li></ul>
-<hr />
+<p>这个示例体现了几个关键点：</p>
+<ul><li>不直接信任模型输出；</li><li>先清洗；</li><li>再解析；</li><li>解析失败尝试修复；</li><li>修复后继续 Schema 校验；</li><li>Schema 通过后还要做业务校验；</li><li>失败可以重试；</li><li>重试仍失败要抛出明确错误。</li></ul>
+<hr /></hr>
 <h3>十九、最佳实践总结</h3>
 <h4>1. 不要让模型一次性输出巨大 JSON</h4>
-<p>只要 JSON 大到你担心它会不会完整&#xff0c;就说明它应该被拆分。</p>
+<p>只要 JSON 大到你担心它会不会完整，就说明它应该被拆分。</p>
 <h4>2. 复杂任务分阶段完成</h4>
-<p>抽基础信息、抽列表、抽风险、做总结&#xff0c;最好分开调用。</p>
+<p>抽基础信息、抽列表、抽风险、做总结，最好分开调用。</p>
 <h4>3. 长数组分页输出</h4>
 <p>不要让模型一次输出几百条数组项。</p>
 <h4>4. 使用结构化输出能力</h4>
@@ -911,18 +917,18 @@ lastError <span class="token operator">=</span> error<span class="token punctuat
 <h4>6. JSON Repair 只是语法兜底</h4>
 <p>它不能保证业务内容完整。</p>
 <h4>7. 重试要按错误类型设计</h4>
-<p>字段缺失就补字段&#xff0c;数组截断就分页&#xff0c;不要无脑全量重试。</p>
+<p>字段缺失就补字段，数组截断就分页，不要无脑全量重试。</p>
 <h4>8. 关键字段要带 evidence</h4>
-<p>结构化抽取最好要求模型返回原文证据&#xff0c;方便校验和人工审核。</p>
+<p>结构化抽取最好要求模型返回原文证据，方便校验和人工审核。</p>
 <h4>9. 抽取任务要可观测</h4>
 <p>记录 raw output、parse status、schema version、retry count、error type。</p>
 <h4>10. 把模型当成不稳定外部依赖</h4>
 <p>像治理第三方接口一样治理模型输出。</p>
-<hr />
+<hr /></hr>
 <h3>二十、结语</h3>
-<p>大模型输出 JSON 不完整&#xff0c;是 AI 应用工程化中非常典型的问题。</p>
-<p>它表面上看是模型“不听话”或者 Prompt“不够严格”&#xff0c;但本质上是系统没有为不稳定输出建立足够的工程防线。</p>
-<p>真正可靠的方案不是反复强调“请严格输出 JSON”&#xff0c;而是建立一套完整机制&#xff1a;</p>
+<p>大模型输出 JSON 不完整，是 AI 应用工程化中非常典型的问题。</p>
+<p>它表面上看是模型“不听话”或者 Prompt“不够严格”，但本质上是系统没有为不稳定输出建立足够的工程防线。</p>
+<p>真正可靠的方案不是反复强调“请严格输出 JSON”，而是建立一套完整机制：</p>
 
 
 ```text

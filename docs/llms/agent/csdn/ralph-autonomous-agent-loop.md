@@ -3,7 +3,7 @@ title: "Ralph 架构深度解析报告：自主代理循环与软件工程的确
 description: "CSDN 原文全文镜像：《Ralph架构：AI自主编程的范式革新》摘要 Ralph架构代表AI辅助编程从\"副驾驶\"到\"自主代理\"的范式转移。该开源架构通过无限循环和即时反馈机制，使AI能独立完成需求分析、编码、测试到提交的全流程。其核心创新包括： 1）\"Hum……"
 pageType: article
 module: agent
-updated: '2026-02-03'
+updated: '2026-10-08'
 contentStatus: needs-review
 tags:
   - "csdn-mirror"
@@ -23,10 +23,16 @@ author: likebeans
 ---
 
 ::: info CSDN 原文镜像
-本文为作者 CSDN 博客的全文镜像，原文发布于 2026-02-03。为适配本站结构，仅补充了站内元数据与来源说明，正文主体保持原文内容。
+本文为作者 CSDN 博客的全文镜像，原文发布于 2026-02-03。本站补充导读与相关主线链接，并修复代码展示；原文观点、来源与发布时间保留。
 
 - 原文链接：[https://blog.csdn.net/m0_63309778/article/details/157689181](https://blog.csdn.net/m0_63309778/article/details/157689181)
 - 站内分区：Agent / Ralph 自主代理循环
+:::
+
+::: tip 站内导读与实践边界
+本文介绍围绕任务清单、执行、验证和重试组织自主循环的思路。循环结构确定不代表模型结果确定，也不能保证现有测试覆盖全部需求。实现时为失败、无进展和预算耗尽设置停止状态；提交与发布应服从项目授权，不能仅因测试变绿就扩大操作范围。
+
+继续阅读：[规划与推理](/llms/agent/planning)、[Agent 评估方法](/llms/agent/evaluation)。
 :::
 
 <div class="csdn-mirror-content">

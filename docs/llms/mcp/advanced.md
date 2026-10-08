@@ -1,539 +1,129 @@
 ---
 title: MCP高级功能
-description: 中间件、认证、代理与生产级特性
+description: 从认证授权、传输、状态与代理到故障恢复，说明 MCP 服务进入生产前的工程取舍。
 pageType: article
 module: mcp
-updated: '2025-12-27'
+updated: '2026-10-08'
 contentStatus: needs-review
 tags:
   - mcp
 level: intermediate
 prerequisites:
   - /llms/agent/tool-calling
-reviewed: '2026-08-25'
-techVersion: 待复核（2026-08）
+reviewed: '2026-10-08'
+reviewScope: MCP 2026-07-28 授权发现、注册与生命周期；未运行完整 OAuth 服务
+exampleStatus: not-run
+techVersion: MCP 2026-07-28 授权与生命周期文档复核；OAuth/新协议集成未实跑
 ---
 
 # MCP高级功能
 
-> 构建生产级MCP服务——FastMCP 2.0 进阶特性
+本页从本地演示走向远程服务，重点是身份、传输、状态和失败处理。FastMCP 的中间件、挂载和代理属于框架能力；MCP 的消息、能力协商和授权要求属于协议，两层应分开核对版本。
 
 ## 🏗️ FastMCP 2.0 架构
 
-FastMCP 2.0 超越基本协议实现，提供完整的 MCP 生态工具包：
+沿着一次请求理解实现：传输接入 → 身份校验 → 协议分发 → 工具参数校验 → 业务权限 → 执行 → 结果与审计。扩展组件的价值在于把这些职责放在可测试的位置，而不是让所有逻辑挤进一个工具函数。
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│                  FastMCP 2.0 功能矩阵                        │
-├─────────────────────────────────────────────────────────────┤
-│                                                             │
-│  Server 能力        Client 能力        高级特性              │
-│  ├─ Tools           ├─ 多传输支持       ├─ 服务器组合        │
-│  ├─ Resources       ├─ 工具调用         ├─ 代理模式         │
-│  ├─ Prompts         ├─ 资源读取         ├─ 中间件系统       │
-│  └─ Context         └─ 提示获取         └─ 认证授权         │
-│                                                             │
-└─────────────────────────────────────────────────────────────┘
-```
-
----
+这里沿用 [快速入门](/llms/mcp/quickstart) 的 FastMCP v2 教学基线。身份提供方、框架中间件和代理的构造函数会随版本变化，接入时以固定版本文档为准；本页的流程是设计说明，不是可直接复制的完整认证服务。
 
 ## 🔐 认证与授权
 
 ### Bearer Token认证
 
-```python
-from fastmcp import FastMCP
-from fastmcp.server.auth import BearerAuthProvider
+Bearer token 是凭据的传递方式，OAuth 是授权框架，二者不是并列的替代方案。对需要认证的远程 HTTP MCP 服务，应按所选规范版本实现发现、授权与令牌验证。资源服务至少检查签名或内省结果、签发方、受众、有效期与所需作用域，并把身份映射到业务权限。
 
-mcp = FastMCP("secure-service")
+在开发环境手工设置一个共享 token 可以验证请求链路，却不能宣称已经完成多用户 OAuth。不要把收到的 MCP token 原样透传到任意上游 API；上游凭据需要独立的受众和授权安排。依据见 [HTTP 授权规范](https://modelcontextprotocol.io/specification/2025-06-18/basic/authorization)。
 
-# 配置认证
-auth_provider = BearerAuthProvider(
-    # 方式1：静态公钥
-    public_key_path="./keys/public.pem",
-    
-    # 方式2：JWKS端点
-    # jwks_url="https://auth.example.com/.well-known/jwks.json"
-)
+### 2026-07-28 授权核对清单
 
-mcp.auth = auth_provider
+截至 2026-10-08，新版授权规范仍针对 HTTP 传输；stdio 不照搬此 OAuth 流程，而从运行环境获得凭据。受保护服务通过 Protected Resource Metadata 支持授权服务器发现；客户端注册新增优先考虑 Client ID Metadata Documents，动态客户端注册保留为兼容路径且已标记弃用。不能把“能收 Bearer token”当成完成了整套发现和授权流程。[2026-07-28 Authorization](https://modelcontextprotocol.io/specification/2026-07-28/basic/authorization)
 
-@mcp.tool()
-async def admin_action(ctx, data: str) -> str:
-    """需要管理员权限的操作"""
-    # 获取用户信息
-    user = ctx.get_user()
-    
-    if "admin" not in user.roles:
-        raise PermissionError("需要管理员权限")
-    
-    return f"操作成功: {data}"
-```
+部署验收至少包含：令牌过期、错误 audience、有效身份但跨租户资源、所需 scope 变化四种请求。协议层与业务层分别拒绝不满足条件的访问；拒绝日志关联请求 ID，但不记录原始 token。本页没有实现并实测完整 OAuth 服务，FastMCP 2.12.5 示例也不承诺支持这些新版流程。
 
 ### 自定义认证
 
-```python
-from fastmcp.server.auth import AuthProvider
+业务授权要落到真实资源：能调用 `read_document` 不代表能读所有文档。用户身份由经过验证的会话提供，模型传来的 `user_id`、`role`、`approved=true` 都不是授权证据。
 
-class CustomAuthProvider(AuthProvider):
-    """自定义认证提供者"""
-    
-    async def authenticate(self, token: str) -> dict:
-        # 验证token
-        user_info = await self.verify_token(token)
-        return {
-            "user_id": user_info["sub"],
-            "roles": user_info.get("roles", []),
-            "permissions": user_info.get("permissions", [])
-        }
-    
-    async def authorize(self, user: dict, resource: str, action: str) -> bool:
-        # 检查权限
-        required_permission = f"{resource}:{action}"
-        return required_permission in user.get("permissions", [])
-```
-
----
-
-## 🔄 中间件系统
-
-### 中间件概念
-
-中间件在请求处理前后执行自定义逻辑。
-
-```python
-from fastmcp.server.middleware import Middleware
-
-class LoggingMiddleware(Middleware):
-    """日志记录中间件"""
-    
-    async def process_request(self, request, context):
-        context["start_time"] = time.time()
-        print(f"收到请求: {request.method} {request.params}")
-        return request
-    
-    async def process_response(self, response, context):
-        duration = time.time() - context["start_time"]
-        print(f"响应完成: {duration:.3f}s")
-        return response
-
-# 注册中间件
-mcp.add_middleware(LoggingMiddleware())
-```
-
-### 常用中间件
-
-```python
-# 速率限制中间件
-class RateLimitMiddleware(Middleware):
-    def __init__(self, max_requests: int = 100, window: int = 60):
-        self.max_requests = max_requests
-        self.window = window
-        self.requests = {}
-    
-    async def process_request(self, request, context):
-        client_id = context.get("client_id", "default")
-        now = time.time()
-        
-        # 清理过期记录
-        self.requests[client_id] = [
-            t for t in self.requests.get(client_id, [])
-            if now - t < self.window
-        ]
-        
-        if len(self.requests[client_id]) >= self.max_requests:
-            raise Exception("请求过于频繁，请稍后重试")
-        
-        self.requests[client_id].append(now)
-        return request
-
-# 错误处理中间件
-class ErrorHandlerMiddleware(Middleware):
-    async def process_request(self, request, context):
-        try:
-            return request
-        except Exception as e:
-            return {"error": str(e), "code": 500}
-```
-
----
-
-## 🔀 服务器组合
-
-FastMCP 支持两种服务器组合方式：**静态导入**和**动态挂载**。
-
-### 静态组合（import_server）
-
-一次性导入，组件立即注册到主服务器：
-
-```python
-from fastmcp import FastMCP
-
-# 子服务器
-math_server = FastMCP("math")
-
-@math_server.tool()
-def add(a: int, b: int) -> int:
-    return a + b
-
-# 主服务器
-main_server = FastMCP("main")
-
-# 导入子服务器的所有组件
-main_server.import_server(math_server, prefix="math")
-
-# 工具通过 "math_add" 调用（注意是下划线）
-```
-
-### 动态组合（mount）
-
-建立"活链接"，请求时实时转发：
-
-```python
-# 动态挂载（支持运行时更新）
-main_server.mount(math_server, prefix="math")
-
-# 挂载远程服务器
-main_server.mount("http://remote-server:8000", prefix="remote")
-
-# 不带前缀挂载
-main_server.mount(api_server)
-```
-
-### 直接挂载 vs 代理挂载
-
-| 模式 | 说明 | 使用场景 |
-|------|------|----------|
-| **直接挂载** | 内存中直接访问，不执行子服务器lifespan | 无自定义lifespan时 |
-| **代理挂载** | 通过Client接口通信，执行完整生命周期 | 有自定义lifespan时 |
-
-```python
-# 强制代理模式
-main_server.mount(api_server, prefix="api", as_proxy=True)
-```
-
-::: warning 性能注意
-动态挂载的 `list_tools()` 会受最慢子服务器影响。HTTP代理服务器可能引入300-400ms延迟。对性能敏感时考虑使用 `import_server()`。
-:::
-
----
-
-## 🌐 代理服务器
-
-### 创建代理
-
-```python
-from fastmcp import FastMCP
-
-# 创建代理，转发到后端服务
-proxy = FastMCP.as_proxy(
-    "backend-proxy",
-    target="http://backend-service:8000"
-)
-
-# 添加认证中间件
-@proxy.middleware
-async def auth_middleware(request, next):
-    # 验证请求
-    if not validate_token(request.headers.get("Authorization")):
-        raise Exception("未授权")
-    return await next(request)
-
-proxy.run()
-```
-
-### 协议桥接
-
-```python
-# stdio到HTTP桥接
-mcp = FastMCP("bridge")
-
-# stdio客户端访问
-# -> 代理服务器
-# -> HTTP后端服务
-```
-
----
+对写操作，确认信息应绑定具体资源、参数和有效期。审批后内容变化时重新评估授权，避免确认了草稿 A 却执行草稿 B。协议和模型都不会替代这层业务规则。
 
 ## 📡 传输协议
 
-### stdio传输
+| 传输 | 适用场景 | 实现注意 |
+| --- | --- | --- |
+| stdio | Host 启动的本地子进程 | stdout 只写协议消息；日志写 stderr；限制进程权限 |
+| Streamable HTTP | 远程或共享服务 | 核对请求头、会话、Origin 与授权策略 |
+| 旧 HTTP+SSE | 兼容历史客户端 | 明确兼容需求和迁移方案 |
 
-```python
-# 服务器端
-mcp.run()  # 默认stdio
+SSE 是一种流式事件格式，Streamable HTTP 可在其响应中使用 SSE；不能把“使用 SSE”与“仍使用旧 HTTP+SSE 传输”画等号。固定版本传输要求见 [Transports](https://modelcontextprotocol.io/specification/2025-06-18/basic/transports)。
 
-# 或显式指定
-mcp.run(transport="stdio")
-```
-
-### HTTP/SSE传输
-
-```python
-# 服务器端
-mcp.run(transport="sse", host="0.0.0.0", port=8000)
-
-# 客户端连接
-async with Client("http://localhost:8000/sse") as client:
-    result = await client.call_tool("my_tool", {})
-```
+2026-07-28 的核心协议已改为无状态请求/响应，相关迁移应连同 [生命周期](/llms/mcp/concepts#_2026-07-28-生命周期变化) 核对。下文“会话路由”的工程建议针对保留旧会话或业务状态的部署；不能因此推导所有新版 MCP Server 都必须做粘性会话。
 
 ### 与ASGI框架集成
 
-```python
-from fastapi import FastAPI
-from fastmcp import FastMCP
+挂载 MCP 应用时，确认框架是否执行了其 lifespan，避免连接管理器未启动或无法关闭。还要核对挂载前缀、实际 endpoint、反向代理缓冲与超时。HTTP 请求超时不代表后台写操作已撤销，取消传播也需要业务实现配合。
 
-app = FastAPI()
-mcp = FastMCP("api-integrated")
+## 🔄 中间件系统
 
-@mcp.tool()
-def my_tool() -> str:
-    return "Hello from MCP!"
+中间件适合处理请求 ID、指标、日志、限流等横切职责。确定执行顺序：身份校验应早于依赖用户身份的限流；业务权限应在真实数据访问之前执行。日志中保存身份标识与资源 ID，避免默认记录密钥和完整敏感正文。
 
-# 挂载MCP到FastAPI
-app.mount("/mcp", mcp.http_app())
+限流应同时考虑每用户、每租户、每工具的消耗。CPU 密集工具和外部慢 API 不能只用“每秒请求数”衡量；补充并发上限、排队上限与执行超时，防止排队消耗全部可用资源。
 
-# 其他FastAPI路由
-@app.get("/health")
-def health():
-    return {"status": "ok"}
-```
+## 🔀 服务器组合
 
----
+静态导入和动态挂载可以复用工具集合，但会引入名称、版本和权限边界问题。为每个子服务定义前缀与所有者；被挂载工具更新后，Host 的发现缓存需要明确失效策略。不要假设不同 FastMCP 版本的 `import_server`、`mount` 参数或行为完全相同。
+
+一个实用练习是组合“制度查询”和“工单草稿”两个服务：先检查无重名，再故意让一项依赖不可用，确认另一项不会一起失效。是否共享进程或远程代理，取决于故障隔离和部署需求。
+
+## 🌐 代理服务器
+
+代理增加了新的信任边界。至少记录调用者、目标服务、工具名称与上游请求 ID；凭据按受众和用户隔离；工具列表与 schema 缓存绑定版本。转发失败时要区分未送达、上游明确失败和结果未知。
+
+仅隐藏上游 URL 不构成安全控制。代理若接受模型任意指定目标地址，可能绕过预期服务范围；应由服务端维护允许的上游列表与网络策略。
 
 ## 📊 上下文与状态
 
-### Context对象
+| 状态 | 保存位置建议 | 失效与恢复 |
+| --- | --- | --- |
+| 数据库连接池 | 进程 lifespan | 退出释放；连接失效可重建 |
+| 协议连接/会话 | 协议实现或会话存储 | 断开后按协议重新连接 |
+| 用户权限 | 认证与业务策略层 | 撤权及时生效，不永久缓存 |
+| 任务执行记录 | 持久化业务存储 | 保存任务 ID、幂等键和结果 |
+| 用户确认 | 可审计的批准记录 | 绑定动作内容、身份与时效 |
 
-```python
-@mcp.tool()
-async def context_aware_tool(ctx) -> dict:
-    """使用上下文的工具"""
-    
-    # 记录日志
-    await ctx.log("info", "工具被调用")
-    
-    # 报告进度
-    await ctx.report_progress(0.5, "处理中...")
-    
-    # 获取用户信息（如果有认证）
-    user = ctx.get_user()
-    
-    # 访问资源
-    config = await ctx.read_resource("config://settings")
-    
-    return {"user": user, "config": config}
-```
-
-### 进度报告
-
-```python
-@mcp.tool()
-async def long_running_task(ctx, items: list) -> list:
-    """长时间运行的任务"""
-    results = []
-    total = len(items)
-    
-    for i, item in enumerate(items):
-        # 处理项目
-        result = await process_item(item)
-        results.append(result)
-        
-        # 报告进度
-        progress = (i + 1) / total
-        await ctx.report_progress(
-            progress, 
-            f"已处理 {i+1}/{total} 项"
-        )
-    
-    return results
-```
-
----
+`Context` 便于访问当前调用上下文，但不是跨进程持久化数据库。进度通知也不是可靠的任务终态记录：界面可以丢失进度事件，重连后应能重新查询最终结果。
 
 ## 🛡️ 错误处理
 
-### 标准错误类型
+| 类型 | 是否重试 | 对调用方的表达 |
+| --- | --- | --- |
+| 参数或业务范围错误 | 修正输入后再调用 | 返回可行动的错误原因 |
+| 权限不足 | 不自动重试 | 说明缺少权限，停止执行 |
+| 上游限流或临时不可用 | 在预算内退避 | 保留请求 ID 与重试状态 |
+| 写操作超时，结果未知 | 先查询状态或使用幂等机制 | 明确“尚未确认结果” |
+| 无检索结果 | 正常空结果 | 与超时、权限错误分开 |
 
-```python
-from fastmcp.exceptions import (
-    ToolError,
-    ResourceNotFoundError,
-    ValidationError,
-    AuthorizationError
-)
-
-@mcp.tool()
-async def safe_tool(data: str) -> str:
-    if not data:
-        raise ValidationError("数据不能为空")
-    
-    try:
-        result = await process(data)
-    except ExternalServiceError as e:
-        raise ToolError(f"外部服务错误: {e}")
-    
-    return result
-```
-
-### 优雅降级
-
-```python
-@mcp.tool()
-async def resilient_tool(query: str) -> str:
-    """带降级的工具"""
-    
-    # 尝试主服务
-    try:
-        return await primary_service.query(query)
-    except Exception:
-        pass
-    
-    # 降级到备用服务
-    try:
-        return await backup_service.query(query)
-    except Exception:
-        pass
-    
-    # 最终降级
-    return "服务暂时不可用，请稍后重试"
-```
-
----
+不要用统一 `except Exception: return []` 隐藏所有失败。也不要把堆栈、token 或内部网络细节原样交给模型；对外给错误码，对内保留受控诊断记录。
 
 ## 📈 监控与可观测性
 
-### 指标收集
+按工具与租户观察成功率、延迟、超时、排队、返回大小和取消率。将“协议成功”“工具成功”“业务任务成功”分开：工具返回 HTTP 200，不代表任务已完成。指标与分母见 [评估指标](/reference/metrics)。
 
-```python
-from prometheus_client import Counter, Histogram
-
-tool_calls = Counter('mcp_tool_calls_total', 'Tool calls', ['tool_name'])
-tool_duration = Histogram('mcp_tool_duration_seconds', 'Tool duration')
-
-class MetricsMiddleware(Middleware):
-    async def process_request(self, request, context):
-        context["start_time"] = time.time()
-        return request
-    
-    async def process_response(self, response, context):
-        duration = time.time() - context["start_time"]
-        tool_name = context.get("tool_name", "unknown")
-        
-        tool_calls.labels(tool_name=tool_name).inc()
-        tool_duration.observe(duration)
-        
-        return response
-```
-
-### 分布式追踪
-
-```python
-from opentelemetry import trace
-
-tracer = trace.get_tracer(__name__)
-
-@mcp.tool()
-async def traced_tool(data: str) -> str:
-    with tracer.start_as_current_span("traced_tool") as span:
-        span.set_attribute("input.length", len(data))
-        
-        result = await process(data)
-        
-        span.set_attribute("output.length", len(result))
-        return result
-```
-
----
+一次排障至少能从 Host 请求关联到 MCP 调用，再关联到上游操作。记录参数摘要和必要的资源 ID；原始内容的保留时间与访问权限需与数据等级匹配。
 
 ## 🚀 生产部署
 
-### 部署检查清单
+先完成单机部署，再评估多实例。若服务保存内存会话或长连接状态，负载均衡、会话路由和共享存储需要配套设计，不能简单增加容器副本就宣称高可用。
 
-| 检查项 | 说明 |
-|--------|------|
-| **认证** | 配置 Bearer Token 或 OAuth 2.1 |
-| **速率限制** | 防止滥用，保护后端服务 |
-| **错误处理** | 优雅降级，避免级联失败 |
-| **监控** | Prometheus 指标、分布式追踪 |
-| **日志** | 结构化日志，便于问题排查 |
+部署检查点：
 
-### Docker 部署
-
-```dockerfile
-FROM python:3.11-slim
-
-WORKDIR /app
-COPY requirements.txt .
-RUN pip install -r requirements.txt
-
-COPY server.py .
-
-# 使用 SSE 传输
-CMD ["python", "server.py", "--transport", "sse", "--host", "0.0.0.0", "--port", "8000"]
-```
-
-```yaml
-# docker-compose.yml
-version: '3.8'
-services:
-  mcp-server:
-    build: .
-    ports:
-      - "8000:8000"
-    environment:
-      - API_KEY=${API_KEY}
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-```
-
----
-
----
+- 固定依赖与启动命令，验证容器实际监听地址和代理路径。
+- 使用最小权限进程、受控环境变量和必要的出站网络范围。
+- HTTP 服务校验 Origin 与认证，TLS 在明确的边界终止。
+- 关闭服务时处理在途请求、后台任务和连接池。
+- 保留配置与版本回退方式，监测新增工具后的错误变化。
 
 ## 🔍 调试与检查
 
-### fastmcp inspect
+按“内存 Client → stdio → 本机 HTTP → 代理后 HTTP → 真实 Host”的顺序验证。每一步都检查发现、正常调用、业务错误、无权限与超时；不要只看工具列表截图。
 
-检查服务器组件：
-
-```bash
-# 文本摘要
-fastmcp inspect server.py
-
-# FastMCP JSON格式
-fastmcp inspect server.py --format fastmcp
-
-# MCP协议格式
-fastmcp inspect server.py --format mcp
-
-# 保存到文件
-fastmcp inspect server.py --format fastmcp -o manifest.json
-```
-
-### MCP Inspector
-
-使用官方Inspector工具：
-
-```bash
-npx @modelcontextprotocol/inspector python server.py
-```
-
----
-
-## 🔗 相关阅读
-
-- [MCP快速入门](/llms/mcp/quickstart) - 5分钟创建服务
-- [核心概念](/llms/mcp/concepts) - Tools/Resources/Prompts
-- [实战项目](/llms/mcp/practice) - 完整可运行示例
-- [MCP概述](/llms/mcp/) - 协议全貌
-
-> **外部资源**：
-> - [MCP官方文档](https://modelcontextprotocol.io/)
-> - [FastMCP 2.0 文档](https://gofastmcp.com/)
-> - [FastMCP GitHub](https://github.com/jlowin/fastmcp)
+[官方 Inspector](https://github.com/modelcontextprotocol/inspector) 可辅助交互调试。自动回归应保留程序化 Client 的断言，避免只靠人工操作。进阶实践见 [任务、天气与文件服务](/llms/mcp/practice)。

@@ -1,413 +1,156 @@
 ---
 title: MCP快速入门
-description: 5分钟创建你的第一个MCP服务
+description: 固定 FastMCP 2.12.5，验证工具、资源、模板与 stdio 链路，区分协议发现和业务成功。
 pageType: article
 module: mcp
-updated: '2025-12-27'
+updated: '2026-10-08'
 contentStatus: needs-review
 tags:
   - mcp
 level: intermediate
 prerequisites:
   - /llms/agent/tool-calling
-reviewed: '2026-08-25'
-techVersion: 待复核（2026-08）
+reviewed: '2026-10-08'
+reviewScope: 本轮对照新版协议边界；前轮已验证 FastMCP 2.12.5 内存与 stdio 示例
+exampleStatus: partial
+techVersion: FastMCP 2.12.5 内存/stdio 教学基线；新版 MCP 2026-07-28 仅文档对照
 ---
 
 # MCP快速入门
 
-> 5分钟创建你的第一个MCP服务
+这一页只做一件事：跑通一个可发现、可调用、能返回明确错误的本地 MCP 服务。先用程序化 Client 验证协议，再接入模型应用，便于区分服务端问题与模型选择工具的问题。
+
+::: info 教学基线与当前规范
+2026-10-08 已核验 MCP 2026-07-28 的新版生命周期，但本页继续固定 FastMCP 2.12.5，便于复现已验证的内存与 stdio 链路。这里的运行结果不证明支持新协议。迁移差异见 [核心概念](/llms/mcp/concepts#_2026-07-28-生命周期变化)；升级时同时记录客户端、服务端、依赖版本及线上实际协议版本。
+:::
 
 ## 🚀 环境准备
 
-### FastMCP 版本说明
+### 先分清协议与 SDK
 
-| 版本 | 说明 |
-|------|------|
-| **FastMCP 1.0** | 已并入官方 MCP Python SDK（2024年） |
-| **FastMCP 2.0** | 活跃维护版本，功能更强大（推荐） |
-
-### 安装依赖
+MCP 是协议，`fastmcp` 是一种 Python 实现。独立包的 `from fastmcp import FastMCP` 与官方 Python SDK 的导入路径、版本和生命周期不能混用。本例固定使用 **Python 3.11+、FastMCP 2.12.5**，作为可复现的教学基线，不代表最新版本或生产选型建议。升级时同时核对服务端、客户端和依赖锁文件。
 
 ```bash
-# 方式1：使用官方SDK（包含FastMCP 1.0）
-pip install mcp
-
-# 方式2：使用FastMCP 2.0（推荐，功能更强大）
-pip install fastmcp
-
-# 或使用uv（更快）
-uv add fastmcp
+mkdir mcp-notes-demo
+cd mcp-notes-demo
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install 'fastmcp==2.12.5'
 ```
 
-::: tip FastMCP 2.0 优势
-FastMCP 2.0 超越了基本协议实现，提供了完整的MCP生态工具包：Client、代理、服务器组合、中间件等。
-:::
-
-### 依赖管理（uv推荐）
-
-FastMCP 与 `uv` 深度集成，支持多种依赖管理方式：
-
-```bash
-# 指定Python版本
-fastmcp run server.py --python 3.11
-
-# 添加单个包
-fastmcp run server.py --with pandas
-
-# 添加多个包
-fastmcp run server.py --with pandas --with numpy --with httpx
-
-# 从requirements.txt安装
-fastmcp run server.py --with-requirements requirements.txt
-
-# 指定项目目录
-fastmcp run server.py --project /path/to/project
-```
-
-### fastmcp.json 配置文件（推荐）
-
-```json
-{
-  "$schema": "https://gofastmcp.com/public/schemas/fastmcp.json/v1.json",
-  "source": {
-    "path": "server.py",
-    "entrypoint": "mcp"
-  },
-  "environment": {
-    "type": "uv",
-    "python": ">=3.10",
-    "dependencies": ["pandas", "requests", "httpx"]
-  }
-}
-```
-
-使用配置文件运行：
-```bash
-fastmcp run fastmcp.json
-```
-
----
+Windows 激活命令为 `.venv\Scripts\Activate.ps1`。下面的文件都保存在 `mcp-notes-demo`。具体 API 可对照 [FastMCP v2 快速入门](https://gofastmcp.com/v2/getting-started/quickstart)。
 
 ## 📝 创建第一个MCP服务器
 
-### 使用FastMCP（最简方式）
+保存为 `server.py`。工具读取固定的演示数据，不访问本机文件，不需要模型密钥。
 
 ```python
-# server.py
 from fastmcp import FastMCP
 
-# 创建服务器实例
-mcp = FastMCP("my-first-mcp")
+mcp = FastMCP("notes-demo")
+NOTES = {
+    "rag": "RAG 使用检索到的外部证据辅助生成。",
+    "mcp": "MCP 定义模型应用与外部能力之间的协议接口。",
+}
 
-# 添加工具
-@mcp.tool()
-def add(a: int, b: int) -> int:
-    """两数相加
-    
-    Args:
-        a: 第一个数字
-        b: 第二个数字
-    
-    Returns:
-        两数之和
-    """
-    return a + b
+@mcp.tool
+def lookup_note(topic: str) -> dict[str, str]:
+    """Read a demo note. Supported topics: rag, mcp. No writes or network calls."""
+    topic = topic.strip().lower()
+    if topic not in NOTES:
+        raise ValueError("topic must be rag or mcp")
+    return {"topic": topic, "text": NOTES[topic]}
 
-@mcp.tool()
-def greet(name: str) -> str:
-    """问候用户
-    
-    Args:
-        name: 用户名称
-    """
-    return f"你好，{name}！欢迎使用MCP！"
+@mcp.resource("notes://topics")
+def topics() -> str:
+    return "rag, mcp"
 
-# 运行服务器
+@mcp.prompt
+def explain_topic(topic: str) -> str:
+    return f"查询主题 {topic} 的演示笔记，解释其含义，并标出笔记未覆盖的信息。"
+
 if __name__ == "__main__":
-    mcp.run()
+    mcp.run(transport="stdio")
 ```
-
-### 运行服务器
-
-```bash
-python server.py
-```
-
----
 
 ## 🧪 测试服务器
 
-### 使用FastMCP客户端测试
+保存为 `check_client.py`，通过内存传输验证接口。它会检查发现、正常调用、非法参数、资源读取和提示模板；不需要先启动另一个进程。
 
 ```python
-# test_client.py
 import asyncio
 from fastmcp import Client
+from fastmcp.exceptions import ToolError
+from server import mcp
 
 async def main():
-    # 连接到服务器
-    async with Client("python server.py") as client:
-        # 列出可用工具
+    async with Client(mcp) as client:
         tools = await client.list_tools()
-        print("可用工具:", [t.name for t in tools])
-        
-        # 调用工具
-        result = await client.call_tool("add", {"a": 5, "b": 3})
-        print(f"5 + 3 = {result}")
-        
-        result = await client.call_tool("greet", {"name": "开发者"})
-        print(result)
+        assert {tool.name for tool in tools} == {"lookup_note"}
+        result = await client.call_tool("lookup_note", {"topic": "rag"})
+        assert not result.is_error
+        assert "RAG" in result.content[0].text
+        try:
+            await client.call_tool("lookup_note", {"topic": "unknown"})
+        except ToolError:
+            pass
+        else:
+            raise AssertionError("unknown topic must fail")
+        resources = await client.read_resource("notes://topics")
+        assert "mcp" in resources[0].text
+        prompt = await client.get_prompt("explain_topic", {"topic": "rag"})
+        assert prompt.messages
+    print("MCP smoke check passed")
 
 asyncio.run(main())
 ```
 
-### 使用MCP Inspector测试
-
 ```bash
-# 安装Inspector
-npx @modelcontextprotocol/inspector python server.py
+python check_client.py
 ```
 
----
+通过内存测试只证明协议接口与业务函数能协作，不证明远程鉴权或网络传输正常。接着把 `Client(mcp)` 改成 `Client("server.py")` 再运行一次，验证 stdio 子进程链路。客户端使用 `async with` 管理初始化与关闭，详见 [Client 文档](https://gofastmcp.com/v2/clients/client)。
 
-## 🔌 集成到Claude Desktop
+## 🔌 集成到模型应用
 
-### 配置文件位置
-
-| 系统 | 路径 |
-|------|------|
-| macOS | `~/Library/Application Support/Claude/claude_desktop_config.json` |
-| Windows | `%APPDATA%\Claude\claude_desktop_config.json` |
-
-### 配置示例
+支持启动本地 MCP 子进程的 Host，通常需要配置可执行文件与参数。以下为常见 `mcpServers` 配置形状，具体存放位置和字段以所用 Host 文档为准，它不是 MCP 协议规定的统一配置文件。
 
 ```json
 {
   "mcpServers": {
-    "my-first-mcp": {
-      "command": "python",
-      "args": ["D:/path/to/server.py"],
-      "env": {}
+    "notes-demo": {
+      "command": "/absolute/path/mcp-notes-demo/.venv/bin/python",
+      "args": ["/absolute/path/mcp-notes-demo/server.py"]
     }
   }
 }
 ```
 
-### 重启Claude Desktop
-
-配置完成后，重启Claude Desktop即可使用新添加的工具。
-
----
+替换为本机绝对路径。Host 启动服务后，先检查是否发现 `lookup_note`，再问“查询 rag 笔记”。如果工具能被手动调用但模型未选择它，应检查工具描述和 Host 暴露策略，而不是反复改传输配置。
 
 ## 📦 添加更多功能
 
-### 添加资源
+本例同时展示三种原语：`lookup_note` 是工具，`notes://topics` 是只读资源，`explain_topic` 是可选提示模板。它们不会自动串联：Host 决定是否读取资源、如何选择模板，以及何时把工具交给模型。概念与职责见 [核心概念](/llms/mcp/concepts)。
 
-```python
-@mcp.resource("config://settings")
-def get_settings() -> dict:
-    """获取应用配置"""
-    return {
-        "theme": "dark",
-        "language": "zh-CN",
-        "version": "1.0.0"
-    }
+需要远程连接时，可在另一个终端启动本机 HTTP 演示：
 
-@mcp.resource("file://{path}")
-def read_file(path: str) -> str:
-    """读取文件内容"""
-    with open(path, 'r', encoding='utf-8') as f:
-        return f.read()
+```bash
+fastmcp run server.py:mcp --transport http --host 127.0.0.1 --port 8000
 ```
 
-### 添加提示模板
-
-```python
-@mcp.prompt()
-def code_review(code: str, language: str = "python") -> str:
-    """代码审查提示模板"""
-    return f"""请审查以下{language}代码：
-
-```{language}
-{code}
-```
-
-请从以下方面进行评审：
-1. 代码质量
-2. 潜在bug
-3. 性能问题
-4. 改进建议"""
-```
-
----
-
-## 🎯 完整示例
-
-```python
-# complete_server.py
-from fastmcp import FastMCP
-import json
-from datetime import datetime
-
-mcp = FastMCP("complete-demo")
-
-# ===== 工具 =====
-@mcp.tool()
-def calculate(expression: str) -> float:
-    """安全计算数学表达式"""
-    allowed = set('0123456789+-*/.() ')
-    if not all(c in allowed for c in expression):
-        raise ValueError("表达式包含非法字符")
-    return eval(expression)
-
-@mcp.tool()
-def get_current_time() -> str:
-    """获取当前时间"""
-    return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-
-@mcp.tool()
-async def fetch_url(url: str) -> str:
-    """获取URL内容"""
-    import aiohttp
-    async with aiohttp.ClientSession() as session:
-        async with session.get(url) as response:
-            return await response.text()
-
-# ===== 资源 =====
-@mcp.resource("app://info")
-def app_info() -> dict:
-    """应用信息"""
-    return {
-        "name": "Complete Demo",
-        "version": "1.0.0",
-        "author": "Developer"
-    }
-
-# ===== 提示模板 =====
-@mcp.prompt()
-def summarize(text: str, max_length: int = 100) -> str:
-    """文本摘要模板"""
-    return f"""请将以下文本总结为不超过{max_length}字的摘要：
-
-{text}
-
-摘要："""
-
-if __name__ == "__main__":
-    mcp.run()
-```
-
----
+然后让 Client 连接 `http://127.0.0.1:8000/mcp`。这里的 `http` 是 FastMCP 对 Streamable HTTP 的参数名；生产部署还需身份、权限、TLS 和运行隔离。不要把这个无鉴权演示直接暴露到公网。参见 [运行服务](https://gofastmcp.com/v2/deployment/running-server) 与 [高级功能](/llms/mcp/advanced)。
 
 ## ⚠️ 常见问题
 
-### 1. 服务器无法启动
+| 现象 | 优先检查 | 验证方法 |
+| --- | --- | --- |
+| Host 无法启动进程 | Python 路径、虚拟环境、文件路径 | 在相同环境运行指定命令 |
+| stdio 无法解析消息 | 是否向 stdout 写了日志 | 日志改写 stderr；stdout 只承载协议 |
+| 找不到工具 | 初始化失败、工具未注册、Host 缓存 | 先运行 `list_tools()` |
+| 参数错误 | 名称、类型、枚举、业务范围 | 对照发现结果里的 schema |
+| 内存测试通过而远程失败 | URL、传输、网络、鉴权 | 分开验证 stdio 与 HTTP |
+| 服务在终端等待 | stdio 正在等客户端请求 | 让 Client 启动服务，而非期待聊天界面 |
 
-```bash
-# 检查Python路径
-which python  # Linux/Mac
-where python  # Windows
+## 🎯 验收与下一步
 
-# 确保使用绝对路径
-python /absolute/path/to/server.py
-```
-
-### 2. Claude Desktop未识别工具
-
-- 确保配置文件JSON格式正确
-- 检查command和args路径是否正确
-- 重启Claude Desktop
-
-### 3. 工具调用报错
-
-```python
-# 添加错误处理
-@mcp.tool()
-def safe_tool(param: str) -> str:
-    try:
-        # 业务逻辑
-        return result
-    except Exception as e:
-        return f"错误: {str(e)}"
-```
-
----
-
-## 🔧 FastMCP 2.0 Client
-
-FastMCP 2.0 不仅是 Server 框架，还提供了完整的 **Client** 实现：
-
-```python
-from fastmcp import Client
-
-async def main():
-    # 连接本地Server
-    async with Client("python server.py") as client:
-        # 调用工具
-        result = await client.call_tool("add", {"a": 1, "b": 2})
-        print(result)
-    
-    # 连接远程Server（HTTP/SSE）
-    async with Client("http://localhost:8000/sse") as client:
-        tools = await client.list_tools()
-        print(tools)
-```
-
-### Client 支持的传输方式
-
-| 传输 | 连接方式 | 适用场景 |
-|------|----------|----------|
-| **Stdio** | `Client("python server.py")` | 本地开发 |
-| **SSE** | `Client("http://host:port/sse")` | 远程服务 |
-| **Websocket** | `Client("ws://host:port/ws")` | 实时通信 |
-
----
-
----
-
-## 🔧 安装到客户端
-
-FastMCP 提供 `fastmcp install` 命令快速安装到各种客户端：
-
-```bash
-# 安装到 Claude Desktop
-fastmcp install claude-desktop server.py
-
-# 安装到 Cursor
-fastmcp install cursor server.py
-
-# 安装到 Claude Code
-fastmcp install claude-code server.py
-
-# 带依赖安装
-fastmcp install claude-desktop server.py --with pandas --with requests
-
-# 使用 fastmcp.json 安装
-fastmcp install claude-desktop fastmcp.json
-
-# 生成 MCP JSON 配置
-fastmcp install mcp-json server.py --name "My Server"
-```
-
-### 支持的客户端
-
-| 客户端 | 安装方式 |
-|--------|----------|
-| **Claude Desktop** | 直接修改配置文件 |
-| **Claude Code** | 内置MCP管理系统 |
-| **Cursor** | 通过deeplink确认 |
-| **MCP JSON** | 生成标准JSON配置 |
-
----
-
-## 🔗 下一步
-
-- [核心概念](/llms/mcp/concepts) - 深入理解Tools/Resources/Prompts
-- [实战项目](/llms/mcp/practice) - 完整可运行的示例
-- [高级功能](/llms/mcp/advanced) - 中间件、认证、代理
-- [MCP概述](/llms/mcp/) - 了解MCP全貌
-
-> **外部资源**：
-> - [FastMCP 官方文档](https://gofastmcp.com/)
-> - [MCP 官方文档](https://modelcontextprotocol.io/)
+完成后应留下：依赖版本、服务源码、测试输出和一条失败调用。能够说明“工具发现成功”和“任务完成成功”的区别，再进入 [实践示例](/llms/mcp/practice)。

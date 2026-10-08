@@ -3,7 +3,7 @@ title: "从 LSP 到 MCP、ACP：AI Agent 时代的协议体系设计详解"
 description: "CSDN 原文全文镜像：AI Agent 时代，协议会变得越来越重要。AI ClientIDEAgentToolResourcePrompt这些组件之间如果没有统一协议，就会变成大量脆弱的胶水代码。JSON-RPC：消息格式底座stdio / HTTP / S……"
 pageType: article
 module: mcp
-updated: '2026-05-20'
+updated: '2026-10-08'
 contentStatus: needs-review
 tags:
   - "csdn-mirror"
@@ -22,10 +22,18 @@ author: likebeans
 ---
 
 ::: info CSDN 原文镜像
-本文为作者 CSDN 博客的全文镜像，原文发布于 2026-05-20。为适配本站结构，仅补充了站内元数据与来源说明，正文主体保持原文内容。
+本文为作者 CSDN 博客的全文镜像，原文发布于 2026-05-20。为适配本站结构，补充了站内导读、元数据与来源说明，并清理代码高亮标记；原文观点与主体内容保留。
 
 - 原文链接：[https://blog.csdn.net/m0_63309778/article/details/161224325](https://blog.csdn.net/m0_63309778/article/details/161224325)
 - 站内分区：MCP / Agent 协议体系
+:::
+
+::: tip 站内导读：先画清通信双方，再比较协议
+把消息格式、传输机制和业务协议分开。阅读每种协议时写下通信的两个端点、谁发起请求、维护什么状态，以及它解决的互操作问题。
+
+练习：画出 IDE、编码 Agent、MCP Client 与工具 Server 的连接，标注初始化、工具发现、执行、取消和授权发生在哪里；同名缩写应核对原文所指项目与版本。
+
+相关主线：[MCP 核心概念](/llms/mcp/concepts) · [智能体通信](/llms/agent/a2a)。本导读不代表对原文全部代码与结论的重新核验。
 :::
 
 <p><img src="https://i-blog.csdnimg.cn/direct/971d8a0375004f7fa8ff2f62b1e9e32a.png" alt="在这里插入图片描述" /></p> 
@@ -53,12 +61,12 @@ author: likebeans
 
 
 ```json
-<span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"jsonrpc"</span><span class="token operator">:</span> <span class="token string">"2.0"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"id"</span><span class="token operator">:</span> <span class="token number">1</span><span class="token punctuation">,</span>
-<span class="token string-property property">"method"</span><span class="token operator">:</span> <span class="token string">"tools/list"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"params"</span><span class="token operator">:</span> <span class="token punctuation">{<!-- --></span><span class="token punctuation">}</span>
-<span class="token punctuation">}</span>
+{<!-- -->
+"jsonrpc": "2.0",
+"id": 1,
+"method": "tools/list",
+"params": {<!-- -->}
+}
 ```
 
  
@@ -68,13 +76,13 @@ author: likebeans
 
 
 ```json
-<span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"jsonrpc"</span><span class="token operator">:</span> <span class="token string">"2.0"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"id"</span><span class="token operator">:</span> <span class="token number">1</span><span class="token punctuation">,</span>
-<span class="token string-property property">"result"</span><span class="token operator">:</span> <span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"tools"</span><span class="token operator">:</span> <span class="token punctuation">[</span><span class="token punctuation">]</span>
-<span class="token punctuation">}</span>
-<span class="token punctuation">}</span>
+{<!-- -->
+"jsonrpc": "2.0",
+"id": 1,
+"result": {<!-- -->
+"tools": []
+}
+}
 ```
 
  
@@ -82,14 +90,14 @@ author: likebeans
 
 
 ```json
-<span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"jsonrpc"</span><span class="token operator">:</span> <span class="token string">"2.0"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"id"</span><span class="token operator">:</span> <span class="token number">1</span><span class="token punctuation">,</span>
-<span class="token string-property property">"error"</span><span class="token operator">:</span> <span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"code"</span><span class="token operator">:</span> <span class="token operator">-</span><span class="token number">32601</span><span class="token punctuation">,</span>
-<span class="token string-property property">"message"</span><span class="token operator">:</span> <span class="token string">"Method not found"</span>
-<span class="token punctuation">}</span>
-<span class="token punctuation">}</span>
+{<!-- -->
+"jsonrpc": "2.0",
+"id": 1,
+"error": {<!-- -->
+"code": -32601,
+"message": "Method not found"
+}
+}
 ```
 
  
@@ -99,11 +107,11 @@ author: likebeans
 
 
 ```json
-<span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"jsonrpc"</span><span class="token operator">:</span> <span class="token string">"2.0"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"method"</span><span class="token operator">:</span> <span class="token string">"notifications/initialized"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"params"</span><span class="token operator">:</span> <span class="token punctuation">{<!-- --></span><span class="token punctuation">}</span>
-<span class="token punctuation">}</span>
+{<!-- -->
+"jsonrpc": "2.0",
+"method": "notifications/initialized",
+"params": {<!-- -->}
+}
 ```
 
  
@@ -236,16 +244,16 @@ Python Language Server / Go Language Server / Rust Analyzer
 
 
 ```json
-<span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"jsonrpc"</span><span class="token operator">:</span> <span class="token string">"2.0"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"id"</span><span class="token operator">:</span> <span class="token number">1</span><span class="token punctuation">,</span>
-<span class="token string-property property">"method"</span><span class="token operator">:</span> <span class="token string">"initialize"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"params"</span><span class="token operator">:</span> <span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"processId"</span><span class="token operator">:</span> <span class="token number">12345</span><span class="token punctuation">,</span>
-<span class="token string-property property">"rootUri"</span><span class="token operator">:</span> <span class="token string">"file:///project"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"capabilities"</span><span class="token operator">:</span> <span class="token punctuation">{<!-- --></span><span class="token punctuation">}</span>
-<span class="token punctuation">}</span>
-<span class="token punctuation">}</span>
+{<!-- -->
+"jsonrpc": "2.0",
+"id": 1,
+"method": "initialize",
+"params": {<!-- -->
+"processId": 12345,
+"rootUri": "file:///project",
+"capabilities": {<!-- -->}
+}
+}
 ```
 
  
@@ -253,19 +261,19 @@ Python Language Server / Go Language Server / Rust Analyzer
 
 
 ```json
-<span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"jsonrpc"</span><span class="token operator">:</span> <span class="token string">"2.0"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"id"</span><span class="token operator">:</span> <span class="token number">1</span><span class="token punctuation">,</span>
-<span class="token string-property property">"result"</span><span class="token operator">:</span> <span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"capabilities"</span><span class="token operator">:</span> <span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"hoverProvider"</span><span class="token operator">:</span> <span class="token boolean">true</span><span class="token punctuation">,</span>
-<span class="token string-property property">"definitionProvider"</span><span class="token operator">:</span> <span class="token boolean">true</span><span class="token punctuation">,</span>
-<span class="token string-property property">"completionProvider"</span><span class="token operator">:</span> <span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"resolveProvider"</span><span class="token operator">:</span> <span class="token boolean">true</span>
-<span class="token punctuation">}</span>
-<span class="token punctuation">}</span>
-<span class="token punctuation">}</span>
-<span class="token punctuation">}</span>
+{<!-- -->
+"jsonrpc": "2.0",
+"id": 1,
+"result": {<!-- -->
+"capabilities": {<!-- -->
+"hoverProvider": true,
+"definitionProvider": true,
+"completionProvider": {<!-- -->
+"resolveProvider": true
+}
+}
+}
+}
 ```
 
  
@@ -405,19 +413,19 @@ tools/call
 
 
 ```json
-<span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"jsonrpc"</span><span class="token operator">:</span> <span class="token string">"2.0"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"id"</span><span class="token operator">:</span> <span class="token number">1</span><span class="token punctuation">,</span>
-<span class="token string-property property">"method"</span><span class="token operator">:</span> <span class="token string">"initialize"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"params"</span><span class="token operator">:</span> <span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"protocolVersion"</span><span class="token operator">:</span> <span class="token string">"2024-11-05"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"capabilities"</span><span class="token operator">:</span> <span class="token punctuation">{<!-- --></span><span class="token punctuation">}</span><span class="token punctuation">,</span>
-<span class="token string-property property">"clientInfo"</span><span class="token operator">:</span> <span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"name"</span><span class="token operator">:</span> <span class="token string">"claude-desktop"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"version"</span><span class="token operator">:</span> <span class="token string">"1.0.0"</span>
-<span class="token punctuation">}</span>
-<span class="token punctuation">}</span>
-<span class="token punctuation">}</span>
+{<!-- -->
+"jsonrpc": "2.0",
+"id": 1,
+"method": "initialize",
+"params": {<!-- -->
+"protocolVersion": "2024-11-05",
+"capabilities": {<!-- -->},
+"clientInfo": {<!-- -->
+"name": "claude-desktop",
+"version": "1.0.0"
+}
+}
+}
 ```
 
  
@@ -425,22 +433,22 @@ tools/call
 
 
 ```json
-<span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"jsonrpc"</span><span class="token operator">:</span> <span class="token string">"2.0"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"id"</span><span class="token operator">:</span> <span class="token number">1</span><span class="token punctuation">,</span>
-<span class="token string-property property">"result"</span><span class="token operator">:</span> <span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"protocolVersion"</span><span class="token operator">:</span> <span class="token string">"2024-11-05"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"capabilities"</span><span class="token operator">:</span> <span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"tools"</span><span class="token operator">:</span> <span class="token punctuation">{<!-- --></span><span class="token punctuation">}</span><span class="token punctuation">,</span>
-<span class="token string-property property">"resources"</span><span class="token operator">:</span> <span class="token punctuation">{<!-- --></span><span class="token punctuation">}</span><span class="token punctuation">,</span>
-<span class="token string-property property">"prompts"</span><span class="token operator">:</span> <span class="token punctuation">{<!-- --></span><span class="token punctuation">}</span>
-<span class="token punctuation">}</span><span class="token punctuation">,</span>
-<span class="token string-property property">"serverInfo"</span><span class="token operator">:</span> <span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"name"</span><span class="token operator">:</span> <span class="token string">"company-wiki-mcp"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"version"</span><span class="token operator">:</span> <span class="token string">"1.0.0"</span>
-<span class="token punctuation">}</span>
-<span class="token punctuation">}</span>
-<span class="token punctuation">}</span>
+{<!-- -->
+"jsonrpc": "2.0",
+"id": 1,
+"result": {<!-- -->
+"protocolVersion": "2024-11-05",
+"capabilities": {<!-- -->
+"tools": {<!-- -->},
+"resources": {<!-- -->},
+"prompts": {<!-- -->}
+},
+"serverInfo": {<!-- -->
+"name": "company-wiki-mcp",
+"version": "1.0.0"
+}
+}
+}
 ```
 
  
@@ -452,12 +460,12 @@ tools/call
 
 
 ```json
-<span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"jsonrpc"</span><span class="token operator">:</span> <span class="token string">"2.0"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"id"</span><span class="token operator">:</span> <span class="token number">2</span><span class="token punctuation">,</span>
-<span class="token string-property property">"method"</span><span class="token operator">:</span> <span class="token string">"tools/list"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"params"</span><span class="token operator">:</span> <span class="token punctuation">{<!-- --></span><span class="token punctuation">}</span>
-<span class="token punctuation">}</span>
+{<!-- -->
+"jsonrpc": "2.0",
+"id": 2,
+"method": "tools/list",
+"params": {<!-- -->}
+}
 ```
 
  
@@ -465,28 +473,28 @@ tools/call
 
 
 ```json
-<span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"jsonrpc"</span><span class="token operator">:</span> <span class="token string">"2.0"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"id"</span><span class="token operator">:</span> <span class="token number">2</span><span class="token punctuation">,</span>
-<span class="token string-property property">"result"</span><span class="token operator">:</span> <span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"tools"</span><span class="token operator">:</span> <span class="token punctuation">[</span>
-<span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"name"</span><span class="token operator">:</span> <span class="token string">"search_company_wiki"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"description"</span><span class="token operator">:</span> <span class="token string">"搜索公司内部 Wiki，适合查询制度、流程、项目文档"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"inputSchema"</span><span class="token operator">:</span> <span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"type"</span><span class="token operator">:</span> <span class="token string">"object"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"properties"</span><span class="token operator">:</span> <span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"query"</span><span class="token operator">:</span> <span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"type"</span><span class="token operator">:</span> <span class="token string">"string"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"description"</span><span class="token operator">:</span> <span class="token string">"搜索关键词"</span>
-<span class="token punctuation">}</span>
-<span class="token punctuation">}</span><span class="token punctuation">,</span>
-<span class="token string-property property">"required"</span><span class="token operator">:</span> <span class="token punctuation">[</span><span class="token string">"query"</span><span class="token punctuation">]</span>
-<span class="token punctuation">}</span>
-<span class="token punctuation">}</span>
-<span class="token punctuation">]</span>
-<span class="token punctuation">}</span>
-<span class="token punctuation">}</span>
+{<!-- -->
+"jsonrpc": "2.0",
+"id": 2,
+"result": {<!-- -->
+"tools": [
+{<!-- -->
+"name": "search_company_wiki",
+"description": "搜索公司内部 Wiki，适合查询制度、流程、项目文档",
+"inputSchema": {<!-- -->
+"type": "object",
+"properties": {<!-- -->
+"query": {<!-- -->
+"type": "string",
+"description": "搜索关键词"
+}
+},
+"required": ["query"]
+}
+}
+]
+}
+}
 ```
 
  
@@ -505,17 +513,17 @@ tools/call
 
 
 ```json
-<span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"jsonrpc"</span><span class="token operator">:</span> <span class="token string">"2.0"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"id"</span><span class="token operator">:</span> <span class="token number">3</span><span class="token punctuation">,</span>
-<span class="token string-property property">"method"</span><span class="token operator">:</span> <span class="token string">"tools/call"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"params"</span><span class="token operator">:</span> <span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"name"</span><span class="token operator">:</span> <span class="token string">"search_company_wiki"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"arguments"</span><span class="token operator">:</span> <span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"query"</span><span class="token operator">:</span> <span class="token string">"年假申请流程"</span>
-<span class="token punctuation">}</span>
-<span class="token punctuation">}</span>
-<span class="token punctuation">}</span>
+{<!-- -->
+"jsonrpc": "2.0",
+"id": 3,
+"method": "tools/call",
+"params": {<!-- -->
+"name": "search_company_wiki",
+"arguments": {<!-- -->
+"query": "年假申请流程"
+}
+}
+}
 ```
 
  
@@ -523,18 +531,18 @@ tools/call
 
 
 ```json
-<span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"jsonrpc"</span><span class="token operator">:</span> <span class="token string">"2.0"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"id"</span><span class="token operator">:</span> <span class="token number">3</span><span class="token punctuation">,</span>
-<span class="token string-property property">"result"</span><span class="token operator">:</span> <span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"content"</span><span class="token operator">:</span> <span class="token punctuation">[</span>
-<span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"type"</span><span class="token operator">:</span> <span class="token string">"text"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"text"</span><span class="token operator">:</span> <span class="token string">"年假申请需要在 OA 系统提交请假单，直属领导审批后生效。"</span>
-<span class="token punctuation">}</span>
-<span class="token punctuation">]</span>
-<span class="token punctuation">}</span>
-<span class="token punctuation">}</span>
+{<!-- -->
+"jsonrpc": "2.0",
+"id": 3,
+"result": {<!-- -->
+"content": [
+{<!-- -->
+"type": "text",
+"text": "年假申请需要在 OA 系统提交请假单，直属领导审批后生效。"
+}
+]
+}
+}
 ```
 
  
@@ -677,23 +685,23 @@ ACP 是 IDE 接入 AI Agent 的协议。
 
 
 ```json
-<span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"jsonrpc"</span><span class="token operator">:</span> <span class="token string">"2.0"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"id"</span><span class="token operator">:</span> <span class="token number">1</span><span class="token punctuation">,</span>
-<span class="token string-property property">"method"</span><span class="token operator">:</span> <span class="token string">"initialize"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"params"</span><span class="token operator">:</span> <span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"protocolVersion"</span><span class="token operator">:</span> <span class="token string">"0.1.0"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"clientInfo"</span><span class="token operator">:</span> <span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"name"</span><span class="token operator">:</span> <span class="token string">"cursor"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"version"</span><span class="token operator">:</span> <span class="token string">"1.0.0"</span>
-<span class="token punctuation">}</span><span class="token punctuation">,</span>
-<span class="token string-property property">"capabilities"</span><span class="token operator">:</span> <span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"fileSystem"</span><span class="token operator">:</span> <span class="token boolean">true</span><span class="token punctuation">,</span>
-<span class="token string-property property">"terminal"</span><span class="token operator">:</span> <span class="token boolean">true</span><span class="token punctuation">,</span>
-<span class="token string-property property">"diff"</span><span class="token operator">:</span> <span class="token boolean">true</span>
-<span class="token punctuation">}</span>
-<span class="token punctuation">}</span>
-<span class="token punctuation">}</span>
+{<!-- -->
+"jsonrpc": "2.0",
+"id": 1,
+"method": "initialize",
+"params": {<!-- -->
+"protocolVersion": "0.1.0",
+"clientInfo": {<!-- -->
+"name": "cursor",
+"version": "1.0.0"
+},
+"capabilities": {<!-- -->
+"fileSystem": true,
+"terminal": true,
+"diff": true
+}
+}
+}
 ```
 
  
@@ -701,22 +709,22 @@ ACP 是 IDE 接入 AI Agent 的协议。
 
 
 ```json
-<span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"jsonrpc"</span><span class="token operator">:</span> <span class="token string">"2.0"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"id"</span><span class="token operator">:</span> <span class="token number">1</span><span class="token punctuation">,</span>
-<span class="token string-property property">"result"</span><span class="token operator">:</span> <span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"agentInfo"</span><span class="token operator">:</span> <span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"name"</span><span class="token operator">:</span> <span class="token string">"my-coding-agent"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"version"</span><span class="token operator">:</span> <span class="token string">"1.0.0"</span>
-<span class="token punctuation">}</span><span class="token punctuation">,</span>
-<span class="token string-property property">"capabilities"</span><span class="token operator">:</span> <span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"streaming"</span><span class="token operator">:</span> <span class="token boolean">true</span><span class="token punctuation">,</span>
-<span class="token string-property property">"fileEdit"</span><span class="token operator">:</span> <span class="token boolean">true</span><span class="token punctuation">,</span>
-<span class="token string-property property">"terminalCommand"</span><span class="token operator">:</span> <span class="token boolean">true</span><span class="token punctuation">,</span>
-<span class="token string-property property">"cancellation"</span><span class="token operator">:</span> <span class="token boolean">true</span>
-<span class="token punctuation">}</span>
-<span class="token punctuation">}</span>
-<span class="token punctuation">}</span>
+{<!-- -->
+"jsonrpc": "2.0",
+"id": 1,
+"result": {<!-- -->
+"agentInfo": {<!-- -->
+"name": "my-coding-agent",
+"version": "1.0.0"
+},
+"capabilities": {<!-- -->
+"streaming": true,
+"fileEdit": true,
+"terminalCommand": true,
+"cancellation": true
+}
+}
+}
 ```
 
  
@@ -738,15 +746,15 @@ Agent 能执行什么任务？
 
 
 ```json
-<span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"jsonrpc"</span><span class="token operator">:</span> <span class="token string">"2.0"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"id"</span><span class="token operator">:</span> <span class="token number">2</span><span class="token punctuation">,</span>
-<span class="token string-property property">"method"</span><span class="token operator">:</span> <span class="token string">"session/new"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"params"</span><span class="token operator">:</span> <span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"workspace"</span><span class="token operator">:</span> <span class="token string">"file:///Users/me/project"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"mode"</span><span class="token operator">:</span> <span class="token string">"edit"</span>
-<span class="token punctuation">}</span>
-<span class="token punctuation">}</span>
+{<!-- -->
+"jsonrpc": "2.0",
+"id": 2,
+"method": "session/new",
+"params": {<!-- -->
+"workspace": "file:///Users/me/project",
+"mode": "edit"
+}
+}
 ```
 
  
@@ -754,13 +762,13 @@ Agent 能执行什么任务？
 
 
 ```json
-<span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"jsonrpc"</span><span class="token operator">:</span> <span class="token string">"2.0"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"id"</span><span class="token operator">:</span> <span class="token number">2</span><span class="token punctuation">,</span>
-<span class="token string-property property">"result"</span><span class="token operator">:</span> <span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"sessionId"</span><span class="token operator">:</span> <span class="token string">"sess_123"</span>
-<span class="token punctuation">}</span>
-<span class="token punctuation">}</span>
+{<!-- -->
+"jsonrpc": "2.0",
+"id": 2,
+"result": {<!-- -->
+"sessionId": "sess_123"
+}
+}
 ```
 
  
@@ -777,15 +785,15 @@ Agent 能执行什么任务？
 
 
 ```json
-<span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"jsonrpc"</span><span class="token operator">:</span> <span class="token string">"2.0"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"id"</span><span class="token operator">:</span> <span class="token number">3</span><span class="token punctuation">,</span>
-<span class="token string-property property">"method"</span><span class="token operator">:</span> <span class="token string">"session/prompt"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"params"</span><span class="token operator">:</span> <span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"sessionId"</span><span class="token operator">:</span> <span class="token string">"sess_123"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"prompt"</span><span class="token operator">:</span> <span class="token string">"帮我把这个函数拆成三个小函数，并补充单元测试。"</span>
-<span class="token punctuation">}</span>
-<span class="token punctuation">}</span>
+{<!-- -->
+"jsonrpc": "2.0",
+"id": 3,
+"method": "session/prompt",
+"params": {<!-- -->
+"sessionId": "sess_123",
+"prompt": "帮我把这个函数拆成三个小函数，并补充单元测试。"
+}
+}
 ```
 
  
@@ -794,14 +802,14 @@ Agent 能执行什么任务？
 
 
 ```json
-<span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"jsonrpc"</span><span class="token operator">:</span> <span class="token string">"2.0"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"method"</span><span class="token operator">:</span> <span class="token string">"session/update"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"params"</span><span class="token operator">:</span> <span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"sessionId"</span><span class="token operator">:</span> <span class="token string">"sess_123"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"message"</span><span class="token operator">:</span> <span class="token string">"正在分析项目结构..."</span>
-<span class="token punctuation">}</span>
-<span class="token punctuation">}</span>
+{<!-- -->
+"jsonrpc": "2.0",
+"method": "session/update",
+"params": {<!-- -->
+"sessionId": "sess_123",
+"message": "正在分析项目结构..."
+}
+}
 ```
 
  
@@ -809,14 +817,14 @@ Agent 能执行什么任务？
 
 
 ```json
-<span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"jsonrpc"</span><span class="token operator">:</span> <span class="token string">"2.0"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"method"</span><span class="token operator">:</span> <span class="token string">"session/update"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"params"</span><span class="token operator">:</span> <span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"sessionId"</span><span class="token operator">:</span> <span class="token string">"sess_123"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"message"</span><span class="token operator">:</span> <span class="token string">"已找到目标函数，准备修改 service.py 和 test_service.py"</span>
-<span class="token punctuation">}</span>
-<span class="token punctuation">}</span>
+{<!-- -->
+"jsonrpc": "2.0",
+"method": "session/update",
+"params": {<!-- -->
+"sessionId": "sess_123",
+"message": "已找到目标函数，准备修改 service.py 和 test_service.py"
+}
+}
 ```
 
  
@@ -824,14 +832,14 @@ Agent 能执行什么任务？
 
 
 ```json
-<span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"jsonrpc"</span><span class="token operator">:</span> <span class="token string">"2.0"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"id"</span><span class="token operator">:</span> <span class="token number">3</span><span class="token punctuation">,</span>
-<span class="token string-property property">"result"</span><span class="token operator">:</span> <span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"stopReason"</span><span class="token operator">:</span> <span class="token string">"completed"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"summary"</span><span class="token operator">:</span> <span class="token string">"已完成函数拆分，并新增 3 个单元测试。"</span>
-<span class="token punctuation">}</span>
-<span class="token punctuation">}</span>
+{<!-- -->
+"jsonrpc": "2.0",
+"id": 3,
+"result": {<!-- -->
+"stopReason": "completed",
+"summary": "已完成函数拆分，并新增 3 个单元测试。"
+}
+}
 ```
 
  
@@ -841,14 +849,14 @@ Agent 能执行什么任务？
 
 
 ```json
-<span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"jsonrpc"</span><span class="token operator">:</span> <span class="token string">"2.0"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"id"</span><span class="token operator">:</span> <span class="token number">4</span><span class="token punctuation">,</span>
-<span class="token string-property property">"method"</span><span class="token operator">:</span> <span class="token string">"session/cancel"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"params"</span><span class="token operator">:</span> <span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"sessionId"</span><span class="token operator">:</span> <span class="token string">"sess_123"</span>
-<span class="token punctuation">}</span>
-<span class="token punctuation">}</span>
+{<!-- -->
+"jsonrpc": "2.0",
+"id": 4,
+"method": "session/cancel",
+"params": {<!-- -->
+"sessionId": "sess_123"
+}
+}
 ```
 
  
@@ -857,13 +865,13 @@ Agent 能执行什么任务？
 
 
 ```json
-<span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"jsonrpc"</span><span class="token operator">:</span> <span class="token string">"2.0"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"id"</span><span class="token operator">:</span> <span class="token number">4</span><span class="token punctuation">,</span>
-<span class="token string-property property">"result"</span><span class="token operator">:</span> <span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"cancelled"</span><span class="token operator">:</span> <span class="token boolean">true</span>
-<span class="token punctuation">}</span>
-<span class="token punctuation">}</span>
+{<!-- -->
+"jsonrpc": "2.0",
+"id": 4,
+"result": {<!-- -->
+"cancelled": true
+}
+}
 ```
 
  
@@ -969,15 +977,15 @@ telegram/
 
 
 ```python
-<span class="token keyword">class</span> <span class="token class-name">PlatformPlugin</span><span class="token punctuation">:</span>
-<span class="token keyword">def</span> <span class="token function">receive_message</span><span class="token punctuation">(</span>self<span class="token punctuation">)</span> <span class="token operator">-</span><span class="token operator">></span> Message<span class="token punctuation">:</span>
-<span class="token punctuation">.</span><span class="token punctuation">.</span><span class="token punctuation">.</span>
+class PlatformPlugin:
+def receive_message(self) -> Message:
+...
 
-<span class="token keyword">def</span> <span class="token function">send_message</span><span class="token punctuation">(</span>self<span class="token punctuation">,</span> msg<span class="token punctuation">:</span> Message<span class="token punctuation">)</span> <span class="token operator">-</span><span class="token operator">></span> <span class="token boolean">None</span><span class="token punctuation">:</span>
-<span class="token punctuation">.</span><span class="token punctuation">.</span><span class="token punctuation">.</span>
+def send_message(self, msg: Message) -> None:
+...
 
-<span class="token keyword">def</span> <span class="token function">authenticate</span><span class="token punctuation">(</span>self<span class="token punctuation">)</span> <span class="token operator">-</span><span class="token operator">></span> <span class="token builtin">bool</span><span class="token punctuation">:</span>
-<span class="token punctuation">.</span><span class="token punctuation">.</span><span class="token punctuation">.</span>
+def authenticate(self) -> bool:
+...
 ```
 
  
@@ -1002,14 +1010,14 @@ telegram/
 
 
 ```python
-<span class="token decorator annotation punctuation">@dataclass</span>
-<span class="token keyword">class</span> <span class="token class-name">Message</span><span class="token punctuation">:</span>
-platform<span class="token punctuation">:</span> <span class="token builtin">str</span>
-conversation_id<span class="token punctuation">:</span> <span class="token builtin">str</span>
-user_id<span class="token punctuation">:</span> <span class="token builtin">str</span>
-text<span class="token punctuation">:</span> <span class="token builtin">str</span>
-attachments<span class="token punctuation">:</span> <span class="token builtin">list</span>
-raw<span class="token punctuation">:</span> <span class="token builtin">dict</span>
+@dataclass
+class Message:
+platform: str
+conversation_id: str
+user_id: str
+text: str
+attachments: list
+raw: dict
 ```
 
  
@@ -1089,8 +1097,8 @@ v
 
 
 ```python
-<span class="token keyword">def</span> <span class="token function">authenticate</span><span class="token punctuation">(</span>self<span class="token punctuation">)</span> <span class="token operator">-</span><span class="token operator">></span> <span class="token builtin">bool</span><span class="token punctuation">:</span>
-<span class="token punctuation">.</span><span class="token punctuation">.</span><span class="token punctuation">.</span>
+def authenticate(self) -> bool:
+...
 ```
 
  
@@ -1101,8 +1109,8 @@ v
 
 
 ```python
-<span class="token keyword">def</span> <span class="token function">receive_message</span><span class="token punctuation">(</span>self<span class="token punctuation">)</span> <span class="token operator">-</span><span class="token operator">></span> Message<span class="token punctuation">:</span>
-<span class="token punctuation">.</span><span class="token punctuation">.</span><span class="token punctuation">.</span>
+def receive_message(self) -> Message:
+...
 ```
 
  
@@ -1112,12 +1120,12 @@ v
 
 
 ```json
-<span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"type"</span><span class="token operator">:</span> <span class="token string">"message"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"user"</span><span class="token operator">:</span> <span class="token string">"U123"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"channel"</span><span class="token operator">:</span> <span class="token string">"C123"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"text"</span><span class="token operator">:</span> <span class="token string">"帮我总结一下今天的工作"</span>
-<span class="token punctuation">}</span>
+{<!-- -->
+"type": "message",
+"user": "U123",
+"channel": "C123",
+"text": "帮我总结一下今天的工作"
+}
 ```
 
  
@@ -1125,12 +1133,12 @@ v
 
 
 ```json
-<span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"platform"</span><span class="token operator">:</span> <span class="token string">"slack"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"conversation_id"</span><span class="token operator">:</span> <span class="token string">"C123"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"user_id"</span><span class="token operator">:</span> <span class="token string">"U123"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"text"</span><span class="token operator">:</span> <span class="token string">"帮我总结一下今天的工作"</span>
-<span class="token punctuation">}</span>
+{<!-- -->
+"platform": "slack",
+"conversation_id": "C123",
+"user_id": "U123",
+"text": "帮我总结一下今天的工作"
+}
 ```
 
  
@@ -1138,8 +1146,8 @@ v
 
 
 ```python
-<span class="token keyword">def</span> <span class="token function">send_message</span><span class="token punctuation">(</span>self<span class="token punctuation">,</span> msg<span class="token punctuation">:</span> Message<span class="token punctuation">)</span> <span class="token operator">-</span><span class="token operator">></span> <span class="token boolean">None</span><span class="token punctuation">:</span>
-<span class="token punctuation">.</span><span class="token punctuation">.</span><span class="token punctuation">.</span>
+def send_message(self, msg: Message) -> None:
+...
 ```
 
  
@@ -1147,10 +1155,10 @@ v
 
 
 ```json
-<span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"conversation_id"</span><span class="token operator">:</span> <span class="token string">"C123"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"text"</span><span class="token operator">:</span> <span class="token string">"今天你主要完成了三个事项……"</span>
-<span class="token punctuation">}</span>
+{<!-- -->
+"conversation_id": "C123",
+"text": "今天你主要完成了三个事项……"
+}
 ```
 
  
@@ -1186,11 +1194,11 @@ platform_user_id -> internal_user_id
 
 
 ```python
-<span class="token keyword">class</span> <span class="token class-name">PlatformCapabilities</span><span class="token punctuation">:</span>
-supports_thread<span class="token punctuation">:</span> <span class="token builtin">bool</span>
-supports_markdown<span class="token punctuation">:</span> <span class="token builtin">bool</span>
-supports_file_upload<span class="token punctuation">:</span> <span class="token builtin">bool</span>
-supports_buttons<span class="token punctuation">:</span> <span class="token builtin">bool</span>
+class PlatformCapabilities:
+supports_thread: bool
+supports_markdown: bool
+supports_file_upload: bool
+supports_buttons: bool
 ```
 
  
@@ -1439,13 +1447,13 @@ diagnostics published
 
 
 ```json
-<span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"capabilities"</span><span class="token operator">:</span> <span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"tools"</span><span class="token operator">:</span> <span class="token punctuation">{<!-- --></span><span class="token punctuation">}</span><span class="token punctuation">,</span>
-<span class="token string-property property">"resources"</span><span class="token operator">:</span> <span class="token punctuation">{<!-- --></span><span class="token punctuation">}</span><span class="token punctuation">,</span>
-<span class="token string-property property">"prompts"</span><span class="token operator">:</span> <span class="token punctuation">{<!-- --></span><span class="token punctuation">}</span>
-<span class="token punctuation">}</span>
-<span class="token punctuation">}</span>
+{<!-- -->
+"capabilities": {<!-- -->
+"tools": {<!-- -->},
+"resources": {<!-- -->},
+"prompts": {<!-- -->}
+}
+}
 ```
 
  
@@ -1474,105 +1482,105 @@ Streamable HTTP
 
 
 ```python
-<span class="token keyword">import</span> sys
-<span class="token keyword">import</span> json
+import sys
+import json
 
-TOOLS <span class="token operator">=</span> <span class="token punctuation">[</span>
-<span class="token punctuation">{<!-- --></span>
-<span class="token string">"name"</span><span class="token punctuation">:</span> <span class="token string">"search_company_wiki"</span><span class="token punctuation">,</span>
-<span class="token string">"description"</span><span class="token punctuation">:</span> <span class="token string">"搜索公司内部 Wiki"</span><span class="token punctuation">,</span>
-<span class="token string">"inputSchema"</span><span class="token punctuation">:</span> <span class="token punctuation">{<!-- --></span>
-<span class="token string">"type"</span><span class="token punctuation">:</span> <span class="token string">"object"</span><span class="token punctuation">,</span>
-<span class="token string">"properties"</span><span class="token punctuation">:</span> <span class="token punctuation">{<!-- --></span>
-<span class="token string">"query"</span><span class="token punctuation">:</span> <span class="token punctuation">{<!-- --></span>
-<span class="token string">"type"</span><span class="token punctuation">:</span> <span class="token string">"string"</span><span class="token punctuation">,</span>
-<span class="token string">"description"</span><span class="token punctuation">:</span> <span class="token string">"搜索关键词"</span>
-<span class="token punctuation">}</span>
-<span class="token punctuation">}</span><span class="token punctuation">,</span>
-<span class="token string">"required"</span><span class="token punctuation">:</span> <span class="token punctuation">[</span><span class="token string">"query"</span><span class="token punctuation">]</span>
-<span class="token punctuation">}</span>
-<span class="token punctuation">}</span>
-<span class="token punctuation">]</span>
+TOOLS = [
+{<!-- -->
+"name": "search_company_wiki",
+"description": "搜索公司内部 Wiki",
+"inputSchema": {<!-- -->
+"type": "object",
+"properties": {<!-- -->
+"query": {<!-- -->
+"type": "string",
+"description": "搜索关键词"
+}
+},
+"required": ["query"]
+}
+}
+]
 
-<span class="token keyword">def</span> <span class="token function">send_response</span><span class="token punctuation">(</span>request_id<span class="token punctuation">,</span> result<span class="token punctuation">)</span><span class="token punctuation">:</span>
-resp <span class="token operator">=</span> <span class="token punctuation">{<!-- --></span>
-<span class="token string">"jsonrpc"</span><span class="token punctuation">:</span> <span class="token string">"2.0"</span><span class="token punctuation">,</span>
-<span class="token string">"id"</span><span class="token punctuation">:</span> request_id<span class="token punctuation">,</span>
-<span class="token string">"result"</span><span class="token punctuation">:</span> result
-<span class="token punctuation">}</span>
-<span class="token keyword">print</span><span class="token punctuation">(</span>json<span class="token punctuation">.</span>dumps<span class="token punctuation">(</span>resp<span class="token punctuation">,</span> ensure_ascii<span class="token operator">=</span><span class="token boolean">False</span><span class="token punctuation">)</span><span class="token punctuation">,</span> flush<span class="token operator">=</span><span class="token boolean">True</span><span class="token punctuation">)</span>
+def send_response(request_id, result):
+resp = {<!-- -->
+"jsonrpc": "2.0",
+"id": request_id,
+"result": result
+}
+print(json.dumps(resp, ensure_ascii=False), flush=True)
 
-<span class="token keyword">def</span> <span class="token function">send_error</span><span class="token punctuation">(</span>request_id<span class="token punctuation">,</span> code<span class="token punctuation">,</span> message<span class="token punctuation">)</span><span class="token punctuation">:</span>
-resp <span class="token operator">=</span> <span class="token punctuation">{<!-- --></span>
-<span class="token string">"jsonrpc"</span><span class="token punctuation">:</span> <span class="token string">"2.0"</span><span class="token punctuation">,</span>
-<span class="token string">"id"</span><span class="token punctuation">:</span> request_id<span class="token punctuation">,</span>
-<span class="token string">"error"</span><span class="token punctuation">:</span> <span class="token punctuation">{<!-- --></span>
-<span class="token string">"code"</span><span class="token punctuation">:</span> code<span class="token punctuation">,</span>
-<span class="token string">"message"</span><span class="token punctuation">:</span> message
-<span class="token punctuation">}</span>
-<span class="token punctuation">}</span>
-<span class="token keyword">print</span><span class="token punctuation">(</span>json<span class="token punctuation">.</span>dumps<span class="token punctuation">(</span>resp<span class="token punctuation">,</span> ensure_ascii<span class="token operator">=</span><span class="token boolean">False</span><span class="token punctuation">)</span><span class="token punctuation">,</span> flush<span class="token operator">=</span><span class="token boolean">True</span><span class="token punctuation">)</span>
+def send_error(request_id, code, message):
+resp = {<!-- -->
+"jsonrpc": "2.0",
+"id": request_id,
+"error": {<!-- -->
+"code": code,
+"message": message
+}
+}
+print(json.dumps(resp, ensure_ascii=False), flush=True)
 
-<span class="token keyword">def</span> <span class="token function">handle_initialize</span><span class="token punctuation">(</span>req<span class="token punctuation">)</span><span class="token punctuation">:</span>
-send_response<span class="token punctuation">(</span>req<span class="token punctuation">[</span><span class="token string">"id"</span><span class="token punctuation">]</span><span class="token punctuation">,</span> <span class="token punctuation">{<!-- --></span>
-<span class="token string">"protocolVersion"</span><span class="token punctuation">:</span> <span class="token string">"2024-11-05"</span><span class="token punctuation">,</span>
-<span class="token string">"capabilities"</span><span class="token punctuation">:</span> <span class="token punctuation">{<!-- --></span>
-<span class="token string">"tools"</span><span class="token punctuation">:</span> <span class="token punctuation">{<!-- --></span><span class="token punctuation">}</span>
-<span class="token punctuation">}</span><span class="token punctuation">,</span>
-<span class="token string">"serverInfo"</span><span class="token punctuation">:</span> <span class="token punctuation">{<!-- --></span>
-<span class="token string">"name"</span><span class="token punctuation">:</span> <span class="token string">"demo-wiki-mcp"</span><span class="token punctuation">,</span>
-<span class="token string">"version"</span><span class="token punctuation">:</span> <span class="token string">"1.0.0"</span>
-<span class="token punctuation">}</span>
-<span class="token punctuation">}</span><span class="token punctuation">)</span>
+def handle_initialize(req):
+send_response(req["id"], {<!-- -->
+"protocolVersion": "2024-11-05",
+"capabilities": {<!-- -->
+"tools": {<!-- -->}
+},
+"serverInfo": {<!-- -->
+"name": "demo-wiki-mcp",
+"version": "1.0.0"
+}
+})
 
-<span class="token keyword">def</span> <span class="token function">handle_tools_list</span><span class="token punctuation">(</span>req<span class="token punctuation">)</span><span class="token punctuation">:</span>
-send_response<span class="token punctuation">(</span>req<span class="token punctuation">[</span><span class="token string">"id"</span><span class="token punctuation">]</span><span class="token punctuation">,</span> <span class="token punctuation">{<!-- --></span>
-<span class="token string">"tools"</span><span class="token punctuation">:</span> TOOLS
-<span class="token punctuation">}</span><span class="token punctuation">)</span>
+def handle_tools_list(req):
+send_response(req["id"], {<!-- -->
+"tools": TOOLS
+})
 
-<span class="token keyword">def</span> <span class="token function">handle_tools_call</span><span class="token punctuation">(</span>req<span class="token punctuation">)</span><span class="token punctuation">:</span>
-params <span class="token operator">=</span> req<span class="token punctuation">.</span>get<span class="token punctuation">(</span><span class="token string">"params"</span><span class="token punctuation">,</span> <span class="token punctuation">{<!-- --></span><span class="token punctuation">}</span><span class="token punctuation">)</span>
-name <span class="token operator">=</span> params<span class="token punctuation">.</span>get<span class="token punctuation">(</span><span class="token string">"name"</span><span class="token punctuation">)</span>
-arguments <span class="token operator">=</span> params<span class="token punctuation">.</span>get<span class="token punctuation">(</span><span class="token string">"arguments"</span><span class="token punctuation">,</span> <span class="token punctuation">{<!-- --></span><span class="token punctuation">}</span><span class="token punctuation">)</span>
+def handle_tools_call(req):
+params = req.get("params", {<!-- -->})
+name = params.get("name")
+arguments = params.get("arguments", {<!-- -->})
 
-<span class="token keyword">if</span> name <span class="token operator">!=</span> <span class="token string">"search_company_wiki"</span><span class="token punctuation">:</span>
-send_error<span class="token punctuation">(</span>req<span class="token punctuation">[</span><span class="token string">"id"</span><span class="token punctuation">]</span><span class="token punctuation">,</span> <span class="token operator">-</span><span class="token number">32601</span><span class="token punctuation">,</span> <span class="token string-interpolation"><span class="token string">f"Unknown tool: </span><span class="token interpolation"><span class="token punctuation">{<!-- --></span>name<span class="token punctuation">}</span></span><span class="token string">"</span></span><span class="token punctuation">)</span>
-<span class="token keyword">return</span>
+if name != "search_company_wiki":
+send_error(req["id"], -32601, f"Unknown tool: {<!-- -->name}")
+return
 
-query <span class="token operator">=</span> arguments<span class="token punctuation">.</span>get<span class="token punctuation">(</span><span class="token string">"query"</span><span class="token punctuation">,</span> <span class="token string">""</span><span class="token punctuation">)</span>
+query = arguments.get("query", "")
 
-<span class="token comment"># 这里应该接真实的 Wiki / RAG / 数据库</span>
-result <span class="token operator">=</span> <span class="token string-interpolation"><span class="token string">f"你查询的是：</span><span class="token interpolation"><span class="token punctuation">{<!-- --></span>query<span class="token punctuation">}</span></span><span class="token string">。这里返回公司内部 Wiki 的模拟结果。"</span></span>
+# 这里应该接真实的 Wiki / RAG / 数据库
+result = f"你查询的是：{<!-- -->query}。这里返回公司内部 Wiki 的模拟结果。"
 
-send_response<span class="token punctuation">(</span>req<span class="token punctuation">[</span><span class="token string">"id"</span><span class="token punctuation">]</span><span class="token punctuation">,</span> <span class="token punctuation">{<!-- --></span>
-<span class="token string">"content"</span><span class="token punctuation">:</span> <span class="token punctuation">[</span>
-<span class="token punctuation">{<!-- --></span>
-<span class="token string">"type"</span><span class="token punctuation">:</span> <span class="token string">"text"</span><span class="token punctuation">,</span>
-<span class="token string">"text"</span><span class="token punctuation">:</span> result
-<span class="token punctuation">}</span>
-<span class="token punctuation">]</span>
-<span class="token punctuation">}</span><span class="token punctuation">)</span>
+send_response(req["id"], {<!-- -->
+"content": [
+{<!-- -->
+"type": "text",
+"text": result
+}
+]
+})
 
-<span class="token keyword">def</span> <span class="token function">main</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">:</span>
-<span class="token keyword">for</span> line <span class="token keyword">in</span> sys<span class="token punctuation">.</span>stdin<span class="token punctuation">:</span>
-line <span class="token operator">=</span> line<span class="token punctuation">.</span>strip<span class="token punctuation">(</span><span class="token punctuation">)</span>
-<span class="token keyword">if</span> <span class="token keyword">not</span> line<span class="token punctuation">:</span>
-<span class="token keyword">continue</span>
+def main():
+for line in sys.stdin:
+line = line.strip()
+if not line:
+continue
 
-req <span class="token operator">=</span> json<span class="token punctuation">.</span>loads<span class="token punctuation">(</span>line<span class="token punctuation">)</span>
-method <span class="token operator">=</span> req<span class="token punctuation">.</span>get<span class="token punctuation">(</span><span class="token string">"method"</span><span class="token punctuation">)</span>
+req = json.loads(line)
+method = req.get("method")
 
-<span class="token keyword">if</span> method <span class="token operator">==</span> <span class="token string">"initialize"</span><span class="token punctuation">:</span>
-handle_initialize<span class="token punctuation">(</span>req<span class="token punctuation">)</span>
-<span class="token keyword">elif</span> method <span class="token operator">==</span> <span class="token string">"tools/list"</span><span class="token punctuation">:</span>
-handle_tools_list<span class="token punctuation">(</span>req<span class="token punctuation">)</span>
-<span class="token keyword">elif</span> method <span class="token operator">==</span> <span class="token string">"tools/call"</span><span class="token punctuation">:</span>
-handle_tools_call<span class="token punctuation">(</span>req<span class="token punctuation">)</span>
-<span class="token keyword">else</span><span class="token punctuation">:</span>
-send_error<span class="token punctuation">(</span>req<span class="token punctuation">.</span>get<span class="token punctuation">(</span><span class="token string">"id"</span><span class="token punctuation">)</span><span class="token punctuation">,</span> <span class="token operator">-</span><span class="token number">32601</span><span class="token punctuation">,</span> <span class="token string-interpolation"><span class="token string">f"Method not found: </span><span class="token interpolation"><span class="token punctuation">{<!-- --></span>method<span class="token punctuation">}</span></span><span class="token string">"</span></span><span class="token punctuation">)</span>
+if method == "initialize":
+handle_initialize(req)
+elif method == "tools/list":
+handle_tools_list(req)
+elif method == "tools/call":
+handle_tools_call(req)
+else:
+send_error(req.get("id"), -32601, f"Method not found: {<!-- -->method}")
 
-<span class="token keyword">if</span> __name__ <span class="token operator">==</span> <span class="token string">"__main__"</span><span class="token punctuation">:</span>
-main<span class="token punctuation">(</span><span class="token punctuation">)</span>
+if __name__ == "__main__":
+main()
 ```
 
  
@@ -1593,117 +1601,117 @@ tools/call
 
 
 ```python
-<span class="token keyword">import</span> sys
-<span class="token keyword">import</span> json
-<span class="token keyword">import</span> uuid
+import sys
+import json
+import uuid
 
-sessions <span class="token operator">=</span> <span class="token punctuation">{<!-- --></span><span class="token punctuation">}</span>
+sessions = {<!-- -->}
 
-<span class="token keyword">def</span> <span class="token function">send_response</span><span class="token punctuation">(</span>request_id<span class="token punctuation">,</span> result<span class="token punctuation">)</span><span class="token punctuation">:</span>
-<span class="token keyword">print</span><span class="token punctuation">(</span>json<span class="token punctuation">.</span>dumps<span class="token punctuation">(</span><span class="token punctuation">{<!-- --></span>
-<span class="token string">"jsonrpc"</span><span class="token punctuation">:</span> <span class="token string">"2.0"</span><span class="token punctuation">,</span>
-<span class="token string">"id"</span><span class="token punctuation">:</span> request_id<span class="token punctuation">,</span>
-<span class="token string">"result"</span><span class="token punctuation">:</span> result
-<span class="token punctuation">}</span><span class="token punctuation">,</span> ensure_ascii<span class="token operator">=</span><span class="token boolean">False</span><span class="token punctuation">)</span><span class="token punctuation">,</span> flush<span class="token operator">=</span><span class="token boolean">True</span><span class="token punctuation">)</span>
+def send_response(request_id, result):
+print(json.dumps({<!-- -->
+"jsonrpc": "2.0",
+"id": request_id,
+"result": result
+}, ensure_ascii=False), flush=True)
 
-<span class="token keyword">def</span> <span class="token function">send_notification</span><span class="token punctuation">(</span>method<span class="token punctuation">,</span> params<span class="token punctuation">)</span><span class="token punctuation">:</span>
-<span class="token keyword">print</span><span class="token punctuation">(</span>json<span class="token punctuation">.</span>dumps<span class="token punctuation">(</span><span class="token punctuation">{<!-- --></span>
-<span class="token string">"jsonrpc"</span><span class="token punctuation">:</span> <span class="token string">"2.0"</span><span class="token punctuation">,</span>
-<span class="token string">"method"</span><span class="token punctuation">:</span> method<span class="token punctuation">,</span>
-<span class="token string">"params"</span><span class="token punctuation">:</span> params
-<span class="token punctuation">}</span><span class="token punctuation">,</span> ensure_ascii<span class="token operator">=</span><span class="token boolean">False</span><span class="token punctuation">)</span><span class="token punctuation">,</span> flush<span class="token operator">=</span><span class="token boolean">True</span><span class="token punctuation">)</span>
+def send_notification(method, params):
+print(json.dumps({<!-- -->
+"jsonrpc": "2.0",
+"method": method,
+"params": params
+}, ensure_ascii=False), flush=True)
 
-<span class="token keyword">def</span> <span class="token function">handle_initialize</span><span class="token punctuation">(</span>req<span class="token punctuation">)</span><span class="token punctuation">:</span>
-send_response<span class="token punctuation">(</span>req<span class="token punctuation">[</span><span class="token string">"id"</span><span class="token punctuation">]</span><span class="token punctuation">,</span> <span class="token punctuation">{<!-- --></span>
-<span class="token string">"agentInfo"</span><span class="token punctuation">:</span> <span class="token punctuation">{<!-- --></span>
-<span class="token string">"name"</span><span class="token punctuation">:</span> <span class="token string">"demo-coding-agent"</span><span class="token punctuation">,</span>
-<span class="token string">"version"</span><span class="token punctuation">:</span> <span class="token string">"1.0.0"</span>
-<span class="token punctuation">}</span><span class="token punctuation">,</span>
-<span class="token string">"capabilities"</span><span class="token punctuation">:</span> <span class="token punctuation">{<!-- --></span>
-<span class="token string">"streaming"</span><span class="token punctuation">:</span> <span class="token boolean">True</span><span class="token punctuation">,</span>
-<span class="token string">"cancellation"</span><span class="token punctuation">:</span> <span class="token boolean">True</span><span class="token punctuation">,</span>
-<span class="token string">"fileEdit"</span><span class="token punctuation">:</span> <span class="token boolean">False</span>
-<span class="token punctuation">}</span>
-<span class="token punctuation">}</span><span class="token punctuation">)</span>
+def handle_initialize(req):
+send_response(req["id"], {<!-- -->
+"agentInfo": {<!-- -->
+"name": "demo-coding-agent",
+"version": "1.0.0"
+},
+"capabilities": {<!-- -->
+"streaming": True,
+"cancellation": True,
+"fileEdit": False
+}
+})
 
-<span class="token keyword">def</span> <span class="token function">handle_session_new</span><span class="token punctuation">(</span>req<span class="token punctuation">)</span><span class="token punctuation">:</span>
-session_id <span class="token operator">=</span> <span class="token builtin">str</span><span class="token punctuation">(</span>uuid<span class="token punctuation">.</span>uuid4<span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
-sessions<span class="token punctuation">[</span>session_id<span class="token punctuation">]</span> <span class="token operator">=</span> <span class="token punctuation">{<!-- --></span>
-<span class="token string">"messages"</span><span class="token punctuation">:</span> <span class="token punctuation">[</span><span class="token punctuation">]</span><span class="token punctuation">,</span>
-<span class="token string">"cancelled"</span><span class="token punctuation">:</span> <span class="token boolean">False</span>
-<span class="token punctuation">}</span>
+def handle_session_new(req):
+session_id = str(uuid.uuid4())
+sessions[session_id] = {<!-- -->
+"messages": [],
+"cancelled": False
+}
 
-send_response<span class="token punctuation">(</span>req<span class="token punctuation">[</span><span class="token string">"id"</span><span class="token punctuation">]</span><span class="token punctuation">,</span> <span class="token punctuation">{<!-- --></span>
-<span class="token string">"sessionId"</span><span class="token punctuation">:</span> session_id
-<span class="token punctuation">}</span><span class="token punctuation">)</span>
+send_response(req["id"], {<!-- -->
+"sessionId": session_id
+})
 
-<span class="token keyword">def</span> <span class="token function">handle_session_prompt</span><span class="token punctuation">(</span>req<span class="token punctuation">)</span><span class="token punctuation">:</span>
-params <span class="token operator">=</span> req<span class="token punctuation">.</span>get<span class="token punctuation">(</span><span class="token string">"params"</span><span class="token punctuation">,</span> <span class="token punctuation">{<!-- --></span><span class="token punctuation">}</span><span class="token punctuation">)</span>
-session_id <span class="token operator">=</span> params<span class="token punctuation">.</span>get<span class="token punctuation">(</span><span class="token string">"sessionId"</span><span class="token punctuation">)</span>
-prompt <span class="token operator">=</span> params<span class="token punctuation">.</span>get<span class="token punctuation">(</span><span class="token string">"prompt"</span><span class="token punctuation">)</span>
+def handle_session_prompt(req):
+params = req.get("params", {<!-- -->})
+session_id = params.get("sessionId")
+prompt = params.get("prompt")
 
-<span class="token keyword">if</span> session_id <span class="token keyword">not</span> <span class="token keyword">in</span> sessions<span class="token punctuation">:</span>
-send_response<span class="token punctuation">(</span>req<span class="token punctuation">[</span><span class="token string">"id"</span><span class="token punctuation">]</span><span class="token punctuation">,</span> <span class="token punctuation">{<!-- --></span>
-<span class="token string">"stopReason"</span><span class="token punctuation">:</span> <span class="token string">"error"</span><span class="token punctuation">,</span>
-<span class="token string">"message"</span><span class="token punctuation">:</span> <span class="token string">"Session not found"</span>
-<span class="token punctuation">}</span><span class="token punctuation">)</span>
-<span class="token keyword">return</span>
+if session_id not in sessions:
+send_response(req["id"], {<!-- -->
+"stopReason": "error",
+"message": "Session not found"
+})
+return
 
-sessions<span class="token punctuation">[</span>session_id<span class="token punctuation">]</span><span class="token punctuation">[</span><span class="token string">"messages"</span><span class="token punctuation">]</span><span class="token punctuation">.</span>append<span class="token punctuation">(</span><span class="token punctuation">{<!-- --></span>
-<span class="token string">"role"</span><span class="token punctuation">:</span> <span class="token string">"user"</span><span class="token punctuation">,</span>
-<span class="token string">"content"</span><span class="token punctuation">:</span> prompt
-<span class="token punctuation">}</span><span class="token punctuation">)</span>
+sessions[session_id]["messages"].append({<!-- -->
+"role": "user",
+"content": prompt
+})
 
-send_notification<span class="token punctuation">(</span><span class="token string">"session/update"</span><span class="token punctuation">,</span> <span class="token punctuation">{<!-- --></span>
-<span class="token string">"sessionId"</span><span class="token punctuation">:</span> session_id<span class="token punctuation">,</span>
-<span class="token string">"message"</span><span class="token punctuation">:</span> <span class="token string">"正在分析任务..."</span>
-<span class="token punctuation">}</span><span class="token punctuation">)</span>
+send_notification("session/update", {<!-- -->
+"sessionId": session_id,
+"message": "正在分析任务..."
+})
 
-send_notification<span class="token punctuation">(</span><span class="token string">"session/update"</span><span class="token punctuation">,</span> <span class="token punctuation">{<!-- --></span>
-<span class="token string">"sessionId"</span><span class="token punctuation">:</span> session_id<span class="token punctuation">,</span>
-<span class="token string">"message"</span><span class="token punctuation">:</span> <span class="token string">"正在制定执行计划..."</span>
-<span class="token punctuation">}</span><span class="token punctuation">)</span>
+send_notification("session/update", {<!-- -->
+"sessionId": session_id,
+"message": "正在制定执行计划..."
+})
 
-send_response<span class="token punctuation">(</span>req<span class="token punctuation">[</span><span class="token string">"id"</span><span class="token punctuation">]</span><span class="token punctuation">,</span> <span class="token punctuation">{<!-- --></span>
-<span class="token string">"stopReason"</span><span class="token punctuation">:</span> <span class="token string">"completed"</span><span class="token punctuation">,</span>
-<span class="token string">"summary"</span><span class="token punctuation">:</span> <span class="token string-interpolation"><span class="token string">f"已收到任务：</span><span class="token interpolation"><span class="token punctuation">{<!-- --></span>prompt<span class="token punctuation">}</span></span><span class="token string">。这里是模拟执行结果。"</span></span>
-<span class="token punctuation">}</span><span class="token punctuation">)</span>
+send_response(req["id"], {<!-- -->
+"stopReason": "completed",
+"summary": f"已收到任务：{<!-- -->prompt}。这里是模拟执行结果。"
+})
 
-<span class="token keyword">def</span> <span class="token function">handle_session_cancel</span><span class="token punctuation">(</span>req<span class="token punctuation">)</span><span class="token punctuation">:</span>
-params <span class="token operator">=</span> req<span class="token punctuation">.</span>get<span class="token punctuation">(</span><span class="token string">"params"</span><span class="token punctuation">,</span> <span class="token punctuation">{<!-- --></span><span class="token punctuation">}</span><span class="token punctuation">)</span>
-session_id <span class="token operator">=</span> params<span class="token punctuation">.</span>get<span class="token punctuation">(</span><span class="token string">"sessionId"</span><span class="token punctuation">)</span>
+def handle_session_cancel(req):
+params = req.get("params", {<!-- -->})
+session_id = params.get("sessionId")
 
-<span class="token keyword">if</span> session_id <span class="token keyword">in</span> sessions<span class="token punctuation">:</span>
-sessions<span class="token punctuation">[</span>session_id<span class="token punctuation">]</span><span class="token punctuation">[</span><span class="token string">"cancelled"</span><span class="token punctuation">]</span> <span class="token operator">=</span> <span class="token boolean">True</span>
+if session_id in sessions:
+sessions[session_id]["cancelled"] = True
 
-send_response<span class="token punctuation">(</span>req<span class="token punctuation">[</span><span class="token string">"id"</span><span class="token punctuation">]</span><span class="token punctuation">,</span> <span class="token punctuation">{<!-- --></span>
-<span class="token string">"cancelled"</span><span class="token punctuation">:</span> <span class="token boolean">True</span>
-<span class="token punctuation">}</span><span class="token punctuation">)</span>
+send_response(req["id"], {<!-- -->
+"cancelled": True
+})
 
-<span class="token keyword">def</span> <span class="token function">main</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">:</span>
-<span class="token keyword">for</span> line <span class="token keyword">in</span> sys<span class="token punctuation">.</span>stdin<span class="token punctuation">:</span>
-line <span class="token operator">=</span> line<span class="token punctuation">.</span>strip<span class="token punctuation">(</span><span class="token punctuation">)</span>
-<span class="token keyword">if</span> <span class="token keyword">not</span> line<span class="token punctuation">:</span>
-<span class="token keyword">continue</span>
+def main():
+for line in sys.stdin:
+line = line.strip()
+if not line:
+continue
 
-req <span class="token operator">=</span> json<span class="token punctuation">.</span>loads<span class="token punctuation">(</span>line<span class="token punctuation">)</span>
-method <span class="token operator">=</span> req<span class="token punctuation">.</span>get<span class="token punctuation">(</span><span class="token string">"method"</span><span class="token punctuation">)</span>
+req = json.loads(line)
+method = req.get("method")
 
-<span class="token keyword">if</span> method <span class="token operator">==</span> <span class="token string">"initialize"</span><span class="token punctuation">:</span>
-handle_initialize<span class="token punctuation">(</span>req<span class="token punctuation">)</span>
-<span class="token keyword">elif</span> method <span class="token operator">==</span> <span class="token string">"session/new"</span><span class="token punctuation">:</span>
-handle_session_new<span class="token punctuation">(</span>req<span class="token punctuation">)</span>
-<span class="token keyword">elif</span> method <span class="token operator">==</span> <span class="token string">"session/prompt"</span><span class="token punctuation">:</span>
-handle_session_prompt<span class="token punctuation">(</span>req<span class="token punctuation">)</span>
-<span class="token keyword">elif</span> method <span class="token operator">==</span> <span class="token string">"session/cancel"</span><span class="token punctuation">:</span>
-handle_session_cancel<span class="token punctuation">(</span>req<span class="token punctuation">)</span>
-<span class="token keyword">else</span><span class="token punctuation">:</span>
-send_response<span class="token punctuation">(</span>req<span class="token punctuation">.</span>get<span class="token punctuation">(</span><span class="token string">"id"</span><span class="token punctuation">)</span><span class="token punctuation">,</span> <span class="token punctuation">{<!-- --></span>
-<span class="token string">"error"</span><span class="token punctuation">:</span> <span class="token string-interpolation"><span class="token string">f"Unknown method: </span><span class="token interpolation"><span class="token punctuation">{<!-- --></span>method<span class="token punctuation">}</span></span><span class="token string">"</span></span>
-<span class="token punctuation">}</span><span class="token punctuation">)</span>
+if method == "initialize":
+handle_initialize(req)
+elif method == "session/new":
+handle_session_new(req)
+elif method == "session/prompt":
+handle_session_prompt(req)
+elif method == "session/cancel":
+handle_session_cancel(req)
+else:
+send_response(req.get("id"), {<!-- -->
+"error": f"Unknown method: {<!-- -->method}"
+})
 
-<span class="token keyword">if</span> __name__ <span class="token operator">==</span> <span class="token string">"__main__"</span><span class="token punctuation">:</span>
-main<span class="token punctuation">(</span><span class="token punctuation">)</span>
+if __name__ == "__main__":
+main()
 ```
 
  
@@ -1721,29 +1729,29 @@ main<span class="token punctuation">(</span><span class="token punctuation">)</s
 
 
 ```python
-<span class="token keyword">from</span> dataclasses <span class="token keyword">import</span> dataclass
-<span class="token keyword">from</span> typing <span class="token keyword">import</span> Any<span class="token punctuation">,</span> Dict<span class="token punctuation">,</span> List
+from dataclasses import dataclass
+from typing import Any, Dict, List
 
-<span class="token decorator annotation punctuation">@dataclass</span>
-<span class="token keyword">class</span> <span class="token class-name">Message</span><span class="token punctuation">:</span>
-platform<span class="token punctuation">:</span> <span class="token builtin">str</span>
-conversation_id<span class="token punctuation">:</span> <span class="token builtin">str</span>
-user_id<span class="token punctuation">:</span> <span class="token builtin">str</span>
-text<span class="token punctuation">:</span> <span class="token builtin">str</span>
-attachments<span class="token punctuation">:</span> List<span class="token punctuation">[</span>Any<span class="token punctuation">]</span>
-raw<span class="token punctuation">:</span> Dict<span class="token punctuation">[</span><span class="token builtin">str</span><span class="token punctuation">,</span> Any<span class="token punctuation">]</span>
+@dataclass
+class Message:
+platform: str
+conversation_id: str
+user_id: str
+text: str
+attachments: List[Any]
+raw: Dict[str, Any]
 
-<span class="token keyword">class</span> <span class="token class-name">PlatformPlugin</span><span class="token punctuation">:</span>
-name<span class="token punctuation">:</span> <span class="token builtin">str</span>
+class PlatformPlugin:
+name: str
 
-<span class="token keyword">def</span> <span class="token function">authenticate</span><span class="token punctuation">(</span>self<span class="token punctuation">)</span> <span class="token operator">-</span><span class="token operator">></span> <span class="token builtin">bool</span><span class="token punctuation">:</span>
-<span class="token keyword">raise</span> NotImplementedError
+def authenticate(self) -> bool:
+raise NotImplementedError
 
-<span class="token keyword">def</span> <span class="token function">receive_message</span><span class="token punctuation">(</span>self<span class="token punctuation">)</span> <span class="token operator">-</span><span class="token operator">></span> Message<span class="token punctuation">:</span>
-<span class="token keyword">raise</span> NotImplementedError
+def receive_message(self) -> Message:
+raise NotImplementedError
 
-<span class="token keyword">def</span> <span class="token function">send_message</span><span class="token punctuation">(</span>self<span class="token punctuation">,</span> msg<span class="token punctuation">:</span> Message<span class="token punctuation">)</span> <span class="token operator">-</span><span class="token operator">></span> <span class="token boolean">None</span><span class="token punctuation">:</span>
-<span class="token keyword">raise</span> NotImplementedError
+def send_message(self, msg: Message) -> None:
+raise NotImplementedError
 ```
 
  
@@ -1751,33 +1759,33 @@ name<span class="token punctuation">:</span> <span class="token builtin">str</sp
 
 
 ```python
-<span class="token keyword">class</span> <span class="token class-name">SlackPlugin</span><span class="token punctuation">(</span>PlatformPlugin<span class="token punctuation">)</span><span class="token punctuation">:</span>
-name <span class="token operator">=</span> <span class="token string">"slack"</span>
+class SlackPlugin(PlatformPlugin):
+name = "slack"
 
-<span class="token keyword">def</span> <span class="token function">authenticate</span><span class="token punctuation">(</span>self<span class="token punctuation">)</span> <span class="token operator">-</span><span class="token operator">></span> <span class="token builtin">bool</span><span class="token punctuation">:</span>
-<span class="token comment"># 校验 bot token</span>
-<span class="token keyword">return</span> <span class="token boolean">True</span>
+def authenticate(self) -> bool:
+# 校验 bot token
+return True
 
-<span class="token keyword">def</span> <span class="token function">receive_message</span><span class="token punctuation">(</span>self<span class="token punctuation">)</span> <span class="token operator">-</span><span class="token operator">></span> Message<span class="token punctuation">:</span>
-<span class="token comment"># 从 Slack Events API 接收事件</span>
-event <span class="token operator">=</span> <span class="token punctuation">{<!-- --></span>
-<span class="token string">"channel"</span><span class="token punctuation">:</span> <span class="token string">"C123"</span><span class="token punctuation">,</span>
-<span class="token string">"user"</span><span class="token punctuation">:</span> <span class="token string">"U123"</span><span class="token punctuation">,</span>
-<span class="token string">"text"</span><span class="token punctuation">:</span> <span class="token string">"帮我总结一下今天的工作"</span>
-<span class="token punctuation">}</span>
+def receive_message(self) -> Message:
+# 从 Slack Events API 接收事件
+event = {<!-- -->
+"channel": "C123",
+"user": "U123",
+"text": "帮我总结一下今天的工作"
+}
 
-<span class="token keyword">return</span> Message<span class="token punctuation">(</span>
-platform<span class="token operator">=</span><span class="token string">"slack"</span><span class="token punctuation">,</span>
-conversation_id<span class="token operator">=</span>event<span class="token punctuation">[</span><span class="token string">"channel"</span><span class="token punctuation">]</span><span class="token punctuation">,</span>
-user_id<span class="token operator">=</span>event<span class="token punctuation">[</span><span class="token string">"user"</span><span class="token punctuation">]</span><span class="token punctuation">,</span>
-text<span class="token operator">=</span>event<span class="token punctuation">[</span><span class="token string">"text"</span><span class="token punctuation">]</span><span class="token punctuation">,</span>
-attachments<span class="token operator">=</span><span class="token punctuation">[</span><span class="token punctuation">]</span><span class="token punctuation">,</span>
-raw<span class="token operator">=</span>event
-<span class="token punctuation">)</span>
+return Message(
+platform="slack",
+conversation_id=event["channel"],
+user_id=event["user"],
+text=event["text"],
+attachments=[],
+raw=event
+)
 
-<span class="token keyword">def</span> <span class="token function">send_message</span><span class="token punctuation">(</span>self<span class="token punctuation">,</span> msg<span class="token punctuation">:</span> Message<span class="token punctuation">)</span> <span class="token operator">-</span><span class="token operator">></span> <span class="token boolean">None</span><span class="token punctuation">:</span>
-<span class="token comment"># 调用 Slack Web API 发送消息</span>
-<span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string-interpolation"><span class="token string">f"[Slack] send to </span><span class="token interpolation"><span class="token punctuation">{<!-- --></span>msg<span class="token punctuation">.</span>conversation_id<span class="token punctuation">}</span></span><span class="token string">: </span><span class="token interpolation"><span class="token punctuation">{<!-- --></span>msg<span class="token punctuation">.</span>text<span class="token punctuation">}</span></span><span class="token string">"</span></span><span class="token punctuation">)</span>
+def send_message(self, msg: Message) -> None:
+# 调用 Slack Web API 发送消息
+print(f"[Slack] send to {<!-- -->msg.conversation_id}: {<!-- -->msg.text}")
 ```
 
  
@@ -1785,36 +1793,36 @@ raw<span class="token operator">=</span>event
 
 
 ```python
-<span class="token keyword">class</span> <span class="token class-name">TelegramPlugin</span><span class="token punctuation">(</span>PlatformPlugin<span class="token punctuation">)</span><span class="token punctuation">:</span>
-name <span class="token operator">=</span> <span class="token string">"telegram"</span>
+class TelegramPlugin(PlatformPlugin):
+name = "telegram"
 
-<span class="token keyword">def</span> <span class="token function">authenticate</span><span class="token punctuation">(</span>self<span class="token punctuation">)</span> <span class="token operator">-</span><span class="token operator">></span> <span class="token builtin">bool</span><span class="token punctuation">:</span>
-<span class="token comment"># 校验 bot token</span>
-<span class="token keyword">return</span> <span class="token boolean">True</span>
+def authenticate(self) -> bool:
+# 校验 bot token
+return True
 
-<span class="token keyword">def</span> <span class="token function">receive_message</span><span class="token punctuation">(</span>self<span class="token punctuation">)</span> <span class="token operator">-</span><span class="token operator">></span> Message<span class="token punctuation">:</span>
-update <span class="token operator">=</span> <span class="token punctuation">{<!-- --></span>
-<span class="token string">"message"</span><span class="token punctuation">:</span> <span class="token punctuation">{<!-- --></span>
-<span class="token string">"chat"</span><span class="token punctuation">:</span> <span class="token punctuation">{<!-- --></span><span class="token string">"id"</span><span class="token punctuation">:</span> <span class="token string">"T_CHAT_123"</span><span class="token punctuation">}</span><span class="token punctuation">,</span>
-<span class="token string">"from"</span><span class="token punctuation">:</span> <span class="token punctuation">{<!-- --></span><span class="token string">"id"</span><span class="token punctuation">:</span> <span class="token string">"T_USER_456"</span><span class="token punctuation">}</span><span class="token punctuation">,</span>
-<span class="token string">"text"</span><span class="token punctuation">:</span> <span class="token string">"帮我查一下年假制度"</span>
-<span class="token punctuation">}</span>
-<span class="token punctuation">}</span>
+def receive_message(self) -> Message:
+update = {<!-- -->
+"message": {<!-- -->
+"chat": {<!-- -->"id": "T_CHAT_123"},
+"from": {<!-- -->"id": "T_USER_456"},
+"text": "帮我查一下年假制度"
+}
+}
 
-msg <span class="token operator">=</span> update<span class="token punctuation">[</span><span class="token string">"message"</span><span class="token punctuation">]</span>
+msg = update["message"]
 
-<span class="token keyword">return</span> Message<span class="token punctuation">(</span>
-platform<span class="token operator">=</span><span class="token string">"telegram"</span><span class="token punctuation">,</span>
-conversation_id<span class="token operator">=</span><span class="token builtin">str</span><span class="token punctuation">(</span>msg<span class="token punctuation">[</span><span class="token string">"chat"</span><span class="token punctuation">]</span><span class="token punctuation">[</span><span class="token string">"id"</span><span class="token punctuation">]</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
-user_id<span class="token operator">=</span><span class="token builtin">str</span><span class="token punctuation">(</span>msg<span class="token punctuation">[</span><span class="token string">"from"</span><span class="token punctuation">]</span><span class="token punctuation">[</span><span class="token string">"id"</span><span class="token punctuation">]</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
-text<span class="token operator">=</span>msg<span class="token punctuation">[</span><span class="token string">"text"</span><span class="token punctuation">]</span><span class="token punctuation">,</span>
-attachments<span class="token operator">=</span><span class="token punctuation">[</span><span class="token punctuation">]</span><span class="token punctuation">,</span>
-raw<span class="token operator">=</span>update
-<span class="token punctuation">)</span>
+return Message(
+platform="telegram",
+conversation_id=str(msg["chat"]["id"]),
+user_id=str(msg["from"]["id"]),
+text=msg["text"],
+attachments=[],
+raw=update
+)
 
-<span class="token keyword">def</span> <span class="token function">send_message</span><span class="token punctuation">(</span>self<span class="token punctuation">,</span> msg<span class="token punctuation">:</span> Message<span class="token punctuation">)</span> <span class="token operator">-</span><span class="token operator">></span> <span class="token boolean">None</span><span class="token punctuation">:</span>
-<span class="token comment"># 调用 Telegram sendMessage</span>
-<span class="token keyword">print</span><span class="token punctuation">(</span><span class="token string-interpolation"><span class="token string">f"[Telegram] send to </span><span class="token interpolation"><span class="token punctuation">{<!-- --></span>msg<span class="token punctuation">.</span>conversation_id<span class="token punctuation">}</span></span><span class="token string">: </span><span class="token interpolation"><span class="token punctuation">{<!-- --></span>msg<span class="token punctuation">.</span>text<span class="token punctuation">}</span></span><span class="token string">"</span></span><span class="token punctuation">)</span>
+def send_message(self, msg: Message) -> None:
+# 调用 Telegram sendMessage
+print(f"[Telegram] send to {<!-- -->msg.conversation_id}: {<!-- -->msg.text}")
 ```
 
  
@@ -1822,35 +1830,35 @@ raw<span class="token operator">=</span>update
 
 
 ```python
-<span class="token keyword">class</span> <span class="token class-name">Gateway</span><span class="token punctuation">:</span>
-<span class="token keyword">def</span> <span class="token function">__init__</span><span class="token punctuation">(</span>self<span class="token punctuation">)</span><span class="token punctuation">:</span>
-self<span class="token punctuation">.</span>plugins <span class="token operator">=</span> <span class="token punctuation">{<!-- --></span><span class="token punctuation">}</span>
+class Gateway:
+def __init__(self):
+self.plugins = {<!-- -->}
 
-<span class="token keyword">def</span> <span class="token function">register</span><span class="token punctuation">(</span>self<span class="token punctuation">,</span> plugin<span class="token punctuation">:</span> PlatformPlugin<span class="token punctuation">)</span><span class="token punctuation">:</span>
-<span class="token keyword">if</span> plugin<span class="token punctuation">.</span>authenticate<span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">:</span>
-self<span class="token punctuation">.</span>plugins<span class="token punctuation">[</span>plugin<span class="token punctuation">.</span>name<span class="token punctuation">]</span> <span class="token operator">=</span> plugin
+def register(self, plugin: PlatformPlugin):
+if plugin.authenticate():
+self.plugins[plugin.name] = plugin
 
-<span class="token keyword">def</span> <span class="token function">handle_message</span><span class="token punctuation">(</span>self<span class="token punctuation">,</span> plugin_name<span class="token punctuation">:</span> <span class="token builtin">str</span><span class="token punctuation">)</span><span class="token punctuation">:</span>
-plugin <span class="token operator">=</span> self<span class="token punctuation">.</span>plugins<span class="token punctuation">[</span>plugin_name<span class="token punctuation">]</span>
+def handle_message(self, plugin_name: str):
+plugin = self.plugins[plugin_name]
 
-incoming <span class="token operator">=</span> plugin<span class="token punctuation">.</span>receive_message<span class="token punctuation">(</span><span class="token punctuation">)</span>
+incoming = plugin.receive_message()
 
-response_text <span class="token operator">=</span> self<span class="token punctuation">.</span>call_agent<span class="token punctuation">(</span>incoming<span class="token punctuation">)</span>
+response_text = self.call_agent(incoming)
 
-outgoing <span class="token operator">=</span> Message<span class="token punctuation">(</span>
-platform<span class="token operator">=</span>incoming<span class="token punctuation">.</span>platform<span class="token punctuation">,</span>
-conversation_id<span class="token operator">=</span>incoming<span class="token punctuation">.</span>conversation_id<span class="token punctuation">,</span>
-user_id<span class="token operator">=</span>incoming<span class="token punctuation">.</span>user_id<span class="token punctuation">,</span>
-text<span class="token operator">=</span>response_text<span class="token punctuation">,</span>
-attachments<span class="token operator">=</span><span class="token punctuation">[</span><span class="token punctuation">]</span><span class="token punctuation">,</span>
-raw<span class="token operator">=</span><span class="token punctuation">{<!-- --></span><span class="token punctuation">}</span>
-<span class="token punctuation">)</span>
+outgoing = Message(
+platform=incoming.platform,
+conversation_id=incoming.conversation_id,
+user_id=incoming.user_id,
+text=response_text,
+attachments=[],
+raw={<!-- -->}
+)
 
-plugin<span class="token punctuation">.</span>send_message<span class="token punctuation">(</span>outgoing<span class="token punctuation">)</span>
+plugin.send_message(outgoing)
 
-<span class="token keyword">def</span> <span class="token function">call_agent</span><span class="token punctuation">(</span>self<span class="token punctuation">,</span> msg<span class="token punctuation">:</span> Message<span class="token punctuation">)</span> <span class="token operator">-</span><span class="token operator">></span> <span class="token builtin">str</span><span class="token punctuation">:</span>
-<span class="token comment"># 这里可以调用真实 Agent Runtime</span>
-<span class="token keyword">return</span> <span class="token string-interpolation"><span class="token string">f"Agent 收到你的消息：</span><span class="token interpolation"><span class="token punctuation">{<!-- --></span>msg<span class="token punctuation">.</span>text<span class="token punctuation">}</span></span><span class="token string">"</span></span>
+def call_agent(self, msg: Message) -> str:
+# 这里可以调用真实 Agent Runtime
+return f"Agent 收到你的消息：{<!-- -->msg.text}"
 ```
 
  
@@ -1858,12 +1866,12 @@ plugin<span class="token punctuation">.</span>send_message<span class="token pun
 
 
 ```python
-gateway <span class="token operator">=</span> Gateway<span class="token punctuation">(</span><span class="token punctuation">)</span>
-gateway<span class="token punctuation">.</span>register<span class="token punctuation">(</span>SlackPlugin<span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
-gateway<span class="token punctuation">.</span>register<span class="token punctuation">(</span>TelegramPlugin<span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span>
+gateway = Gateway()
+gateway.register(SlackPlugin())
+gateway.register(TelegramPlugin())
 
-gateway<span class="token punctuation">.</span>handle_message<span class="token punctuation">(</span><span class="token string">"slack"</span><span class="token punctuation">)</span>
-gateway<span class="token punctuation">.</span>handle_message<span class="token punctuation">(</span><span class="token string">"telegram"</span><span class="token punctuation">)</span>
+gateway.handle_message("slack")
+gateway.handle_message("telegram")
 ```
 
  

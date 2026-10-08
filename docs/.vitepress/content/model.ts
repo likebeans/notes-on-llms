@@ -10,6 +10,7 @@ export type ContentStatus = typeof CONTENT_STATUSES[number]
 export interface ContentFrontmatter {
   title: string; description: string; pageType: PageType; module: ModuleKey
   level?: typeof LEVELS[number]; prerequisites?: string[]; updated: string; reviewed?: string
+  reviewScope?: string; exampleStatus?: 'not-run' | 'partial' | 'executed'
   contentStatus: ContentStatus; techVersion?: string; tags: string[]; author?: string; order?: number
 }
 
@@ -31,6 +32,8 @@ export function assertValidFrontmatter(value: Record<string, unknown>, path: str
   if (!value.updated || !ISO_DATE.test(String(value.updated))) fail('updated must use YYYY-MM-DD')
   if (!CONTENT_STATUSES.includes(value.contentStatus as ContentStatus)) fail('contentStatus is invalid')
   if (!Array.isArray(value.tags)) fail('tags must be an array')
+  if (value.reviewScope !== undefined && typeof value.reviewScope !== 'string') fail('reviewScope must be text')
+  if (value.exampleStatus !== undefined && !['not-run','partial','executed'].includes(String(value.exampleStatus))) fail('exampleStatus is invalid')
   if (value.pageType === 'article' && value.contentStatus !== 'draft') {
     if (!LEVELS.includes(value.level as typeof LEVELS[number])) fail('level is required for an article')
     if (!Array.isArray(value.prerequisites)) fail('prerequisites is required for an article')

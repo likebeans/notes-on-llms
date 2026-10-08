@@ -3,20 +3,20 @@ title: 扩散模型
 description: DiT、Stable Diffusion 3、ControlNet 与 ComfyUI 工程实践
 pageType: article
 module: multimodal
-updated: '2025-12-29'
+updated: '2026-10-08'
 contentStatus: needs-review
 tags:
   - multimodal
 level: advanced
 prerequisites:
   - /guide/prerequisites
-reviewed: '2026-08-25'
-techVersion: 待复核（2026-08）
+reviewed: '2026-10-08'
+techVersion: 架构原理复核于 2026-10；示例不代表最新性能排名
 ---
 
 # 扩散模型：生成式多模态革命
 
-> 生成式 AI 正经历从 U-Net 向 Transformer 的架构转移，同时工程化工具链（如 ComfyUI）使生成过程高度可控。
+> 学习生成系统时分开看表示空间、建模目标、网络骨干、条件控制和数值采样。DiT 是网络骨干，扩散或 Flow 是训练目标，ControlNet/IP-Adapter 是条件机制，ComfyUI 是执行工作流。
 
 ---
 
@@ -86,22 +86,19 @@ flowchart TB
     SCALE2 --> LN2
 ```
 
-**AdaLN-Zero**：条件信息通过自适应 LayerNorm 注入，初始化为零以保护预训练权重。
+**AdaLN-Zero**：条件产生归一化的缩放/平移和残差门控，零初始化使残差块初始接近恒等映射，有助于稳定训练；原始 DiT 不应解释成“保护一个预训练扩散主干”。[DiT 论文](https://arxiv.org/abs/2212.09748)
 
 ### DiT 优势
 
-| 特性 | U-Net | DiT |
-| :--- | :--- | :--- |
-| **缩放性** | 有限 | 遵循 Scaling Law |
-| **长距离依赖** | 受限于感受野 | 全局注意力 |
-| **分辨率灵活性** | 需要适配 | 天然支持 |
-| **训练稳定性** | 一般 | 更稳定 |
+Transformer 提供规则的 token 计算结构，DiT 论文研究了增加深度、宽度与 token 数的可扩展性；但 U-Net 也能使用注意力，DiT 也要处理位置编码、分辨率分布和二次 attention 成本。不能据此断言 DiT 在所有预算下更稳定、更省或天然适配任意分辨率。
+
+工程比较需固定 VAE、数据、训练算力和输出分辨率，再测质量与采样成本；仅比较网络名称会把训练规模的作用算到架构头上。
 
 ---
 
 ## Stable Diffusion 3 (SD3)
 
-SD3 是 DiT 架构的集大成者，核心创新是 **MMDiT（Multimodal DiT）**。
+[SD3 技术报告](https://arxiv.org/abs/2403.03206)结合 rectified flow 训练与 **MMDiT** 骨干；这两个概念分别回答“预测什么”和“怎样交换图文条件”。
 
 ### MMDiT 架构
 
@@ -128,20 +125,14 @@ flowchart TB
 | :--- | :--- |
 | **独立权重** | 图像/文本模态有各自的 Transformer 权重 |
 | **Joint Attention** | 周期性的跨模态注意力交互 |
-| **Rectified Flow** | 更直的去噪轨迹，减少推理步数 |
+| **Rectified Flow** | 以插值路径学习速度场，采样步数需按质量实测 |
 | **三重文本编码** | CLIP + OpenCLIP + T5 |
 
 ### Rectified Flow
 
-```
-传统扩散：弯曲轨迹，需要多步
-x_0 ~~~~> ~~~~> ~~~~> x_T
+以一种常见约定为例，数据 `x₀` 与噪声 `ε` 构造线性插值 `xₜ = (1 − t)x₀ + tε`，训练速度场预测 `ε − x₀`；采样时从噪声端沿学习到的场积分回数据端。不同实现可能反转时间或使用不同参数化，scheduler 必须与 checkpoint 匹配。
 
-Rectified Flow：直线轨迹，步数更少
-x_0 ---------> x_T
-```
-
-**效果**：相同质量下，推理步数可减少 50%。
+线性的是训练用插值路径，学习场诱导的采样轨迹不保证每条都是直线。减少步数是否保持质量取决于模型、调度和求解器，不能统一声称减少 50%。工程上固定 seeds 比较多个步数，同时记录图像约束正确率与耗时。
 
 ---
 
@@ -153,9 +144,10 @@ ControlNet 解决了扩散模型生成"不可控"的痛点。
 
 ```mermaid
 flowchart TB
-    X[输入] --> SD[SD U-Net\n冻结]
-    X --> ZC1[Zero Conv\n初始化为0]
-    ZC1 --> COPY[Trainable Copy\n可训练副本]
+    X[含噪 Latent] --> SD[SD U-Net\n冻结]
+    H[控制条件图] --> ZC1[条件编码与 Zero Conv]
+    X --> COPY[Trainable Copy\n可训练副本]
+    ZC1 --> COPY
     COPY --> ZC2[Zero Conv\n初始化为0]
     SD --> ADD[+]
     ZC2 --> ADD
@@ -165,6 +157,8 @@ flowchart TB
 ### Zero Convolution 原理
 
 ```python
+import torch.nn as nn
+
 class ZeroConv(nn.Module):
     def __init__(self, channels):
         super().__init__()
@@ -179,7 +173,7 @@ class ZeroConv(nn.Module):
 
 **设计哲学**："不伤害"
 - 训练初期 ZeroConv 输出为 0
-- 模型行为与原始 SD 完全一致
+- 在相同主干、输入和随机状态下，新增残差初始为零；之后逐渐学习控制
 - 随训练进行，控制信号平滑注入
 
 ### 支持的控制条件
@@ -197,7 +191,7 @@ class ZeroConv(nn.Module):
 
 ## IP-Adapter：风格迁移
 
-IP-Adapter 提出轻量级的图像提示（Image Prompt）适配方法。
+[IP-Adapter](https://arxiv.org/abs/2308.06721)提供图像提示适配，不只用于风格，也可影响主体和构图；身份、局部结构是否保持须单独验证。
 
 ### 解耦交叉注意力
 
@@ -228,10 +222,10 @@ def forward(self, hidden_states, text_embeds, image_embeds):
 
 | 特性 | 说明 |
 | :--- | :--- |
-| **参数量** | 仅 22M（vs SD 860M） |
-| **兼容性** | 可与 ControlNet 等组合 |
-| **训练成本** | 8×A100 约 1 天 |
-| **推理成本** | 几乎无额外开销 |
+| **参数量** | 原始论文适配器约 22M，其他基座/变体不同 |
+| **兼容性** | 在匹配的基座与实现上可组合；权重不可任意跨 SD 系列使用 |
+| **训练成本** | 随基座、分辨率、数据与冻结范围变化 |
+| **推理成本** | 有图像编码与新增注意力，需测量 |
 
 ---
 
@@ -275,7 +269,7 @@ flowchart LR
 1. 用户点击 "Queue Prompt"
 2. 从输出节点反向遍历 DAG
 3. 计算依赖关系
-4. 仅执行发生变化的节点（Lazy Evaluation）
+4. 按依赖和缓存有效性执行；输入变化可能使下游缓存全部失效，具体规则依节点实现
 
 ### 工作流示例
 
@@ -320,6 +314,8 @@ flowchart LR
 
 ### 训练配置
 
+以下是小规模角色/风格实验起点，不是保证成功的配方。数据数量不能代替视角、背景、表情与概念覆盖；caption 应区分要学习的主体与不想绑定的背景。训练/验证按拍摄场景切分，避免同一照片近重复泄漏。
+
 | 参数 | 推荐值 | 说明 |
 | :--- | :--- | :--- |
 | **Rank** | 4-128 | 低秩维度 |
@@ -341,23 +337,26 @@ flowchart LR
 
 ### 采样器选择
 
-| 采样器 | 速度 | 质量 | 推荐步数 |
-| :--- | :--- | :--- | :--- |
-| **Euler** | 快 | 一般 | 20-30 |
-| **DPM++ 2M** | 中 | 好 | 20-25 |
-| **DPM++ 2M Karras** | 中 | 很好 | 20-30 |
-| **DDIM** | 快 | 一般 | 30-50 |
+先使用 checkpoint 官方工作流的 scheduler 与步数，再一次只改变采样器或步数。Euler、DDIM、DPM 系列的名称不能脱离噪声/时间参数化比较；蒸馏模型也不能机械套用普通模型的 20–50 步配置。
 
 ### CFG Scale 指南
 
-| CFG 值 | 效果 |
-| :--- | :--- |
-| **1-3** | 创意强，可能偏离提示 |
-| **5-7** | 平衡，推荐默认 |
-| **10-15** | 严格遵循提示 |
-| **>15** | 可能过饱和/失真 |
+典型 classifier-free guidance 用 `uncond + s × (cond - uncond)` 加强条件方向，过大可能过饱和、失真或损害多样性，不保证更遵循每条指令。某些模型使用蒸馏 guidance 或不同控制接口，应以其模型卡为准，而不是通用“5–7 最佳”。
 
----
+### 可复现工作流与验收
+
+保存 checkpoint/VAE/文本编码器/adapter 哈希、工作流 JSON、节点版本、尺寸、seed、scheduler、步数、guidance 和控制强度。相同 seed 也未必跨设备/内核逐像素一致。
+
+| 现象 | 排查顺序 | 验收方式 |
+| --- | --- | --- |
+| 黑图、NaN | VAE/精度兼容、权重与 scheduler | 中间 latent 数值有限，输出可正常解码 |
+| 姿态符合但画面僵硬 | ControlNet 强度与起止步、条件图质量 | 固定 seed 扫强度，人工检查结构与自然度 |
+| 主体相似但文字/数量错误 | 条件理解与训练覆盖 | 对每条 prompt 约束逐项打分，不只看美观 |
+| LoRA 记住背景或重复构图 | 数据重复、caption 与训练时长 | 未见背景、姿态和负例上的泛化 |
+
+用固定 prompt 集与多 seeds 比较提示遵循、主体一致性、伪影、安全与耗时。CLIP 相似度不能单独验证精确计数、文字或空间关系；生成输出须与 [视觉理解评估](/llms/multimodal/deployment)的目标分开。
+
+## 参考资源
 
 ## 参考资源
 

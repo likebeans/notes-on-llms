@@ -3,7 +3,7 @@ title: "新一代知识图谱与检索增强生成技术全景解析"
 description: "CSDN 原文全文镜像：摘要 本文探讨了新一代检索增强生成（RAG）技术如何通过知识图谱与本体论优化解决传统RAG的局限性。GraphRAG利用层次化社区发现实现全局检索，LightRAG通过双层网络兼顾效率与推理能力，KAG则专注于专业领域的逻辑推理。文章对……"
 pageType: article
 module: rag
-updated: '2026-04-03'
+updated: '2026-10-08'
 contentStatus: needs-review
 tags:
   - "csdn-mirror"
@@ -19,10 +19,16 @@ author: likebeans
 ---
 
 ::: info CSDN 原文镜像
-本文为作者 CSDN 博客的全文镜像，原文发布于 2026-04-03。为适配本站结构，仅补充了站内元数据与来源说明，正文主体保持原文内容。
+本文为作者 CSDN 博客的全文镜像，原文发布于 2026-04-03。本站保留原文主体与发布时间，补充主题导读，并修复代码块中残留的语法高亮标签；技术结论仍需结合原文时点与当前文档判断。
 
 - 原文链接：[https://blog.csdn.net/m0_63309778/article/details/159792606](https://blog.csdn.net/m0_63309778/article/details/159792606)
 - 站内分区：RAG / 知识图谱与 RAG
+:::
+
+::: tip 站内阅读提示
+这篇文章把图检索、社区摘要与本体约束放在一起比较。原文的延迟和提升比例缺少完整实验条件，不能作为通用选型承诺；图关系、社区摘要和本体推断也须回溯原文，不能保证消除幻觉。先区分全局主题归纳与具体多跳问答，再比较索引成本、证据覆盖及更新代价。
+
+主线关联：[RAG 范式](/llms/rag/paradigms) · [生产实践](/llms/rag/production)
 :::
 
 <div class="csdn-mirror-content">

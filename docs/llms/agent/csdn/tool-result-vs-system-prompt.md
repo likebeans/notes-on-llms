@@ -3,7 +3,7 @@ title: "大语言模型智能体架构深度解析：为什么必须通过 Tool 
 description: "CSDN 原文全文镜像：摘要： 大语言模型（LLM）智能体设计中，工具执行结果（Tool Result）不应直接拼接至系统提示词（System Prompt），而是需通过标准 tool_result 注入。这一架构原则基于以下核心原因： 分词器与注意力机制：系……"
 pageType: article
 module: agent
-updated: '2026-03-17'
+updated: '2026-10-08'
 contentStatus: needs-review
 tags:
   - "csdn-mirror"
@@ -21,10 +21,16 @@ author: likebeans
 ---
 
 ::: info CSDN 原文镜像
-本文为作者 CSDN 博客的全文镜像，原文发布于 2026-03-17。为适配本站结构，仅补充了站内元数据与来源说明，正文主体保持原文内容。
+本文为作者 CSDN 博客的全文镜像，原文发布于 2026-03-17。本站补充导读与相关主线链接，并修复代码展示；原文观点、来源与发布时间保留。
 
 - 原文链接：[https://blog.csdn.net/m0_63309778/article/details/159167780](https://blog.csdn.net/m0_63309778/article/details/159167780)
 - 站内分区：Agent / Tool Result 注入
+:::
+
+::: tip 站内导读与实践边界
+本文的可取原则是保持高优先级指令与外部数据的来源边界，并按 API 规定回传工具结果。原文对控制词元、注意力和缓存的绝对表述不能推广到所有模型：聊天模板与缓存规则依实现而变，工具消息也不会自动免疫提示注入。实践中优先校验消息配对、权限及真实检索证据。
+
+继续阅读：[工具调用](/llms/agent/tool-calling)、[安全与沙箱](/llms/agent/safety)。
 :::
 
 <div class="csdn-mirror-content">

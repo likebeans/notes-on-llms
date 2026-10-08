@@ -3,7 +3,7 @@ title: "从一次请求到整套推理集群：彻底理解大模型的 QPS、TP
 description: "CSDN 原文全文镜像：摘要：大模型性能指标解析 本文系统阐述了大模型服务中的关键性能指标及其相互关系。核心内容包括： 请求生命周期：大模型请求经历Prefill（处理输入）和Decode（生成输出）两个关键阶段，分别影响首字延迟和输出流畅度。 业务压力指标：……"
 pageType: article
 module: training
-updated: '2026-08-05'
+updated: '2026-10-08'
 contentStatus: needs-review
 tags:
   - "csdn-mirror"
@@ -22,11 +22,16 @@ author: likebeans
 ---
 
 ::: info CSDN 原文镜像
-本文为作者 CSDN 博客的全文镜像，原文发布于 2026-08-05。为适配本站结构，仅补充了站内元数据与来源说明，正文主体保持原文内容。
+本文为作者 CSDN 博客的全文镜像，原文发布于 2026-08-05。为适配本站结构，补充了站内元数据、来源说明与阅读导引，并修复代码高亮残留；原文主体与观点保留。
 
 - 原文链接：[https://blog.csdn.net/m0_63309778/article/details/163510719](https://blog.csdn.net/m0_63309778/article/details/163510719)
 - 站内分区：Training / 大模型推理指标
 :::
+
+::: tip 站内导读：把容量数字放回请求生命周期
+本文适合在 [推理服务](/llms/training/serving)之后阅读。用文中的 QPS、TPM 和并发关系做估算前，先统一 token 计费范围、输入/输出长度分布、时间窗口与排队边界；并发是同时在途请求数，不是吞吐率。练习时固定真实流量，报告 P95 TTFT、每请求 TPOT、成功吞吐与限流/超时率，再用实测检查估算。文中厂商配额与案例数值保留为发布时的说明，不能直接当作当前套餐或硬件容量。
+:::
+
 
 <p><img src="https://i-blog.csdnimg.cn/direct/3aea12ea8ced49709eeb3e3d04994ab8.png" alt="在这里插入图片描述" /></p>
 <h3>前言</h3>

@@ -3,7 +3,7 @@ title: Agent 评估方法
 description: Agent 性能评估 - 从指标设计到评估框架
 pageType: article
 module: agent
-updated: '2025-12-27'
+updated: '2026-10-08'
 contentStatus: needs-review
 tags:
   - agent
@@ -11,418 +11,160 @@ level: advanced
 prerequisites:
   - /llms/prompt/
   - /llms/rag/
-reviewed: '2026-08-25'
-techVersion: 待复核（2026-08）
+reviewed: '2026-10-08'
+reviewScope: Agent 评测指南、重复试验口径与环境隔离；本地汇总函数与概率示例
+exampleStatus: partial
+techVersion: Agent evals 原理复核 2026-10-08；统计示例本地验证，未执行线上评测
 ---
 
 # Agent 评估方法
 
-> 科学评估AI智能体的能力与可靠性
+评估 Agent 的核心是核对环境中发生了什么：回答是否有依据、工具是否完成了正确动作、任务是否在预算和权限内结束。模型输出“完成”只是被测对象的声明，不是评分依据。
 
 ## 🎯 核心概念
 
 ### 为什么需要Agent评估？
 
-::: tip 评估的价值
-Agent系统比传统LLM应用更复杂，需要评估的不仅是回答质量，还包括：
-- **任务完成能力**：能否达成目标
-- **工具使用效率**：调用是否合理
-- **推理过程质量**：思考链是否正确
-- **安全性**：是否产生有害行为
-:::
+一次运行至少包含输入、初始环境、执行轨迹、最终产物和结束状态。代码修复要运行测试并核对需求；订单操作要核对数据库状态；研究报告要抽检关键结论的来源。不同任务应选择不同验收器。
 
 ### Agent评估的挑战
 
-| 挑战 | 描述 |
-|------|------|
-| **开放式任务** | 没有唯一正确答案 |
-| **多步骤过程** | 需要评估中间步骤 |
-| **工具交互** | 外部API调用难以复现 |
-| **非确定性** | 相同输入可能产生不同输出 |
-| **成本高昂** | 完整评估需要大量API调用 |
-
----
+| 挑战 | 处理方式 |
+| --- | --- |
+| 路径不唯一 | 优先验证结果与必要约束，不要求唯一工具序列 |
+| 相同输入可能不同结果 | 每个任务重复运行，保留每次结果和版本 |
+| 外部环境会变化 | 固定快照、模拟依赖；另设真实服务集成测试 |
+| 测试成本高 | 小型回归集用于日常变更，代表性完整集用于发布 |
+| 判分也可能出错 | 规则与环境断言优先，模型评分用人工样本校准 |
 
 ## 📊 评估维度
 
 ### 四维评估框架
 
-| 维度 | 评估内容 | 关键指标 |
-|------|----------|----------|
-| **任务完成** | 最终结果是否正确 | 成功率、准确率 |
-| **效率** | 资源消耗是否合理 | 步骤数、Token用量、时间 |
-| **过程质量** | 推理和工具使用 | 工具选择准确率、推理正确率 |
-| **安全性** | 是否产生有害行为 | 越界率、错误调用率 |
+| 维度 | 主要问题 | 例子 |
+| --- | --- | --- |
+| 任务完成 | 是否达成用户目标 | 必要产物齐全、关键答案正确、写入已核验 |
+| 过程约束 | 是否在允许范围执行 | 权限、必经审批、数据范围、重复副作用 |
+| 效率 | 消耗是否可接受 | 总费用、p95、工具次数、重试、人工时间 |
+| 恢复能力 | 故障后是否正确结束 | 幂等重试、断点恢复、取消、结果未知处理 |
+
+安全、权限和关键业务约束应设为硬门槛。把“越权一次”与“文风不错”平均成 0.8 分，会隐藏不可接受的失败。
 
 ### 任务完成度评估
 
-```python
-class TaskCompletionEvaluator:
-    """任务完成度评估器"""
-    
-    def evaluate(self, task: str, result: dict, ground_truth: dict) -> dict:
-        """评估任务完成情况"""
-        scores = {}
-        
-        # 1. 目标达成度（0-1）
-        scores["goal_achievement"] = self._check_goal(result, ground_truth)
-        
-        # 2. 答案正确性
-        scores["answer_correctness"] = self._check_answer(
-            result.get("answer"), 
-            ground_truth.get("answer")
-        )
-        
-        # 3. 完整性
-        scores["completeness"] = self._check_completeness(
-            result.get("output"),
-            ground_truth.get("required_elements", [])
-        )
-        
-        # 综合评分
-        scores["overall"] = sum(scores.values()) / len(scores)
-        
-        return scores
-    
-    def _check_goal(self, result: dict, ground_truth: dict) -> float:
-        """检查目标是否达成"""
-        if result.get("status") == "completed":
-            # 使用LLM判断结果是否满足目标
-            prompt = f"""判断以下结果是否完成了任务目标：
-            
-目标：{ground_truth.get('goal')}
-结果：{result.get('output')}
+先写验收断言，再运行 Agent。对订单查询，检查返回的是当前用户的目标订单、状态与更新时间；对退款，检查退款记录、金额及重复次数。开放式报告则拆成来源支持、覆盖范围、冲突说明和格式要求，避免只给一个模糊总分。
 
-输出0到1之间的分数，1表示完全完成。"""
-            score = float(llm.generate(prompt))
-            return min(max(score, 0), 1)
-        return 0.0
+下面是无外部依赖的指标汇总示例。`success`、`constraint_ok` 必须由独立验收器产生；代码只汇总结果，不评判事实，也不执行 Agent。
+
+```python
+from math import ceil
+from statistics import mean
+
+
+def summarize_runs(runs):
+    if not runs:
+        return {"count": 0, "success_rate": None,
+                "constraint_violation_rate": None,
+                "p95_seconds": None, "cost_per_success": None}
+    for run in runs:
+        if type(run["success"]) is not bool or type(run["constraint_ok"]) is not bool:
+            raise ValueError("评分字段必须是布尔值")
+        if run["elapsed_seconds"] < 0 or run["cost"] < 0:
+            raise ValueError("耗时和费用不能为负")
+    accepted = [r["success"] and r["constraint_ok"] for r in runs]
+    passed = sum(accepted)
+    durations = sorted(r["elapsed_seconds"] for r in runs)
+    return {
+        "count": len(runs),
+        "success_rate": mean(accepted),
+        "constraint_violation_rate": mean(not r["constraint_ok"] for r in runs),
+        "p95_seconds": durations[ceil(0.95 * len(durations)) - 1],
+        "cost_per_success": sum(r["cost"] for r in runs) / passed if passed else None,
+    }
 ```
+
+这里 p95 采用 nearest-rank 定义；小样本时它可能接近最大值，应同时报告样本量与分布。示例费率不固定，实际费用应从账单或调用用量记录中结算。
 
 ### 效率评估
 
-```python
-class EfficiencyEvaluator:
-    """效率评估器"""
-    
-    def evaluate(self, execution_trace: list) -> dict:
-        """评估执行效率"""
-        return {
-            # 步骤效率
-            "step_count": len(execution_trace),
-            "redundant_steps": self._count_redundant_steps(execution_trace),
-            
-            # Token效率
-            "total_tokens": sum(step.get("tokens", 0) for step in execution_trace),
-            "tokens_per_step": self._avg_tokens_per_step(execution_trace),
-            
-            # 时间效率
-            "total_time": sum(step.get("duration", 0) for step in execution_trace),
-            "tool_call_time": self._sum_tool_time(execution_trace),
-            
-            # 工具效率
-            "tool_calls": len([s for s in execution_trace if s.get("type") == "tool"]),
-            "failed_tool_calls": len([
-                s for s in execution_trace 
-                if s.get("type") == "tool" and not s.get("success")
-            ]),
-        }
-    
-    def _count_redundant_steps(self, trace: list) -> int:
-        """统计冗余步骤（重复的工具调用）"""
-        seen = set()
-        redundant = 0
-        for step in trace:
-            if step.get("type") == "tool":
-                key = (step.get("tool"), str(step.get("args")))
-                if key in seen:
-                    redundant += 1
-                seen.add(key)
-        return redundant
-```
+端到端耗时取 run 的结束时间减开始时间，不能简单相加所有并行步骤的 duration。总工具耗时可以用于资源分析，但它不是用户等待时间。相同参数的重复调用可能是必要轮询或时效刷新，只有结合时间、状态和任务目的才能判为冗余。
+
+比较方案时同时报告成功率、每成功任务费用与尾延迟。必须保持数据集、工具能力、重试预算、人工参与条件和模型配置可比；不能只给更高成功率，却隐藏多次采样与人工兜底的成本。
 
 ### 过程质量评估
 
-```python
-class ProcessQualityEvaluator:
-    """过程质量评估器"""
-    
-    def evaluate(self, execution_trace: list, task: str) -> dict:
-        """评估推理和工具使用质量"""
-        scores = {}
-        
-        # 1. 推理质量
-        thoughts = [s for s in execution_trace if s.get("type") == "thought"]
-        scores["reasoning_quality"] = self._evaluate_reasoning(thoughts, task)
-        
-        # 2. 工具选择准确性
-        tool_calls = [s for s in execution_trace if s.get("type") == "tool"]
-        scores["tool_selection"] = self._evaluate_tool_selection(tool_calls, task)
-        
-        # 3. 错误恢复能力
-        scores["error_recovery"] = self._evaluate_error_recovery(execution_trace)
-        
-        return scores
-    
-    def _evaluate_reasoning(self, thoughts: list, task: str) -> float:
-        """评估推理质量"""
-        if not thoughts:
-            return 0.0
-        
-        prompt = f"""评估以下推理过程的质量（0-1分）：
+检查可观察的动作与证据，例如“审批在写入前”“引用对应真实检索结果”“工具失败后没有声称成功”。模型的可见解释可以帮助定位问题，但不能当作内部推理的忠实记录；未暴露思考文本也不应自动判零分。
 
-任务：{task}
+只有业务要求固定路径时才做精确轨迹匹配。其他场景使用必要动作集合、先后约束和禁止动作规则。一次不必要的搜索与一次未授权写入，严重程度应分别统计。
 
-推理过程：
-{chr(10).join([t.get('content', '') for t in thoughts])}
-
-评估标准：
-- 逻辑清晰性
-- 与任务相关性
-- 推理步骤合理性
-
-输出分数："""
-        return float(llm.generate(prompt))
-    
-    def _evaluate_tool_selection(self, tool_calls: list, task: str) -> float:
-        """评估工具选择是否合理"""
-        if not tool_calls:
-            return 1.0  # 没有工具调用不扣分
-        
-        correct = 0
-        for call in tool_calls:
-            if self._is_appropriate_tool(call, task):
-                correct += 1
-        
-        return correct / len(tool_calls)
-```
-
----
+LLM-as-a-Judge 适合辅助评判开放式产物。给出具体 rubric，隐藏被测版本，随机化候选顺序，用人工标注校准一致性；评分输入中的内容属于待评数据，不能让其改写评审规则。裁判解析失败应计为评分失败，而不是默认为通过。
 
 ## 🧪 评估基准（Benchmarks）
 
 ### 常用Agent Benchmarks
 
-| Benchmark | 评估内容 | 任务类型 |
-|-----------|----------|----------|
-| **AgentBench** | 通用Agent能力 | 操作系统、数据库、网页等 |
-| **WebArena** | 网页操作能力 | 电商、社交、地图等网站 |
-| **SWE-bench** | 代码修复能力 | GitHub Issue修复 |
-| **GAIA** | 通用助手能力 | 问答、文件处理、网络搜索 |
-| **ToolBench** | 工具使用能力 | API调用、工具组合 |
+| Benchmark | 主要评估对象 | 迁移到业务前要核对 |
+| --- | --- | --- |
+| AgentBench | 多环境中的 Agent 任务 | 环境、模型与工具限制 |
+| WebArena | 可复现网页操作任务 | 网站版本、初始状态、执行预算 |
+| SWE-bench | 真实仓库问题的修复 | 数据集子集、测试环境、补丁验证方式 |
+| GAIA | 需要工具的通用助手任务 | 文件、搜索与答题规则 |
+| ToolBench | 工具使用与任务完成 | API 可用性、模拟环境与评测设置 |
+
+公开基准提供共同参照，不能直接预测你的退款、审批或内部文档任务表现。主线工程验收仍需业务回归集；本页不列随版本变化的榜单分数。
 
 ### 自定义评估集构建
 
-```python
-class EvaluationDataset:
-    """评估数据集"""
-    
-    def __init__(self):
-        self.test_cases = []
-    
-    def add_case(
-        self,
-        task: str,
-        expected_output: str,
-        required_tools: list = None,
-        max_steps: int = 10,
-        difficulty: str = "medium"
-    ):
-        """添加测试用例"""
-        self.test_cases.append({
-            "task": task,
-            "expected_output": expected_output,
-            "required_tools": required_tools or [],
-            "max_steps": max_steps,
-            "difficulty": difficulty,
-            "metadata": {
-                "created_at": time.time(),
-                "category": self._categorize(task)
-            }
-        })
-    
-    def run_evaluation(self, agent, evaluator) -> dict:
-        """运行评估"""
-        results = []
-        
-        for case in self.test_cases:
-            # 执行Agent
-            trace = agent.run(case["task"])
-            
-            # 评估结果
-            score = evaluator.evaluate(
-                task=case["task"],
-                result=trace[-1] if trace else {},
-                ground_truth={"answer": case["expected_output"]}
-            )
-            
-            results.append({
-                "case": case,
-                "trace": trace,
-                "score": score
-            })
-        
-        # 汇总统计
-        return {
-            "cases": results,
-            "summary": self._summarize(results)
-        }
-    
-    def _summarize(self, results: list) -> dict:
-        """汇总评估结果"""
-        scores = [r["score"]["overall"] for r in results]
-        return {
-            "total_cases": len(results),
-            "avg_score": sum(scores) / len(scores) if scores else 0,
-            "success_rate": len([s for s in scores if s > 0.8]) / len(scores),
-            "by_difficulty": self._group_by_difficulty(results)
-        }
+每个 case 保存 `case_id`、用户任务、初始状态快照、允许的工具/权限、必要断言、预算、难度与失败标签。回答型任务可有参考答案；行动型任务需要预期环境变化，不应仅做字符串匹配。
+
+数据集至少覆盖正常路径、含糊输入、缺少资料、工具失败、权限拒绝、重复提交、提示注入和长上下文。把调提示的开发集与最终测试集分开；按业务类别分层汇总，避免简单高频任务掩盖少数严重失败。
+
+对同一个任务运行多次，报告一次尝试的成功率及重复运行的稳定性。一次运行成功不能说明稳定，尝试多次至少一次成功也不等于生产默认成功率。区间估计需考虑同一任务多次运行的相关性，可按任务聚合或以任务为单位 bootstrap。
+
+### 多次成功的两种含义
+
+2026-01 的 Anthropic 评估指南区分 **pass@k**（k 次尝试至少一次通过）和 **pass^k**（k 次全部通过），并强调每次 trial 从干净环境开始。前者适合可以验证并挑选候选的任务，后者强调一致性。[Agent evals 原始指南](https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents)
+
+以**同一个任务、每次成功率 p 相同且尝试相互独立**为教学假设：
+
+```text
+P(至少一次成功) = 1 − (1 − p)^k
+P(全部成功) = p^k
 ```
 
----
+例如 p=0.75、k=3 时，两者约为 98.4% 与 42.2%。这不是实际评测的通用估计器：不同任务难度不同，不能把全数据集平均 p 直接代入；同一个共享环境里的重试也可能相关。报告应保存每个任务的所有 trial，再按既定口径聚合，不能只留成功轨迹。
+
+评测环境要重置文件、数据库、会话和缓存；保留前次答案或 Git 历史可能泄露解法。模拟写操作要使用隔离账户或替身服务。记录环境失败和评分器失败，检查它们是否集中在某个模型版本或资源限制下，再解释分数变化。
+
+“退款工具返回成功”只是轨迹；退款账本的金额、收款对象、次数和权限约束才是最终结果。把成功断言写在业务状态上，过程轨迹用于解释为什么失败。
 
 ## 🔄 在线评估与监控
 
 ### 生产环境监控指标
 
-```python
-class AgentMonitor:
-    """Agent生产监控"""
-    
-    def __init__(self):
-        self.metrics = defaultdict(list)
-    
-    def record_execution(self, execution_data: dict):
-        """记录执行数据"""
-        # 延迟指标
-        self.metrics["latency"].append(execution_data["duration"])
-        
-        # 成功率
-        self.metrics["success"].append(1 if execution_data["success"] else 0)
-        
-        # Token消耗
-        self.metrics["tokens"].append(execution_data["tokens"])
-        
-        # 工具调用
-        self.metrics["tool_calls"].append(len(execution_data["tools_used"]))
-        
-        # 错误追踪
-        if not execution_data["success"]:
-            self.metrics["errors"].append({
-                "type": execution_data.get("error_type"),
-                "message": execution_data.get("error_message"),
-                "timestamp": time.time()
-            })
-    
-    def get_dashboard_data(self) -> dict:
-        """获取仪表盘数据"""
-        return {
-            "avg_latency": np.mean(self.metrics["latency"][-100:]),
-            "p95_latency": np.percentile(self.metrics["latency"][-100:], 95),
-            "success_rate": np.mean(self.metrics["success"][-100:]),
-            "avg_tokens": np.mean(self.metrics["tokens"][-100:]),
-            "error_rate": 1 - np.mean(self.metrics["success"][-100:]),
-            "recent_errors": self.metrics["errors"][-10:]
-        }
-```
+线上记录运行状态、工具错误、超时、限流、队列长度、费用、人工接管和用户纠正。业务成功可能延后才能核验，要区分“技术完成”和“业务结果已确认”。原始记录应可按模型、提示、工具 schema 和数据版本关联。
+
+监控如何定位故障、告警如何转为回归用例，见[评估与监控](/llms/agent/evaluation-monitoring)。这里关注可比较的实验设计，避免两篇重复列仪表盘指标。
 
 ### A/B测试框架
 
-```python
-class AgentABTest:
-    """Agent A/B测试"""
-    
-    def __init__(self, agent_a, agent_b, split_ratio: float = 0.5):
-        self.agent_a = agent_a
-        self.agent_b = agent_b
-        self.split_ratio = split_ratio
-        self.results = {"a": [], "b": []}
-    
-    def run(self, task: str) -> dict:
-        """执行A/B测试"""
-        import random
-        
-        # 随机分配
-        use_a = random.random() < self.split_ratio
-        agent = self.agent_a if use_a else self.agent_b
-        group = "a" if use_a else "b"
-        
-        # 执行
-        start = time.time()
-        result = agent.run(task)
-        duration = time.time() - start
-        
-        # 记录
-        self.results[group].append({
-            "task": task,
-            "result": result,
-            "duration": duration,
-            "success": result.get("success", False)
-        })
-        
-        return {"group": group, "result": result}
-    
-    def get_comparison(self) -> dict:
-        """获取对比结果"""
-        def stats(results):
-            if not results:
-                return {}
-            return {
-                "count": len(results),
-                "success_rate": sum(1 for r in results if r["success"]) / len(results),
-                "avg_duration": sum(r["duration"] for r in results) / len(results)
-            }
-        
-        return {
-            "agent_a": stats(self.results["a"]),
-            "agent_b": stats(self.results["b"]),
-            "winner": self._determine_winner()
-        }
-```
+按用户或会话做稳定分组，避免同一个长任务在两个版本间切换。提前确定主要指标、最小样本量和停止规则；检查分流后任务难度与流量是否均衡。新版本先离线回归，再小流量放量，出现严重约束违规时立即停止扩量。
 
----
+不宜让两个版本同时执行同一笔真实退款来比较效果。可在隔离环境复放，或仅比较提案，将真正副作用留给唯一授权执行器。
 
 ## 📈 评估报告生成
 
-```python
-class EvaluationReporter:
-    """评估报告生成器"""
-    
-    def generate_report(self, evaluation_results: dict) -> str:
-        """生成Markdown格式报告"""
-        report = f"""# Agent 评估报告
+一份可复核报告至少包含评测时间、数据集版本、模型/提示/工具版本、运行次数、预算和环境配置；随后列总体指标、分层结果、失败案例与相对基线的变化。没有完成的运行也要进入分母，评分器失败则单列并说明处理方式。
 
-## 概述
-- 评估时间：{datetime.now().strftime('%Y-%m-%d %H:%M')}
-- 测试用例数：{evaluation_results['summary']['total_cases']}
-- 平均得分：{evaluation_results['summary']['avg_score']:.2%}
-- 成功率：{evaluation_results['summary']['success_rate']:.2%}
+| 报告项 | 应回答的问题 |
+| --- | --- |
+| 任务完成度 | 哪些必需条件通过，哪些没有？ |
+| 效率指标 | 提升质量付出了多少费用与延迟？ |
+| 按难度分布 | 收益是否集中在少数简单任务？ |
+| 失败案例分析 | 根因在模型、工具、环境、数据还是验收器？ |
+| 发布决策 | 哪些硬门槛通过，哪些已知限制仍存在？ |
 
-## 详细指标
-
-### 任务完成度
-| 指标 | 数值 |
-|------|------|
-| 目标达成率 | {self._get_metric('goal_achievement'):.2%} |
-| 答案正确率 | {self._get_metric('answer_correctness'):.2%} |
-
-### 效率指标
-| 指标 | 数值 |
-|------|------|
-| 平均步骤数 | {self._get_metric('step_count'):.1f} |
-| 平均Token消耗 | {self._get_metric('total_tokens'):.0f} |
-| 工具调用成功率 | {self._get_metric('tool_success_rate'):.2%} |
-
-### 按难度分布
-{self._difficulty_table(evaluation_results)}
-
-## 失败案例分析
-{self._failure_analysis(evaluation_results)}
-"""
-        return report
-```
-
----
+建议先人工阅读一小批完整 trace，修正不合理断言，再扩大自动评测。框架的集成方式可参考 [ADK 评估文档](https://adk.dev/evaluate/)，但工具不能替你定义业务完成条件。
 
 ## 🔗 相关阅读
 

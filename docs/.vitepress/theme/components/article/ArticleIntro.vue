@@ -3,6 +3,8 @@ import { computed } from 'vue'
 import { MODULE_DEFINITIONS } from '../../../config/modules'
 import type { ContentIndexItem } from '../../../content/model'
 import ArticleMeta from './ArticleMeta.vue'
+import { data as content } from '../../../content/content.data'
+import { resolvePrerequisites } from '../../../content/discovery'
 
 const props = defineProps<{ page: ContentIndexItem }>()
 
@@ -30,7 +32,7 @@ const statusLabel = computed(() => ({
     <ArticleMeta
       :level="page.level"
       :reading-time="page.readingTime"
-      :prerequisites="page.prerequisites"
+      :prerequisites="resolvePrerequisites(page.prerequisites ?? [], content)"
       :tech-version="page.techVersion"
     />
   </header>

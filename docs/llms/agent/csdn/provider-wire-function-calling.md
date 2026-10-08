@@ -3,7 +3,7 @@ title: "OpenAI-wire 与 Anthropic-wire 的差异：从 Function Calling 协议�
 description: "CSDN 原文全文镜像：摘要 本文探讨了AI Agent框架中不同大模型厂商工具调用格式的差异问题。OpenAI和Anthropic采用完全不同的消息格式（分别称为OpenAI-wire和Anthropic-wire），主要差异体现在工具调用的放置位置、参数格……"
 pageType: article
 module: agent
-updated: '2026-05-19'
+updated: '2026-10-08'
 contentStatus: needs-review
 tags:
   - "csdn-mirror"
@@ -21,10 +21,16 @@ author: likebeans
 ---
 
 ::: info CSDN 原文镜像
-本文为作者 CSDN 博客的全文镜像，原文发布于 2026-05-19。为适配本站结构，仅补充了站内元数据与来源说明，正文主体保持原文内容。
+本文为作者 CSDN 博客的全文镜像，原文发布于 2026-05-19。本站补充导读与相关主线链接，并修复代码展示；原文观点、来源与发布时间保留。
 
 - 原文链接：[https://blog.csdn.net/m0_63309778/article/details/161193006](https://blog.csdn.net/m0_63309778/article/details/161193006)
 - 站内分区：Agent / Provider 工具调用适配
+:::
+
+::: tip 站内导读与实践边界
+本文用 wire format 解释 Provider 适配层，重点是调用与结果 ID、内容块、错误和多调用往返不丢语义。文中的 OpenAI-wire 主要指 Chat Completions 风格，不能直接套到 Responses API；同一厂商也可能有多套消息协议。转换器应使用真实往返样本做回归，模拟响应不是实测兼容性证明。
+
+继续阅读：[工具调用](/llms/agent/tool-calling)、[异常处理](/llms/agent/exception-handling)。
 :::
 
 <p><img src="https://i-blog.csdnimg.cn/direct/516d8fa17d1f412c9ab06df8cdaad0aa.png" alt="在这里插入图片描述" /></p>
@@ -113,7 +119,7 @@ Agent 代码
 
 
 ```python
-read_file<span class="token punctuation">(</span>path<span class="token operator">=</span><span class="token string">"README.md"</span><span class="token punctuation">)</span>
+read_file(path="README.md")
 ```
 
 
@@ -127,51 +133,51 @@ read_file<span class="token punctuation">(</span>path<span class="token operator
 
 
 ```json
-<span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"model"</span><span class="token operator">:</span> <span class="token string">"gpt-4"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"messages"</span><span class="token operator">:</span> <span class="token punctuation">[</span>
-<span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"role"</span><span class="token operator">:</span> <span class="token string">"user"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"content"</span><span class="token operator">:</span> <span class="token string">"读取 README.md"</span>
-<span class="token punctuation">}</span><span class="token punctuation">,</span>
-<span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"role"</span><span class="token operator">:</span> <span class="token string">"assistant"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"content"</span><span class="token operator">:</span> <span class="token keyword">null</span><span class="token punctuation">,</span>
-<span class="token string-property property">"tool_calls"</span><span class="token operator">:</span> <span class="token punctuation">[</span>
-<span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"id"</span><span class="token operator">:</span> <span class="token string">"call_1"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"type"</span><span class="token operator">:</span> <span class="token string">"function"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"function"</span><span class="token operator">:</span> <span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"name"</span><span class="token operator">:</span> <span class="token string">"read_file"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"arguments"</span><span class="token operator">:</span> <span class="token string">"{\"path\": \"README.md\"}"</span>
-<span class="token punctuation">}</span>
-<span class="token punctuation">}</span>
-<span class="token punctuation">]</span>
-<span class="token punctuation">}</span><span class="token punctuation">,</span>
-<span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"role"</span><span class="token operator">:</span> <span class="token string">"tool"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"tool_call_id"</span><span class="token operator">:</span> <span class="token string">"call_1"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"content"</span><span class="token operator">:</span> <span class="token string">"# Hermes Agent..."</span>
-<span class="token punctuation">}</span>
-<span class="token punctuation">]</span><span class="token punctuation">,</span>
-<span class="token string-property property">"tools"</span><span class="token operator">:</span> <span class="token punctuation">[</span>
-<span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"type"</span><span class="token operator">:</span> <span class="token string">"function"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"function"</span><span class="token operator">:</span> <span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"name"</span><span class="token operator">:</span> <span class="token string">"read_file"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"description"</span><span class="token operator">:</span> <span class="token string">"Read a file"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"parameters"</span><span class="token operator">:</span> <span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"type"</span><span class="token operator">:</span> <span class="token string">"object"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"properties"</span><span class="token operator">:</span> <span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"path"</span><span class="token operator">:</span> <span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"type"</span><span class="token operator">:</span> <span class="token string">"string"</span>
-<span class="token punctuation">}</span>
-<span class="token punctuation">}</span>
-<span class="token punctuation">}</span>
-<span class="token punctuation">}</span>
-<span class="token punctuation">}</span>
-<span class="token punctuation">]</span>
-<span class="token punctuation">}</span>
+{
+"model": "gpt-4",
+"messages": [
+{
+"role": "user",
+"content": "读取 README.md"
+},
+{
+"role": "assistant",
+"content": null,
+"tool_calls": [
+{
+"id": "call_1",
+"type": "function",
+"function": {
+"name": "read_file",
+"arguments": "{\"path\": \"README.md\"}"
+}
+}
+]
+},
+{
+"role": "tool",
+"tool_call_id": "call_1",
+"content": "# Hermes Agent..."
+}
+],
+"tools": [
+{
+"type": "function",
+"function": {
+"name": "read_file",
+"description": "Read a file",
+"parameters": {
+"type": "object",
+"properties": {
+"path": {
+"type": "string"
+}
+}
+}
+}
+}
+]
+}
 ```
 
 
@@ -182,20 +188,20 @@ read_file<span class="token punctuation">(</span>path<span class="token operator
 
 
 ```json
-<span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"role"</span><span class="token operator">:</span> <span class="token string">"assistant"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"content"</span><span class="token operator">:</span> <span class="token keyword">null</span><span class="token punctuation">,</span>
-<span class="token string-property property">"tool_calls"</span><span class="token operator">:</span> <span class="token punctuation">[</span>
-<span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"id"</span><span class="token operator">:</span> <span class="token string">"call_1"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"type"</span><span class="token operator">:</span> <span class="token string">"function"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"function"</span><span class="token operator">:</span> <span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"name"</span><span class="token operator">:</span> <span class="token string">"read_file"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"arguments"</span><span class="token operator">:</span> <span class="token string">"{\"path\": \"README.md\"}"</span>
-<span class="token punctuation">}</span>
-<span class="token punctuation">}</span>
-<span class="token punctuation">]</span>
-<span class="token punctuation">}</span>
+{
+"role": "assistant",
+"content": null,
+"tool_calls": [
+{
+"id": "call_1",
+"type": "function",
+"function": {
+"name": "read_file",
+"arguments": "{\"path\": \"README.md\"}"
+}
+}
+]
+}
 ```
 
 
@@ -207,28 +213,28 @@ read_file<span class="token punctuation">(</span>path<span class="token operator
 
 
 ```json
-<span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"role"</span><span class="token operator">:</span> <span class="token string">"assistant"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"content"</span><span class="token operator">:</span> <span class="token keyword">null</span><span class="token punctuation">,</span>
-<span class="token string-property property">"tool_calls"</span><span class="token operator">:</span> <span class="token punctuation">[</span>
-<span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"id"</span><span class="token operator">:</span> <span class="token string">"call_1"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"type"</span><span class="token operator">:</span> <span class="token string">"function"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"function"</span><span class="token operator">:</span> <span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"name"</span><span class="token operator">:</span> <span class="token string">"read_file"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"arguments"</span><span class="token operator">:</span> <span class="token string">"{\"path\": \"README.md\"}"</span>
-<span class="token punctuation">}</span>
-<span class="token punctuation">}</span><span class="token punctuation">,</span>
-<span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"id"</span><span class="token operator">:</span> <span class="token string">"call_2"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"type"</span><span class="token operator">:</span> <span class="token string">"function"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"function"</span><span class="token operator">:</span> <span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"name"</span><span class="token operator">:</span> <span class="token string">"read_file"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"arguments"</span><span class="token operator">:</span> <span class="token string">"{\"path\": \"package.json\"}"</span>
-<span class="token punctuation">}</span>
-<span class="token punctuation">}</span>
-<span class="token punctuation">]</span>
-<span class="token punctuation">}</span>
+{
+"role": "assistant",
+"content": null,
+"tool_calls": [
+{
+"id": "call_1",
+"type": "function",
+"function": {
+"name": "read_file",
+"arguments": "{\"path\": \"README.md\"}"
+}
+},
+{
+"id": "call_2",
+"type": "function",
+"function": {
+"name": "read_file",
+"arguments": "{\"path\": \"package.json\"}"
+}
+}
+]
+}
 ```
 
 
@@ -237,10 +243,10 @@ read_file<span class="token punctuation">(</span>path<span class="token operator
 
 
 ```python
-<span class="token keyword">for</span> tool_call <span class="token keyword">in</span> message<span class="token punctuation">[</span><span class="token string">"tool_calls"</span><span class="token punctuation">]</span><span class="token punctuation">:</span>
-name <span class="token operator">=</span> tool_call<span class="token punctuation">[</span><span class="token string">"function"</span><span class="token punctuation">]</span><span class="token punctuation">[</span><span class="token string">"name"</span><span class="token punctuation">]</span>
-args <span class="token operator">=</span> json<span class="token punctuation">.</span>loads<span class="token punctuation">(</span>tool_call<span class="token punctuation">[</span><span class="token string">"function"</span><span class="token punctuation">]</span><span class="token punctuation">[</span><span class="token string">"arguments"</span><span class="token punctuation">]</span><span class="token punctuation">)</span>
-result <span class="token operator">=</span> execute_tool<span class="token punctuation">(</span>name<span class="token punctuation">,</span> args<span class="token punctuation">)</span>
+for tool_call in message["tool_calls"]:
+name = tool_call["function"]["name"]
+args = json.loads(tool_call["function"]["arguments"])
+result = execute_tool(name, args)
 ```
 
 
@@ -251,7 +257,7 @@ result <span class="token operator">=</span> execute_tool<span class="token punc
 
 
 ```json
-<span class="token string-property property">"arguments"</span><span class="token operator">:</span> <span class="token string">"{\"path\": \"README.md\"}"</span>
+"arguments": "{\"path\": \"README.md\"}"
 ```
 
 
@@ -259,10 +265,10 @@ result <span class="token operator">=</span> execute_tool<span class="token punc
 
 
 ```python
-<span class="token keyword">import</span> json
+import json
 
-arguments_str <span class="token operator">=</span> tool_call<span class="token punctuation">[</span><span class="token string">"function"</span><span class="token punctuation">]</span><span class="token punctuation">[</span><span class="token string">"arguments"</span><span class="token punctuation">]</span>
-arguments <span class="token operator">=</span> json<span class="token punctuation">.</span>loads<span class="token punctuation">(</span>arguments_str<span class="token punctuation">)</span>
+arguments_str = tool_call["function"]["arguments"]
+arguments = json.loads(arguments_str)
 ```
 
 
@@ -279,7 +285,7 @@ arguments 是字符串，需要 json.loads
 
 
 ```python
-arguments <span class="token operator">=</span> tool_call<span class="token punctuation">[</span><span class="token string">"function"</span><span class="token punctuation">]</span><span class="token punctuation">[</span><span class="token string">"arguments"</span><span class="token punctuation">]</span>
+arguments = tool_call["function"]["arguments"]
 ```
 
 
@@ -290,11 +296,11 @@ arguments <span class="token operator">=</span> tool_call<span class="token punc
 
 
 ```json
-<span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"role"</span><span class="token operator">:</span> <span class="token string">"tool"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"tool_call_id"</span><span class="token operator">:</span> <span class="token string">"call_1"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"content"</span><span class="token operator">:</span> <span class="token string">"# Hermes Agent..."</span>
-<span class="token punctuation">}</span>
+{
+"role": "tool",
+"tool_call_id": "call_1",
+"content": "# Hermes Agent..."
+}
 ```
 
 
@@ -341,52 +347,52 @@ assistant:
 
 
 ```json
-<span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"model"</span><span class="token operator">:</span> <span class="token string">"claude-xxx"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"messages"</span><span class="token operator">:</span> <span class="token punctuation">[</span>
-<span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"role"</span><span class="token operator">:</span> <span class="token string">"user"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"content"</span><span class="token operator">:</span> <span class="token string">"读取 README.md"</span>
-<span class="token punctuation">}</span><span class="token punctuation">,</span>
-<span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"role"</span><span class="token operator">:</span> <span class="token string">"assistant"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"content"</span><span class="token operator">:</span> <span class="token punctuation">[</span>
-<span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"type"</span><span class="token operator">:</span> <span class="token string">"tool_use"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"id"</span><span class="token operator">:</span> <span class="token string">"toolu_1"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"name"</span><span class="token operator">:</span> <span class="token string">"read_file"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"input"</span><span class="token operator">:</span> <span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"path"</span><span class="token operator">:</span> <span class="token string">"README.md"</span>
-<span class="token punctuation">}</span>
-<span class="token punctuation">}</span>
-<span class="token punctuation">]</span>
-<span class="token punctuation">}</span><span class="token punctuation">,</span>
-<span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"role"</span><span class="token operator">:</span> <span class="token string">"user"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"content"</span><span class="token operator">:</span> <span class="token punctuation">[</span>
-<span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"type"</span><span class="token operator">:</span> <span class="token string">"tool_result"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"tool_use_id"</span><span class="token operator">:</span> <span class="token string">"toolu_1"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"content"</span><span class="token operator">:</span> <span class="token string">"# Hermes Agent..."</span>
-<span class="token punctuation">}</span>
-<span class="token punctuation">]</span>
-<span class="token punctuation">}</span>
-<span class="token punctuation">]</span><span class="token punctuation">,</span>
-<span class="token string-property property">"tools"</span><span class="token operator">:</span> <span class="token punctuation">[</span>
-<span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"name"</span><span class="token operator">:</span> <span class="token string">"read_file"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"description"</span><span class="token operator">:</span> <span class="token string">"Read a file"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"input_schema"</span><span class="token operator">:</span> <span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"type"</span><span class="token operator">:</span> <span class="token string">"object"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"properties"</span><span class="token operator">:</span> <span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"path"</span><span class="token operator">:</span> <span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"type"</span><span class="token operator">:</span> <span class="token string">"string"</span>
-<span class="token punctuation">}</span>
-<span class="token punctuation">}</span>
-<span class="token punctuation">}</span>
-<span class="token punctuation">}</span>
-<span class="token punctuation">]</span>
-<span class="token punctuation">}</span>
+{
+"model": "claude-xxx",
+"messages": [
+{
+"role": "user",
+"content": "读取 README.md"
+},
+{
+"role": "assistant",
+"content": [
+{
+"type": "tool_use",
+"id": "toolu_1",
+"name": "read_file",
+"input": {
+"path": "README.md"
+}
+}
+]
+},
+{
+"role": "user",
+"content": [
+{
+"type": "tool_result",
+"tool_use_id": "toolu_1",
+"content": "# Hermes Agent..."
+}
+]
+}
+],
+"tools": [
+{
+"name": "read_file",
+"description": "Read a file",
+"input_schema": {
+"type": "object",
+"properties": {
+"path": {
+"type": "string"
+}
+}
+}
+}
+]
+}
 ```
 
 
@@ -397,19 +403,19 @@ assistant:
 
 
 ```json
-<span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"role"</span><span class="token operator">:</span> <span class="token string">"assistant"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"content"</span><span class="token operator">:</span> <span class="token punctuation">[</span>
-<span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"type"</span><span class="token operator">:</span> <span class="token string">"tool_use"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"id"</span><span class="token operator">:</span> <span class="token string">"toolu_1"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"name"</span><span class="token operator">:</span> <span class="token string">"read_file"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"input"</span><span class="token operator">:</span> <span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"path"</span><span class="token operator">:</span> <span class="token string">"README.md"</span>
-<span class="token punctuation">}</span>
-<span class="token punctuation">}</span>
-<span class="token punctuation">]</span>
-<span class="token punctuation">}</span>
+{
+"role": "assistant",
+"content": [
+{
+"type": "tool_use",
+"id": "toolu_1",
+"name": "read_file",
+"input": {
+"path": "README.md"
+}
+}
+]
+}
 ```
 
 
@@ -418,14 +424,14 @@ assistant:
 
 
 ```json
-<span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"type"</span><span class="token operator">:</span> <span class="token string">"tool_use"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"id"</span><span class="token operator">:</span> <span class="token string">"toolu_1"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"name"</span><span class="token operator">:</span> <span class="token string">"read_file"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"input"</span><span class="token operator">:</span> <span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"path"</span><span class="token operator">:</span> <span class="token string">"README.md"</span>
-<span class="token punctuation">}</span>
-<span class="token punctuation">}</span>
+{
+"type": "tool_use",
+"id": "toolu_1",
+"name": "read_file",
+"input": {
+"path": "README.md"
+}
+}
 ```
 
 
@@ -436,9 +442,9 @@ assistant:
 
 
 ```json
-<span class="token string-property property">"input"</span><span class="token operator">:</span> <span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"path"</span><span class="token operator">:</span> <span class="token string">"README.md"</span>
-<span class="token punctuation">}</span>
+"input": {
+"path": "README.md"
+}
 ```
 
 
@@ -446,7 +452,7 @@ assistant:
 
 
 ```json
-<span class="token string-property property">"arguments"</span><span class="token operator">:</span> <span class="token string">"{\"path\": \"README.md\"}"</span>
+"arguments": "{\"path\": \"README.md\"}"
 ```
 
 
@@ -454,7 +460,7 @@ assistant:
 
 
 ```python
-args <span class="token operator">=</span> block<span class="token punctuation">[</span><span class="token string">"input"</span><span class="token punctuation">]</span>
+args = block["input"]
 ```
 
 
@@ -462,11 +468,11 @@ args <span class="token operator">=</span> block<span class="token punctuation">
 
 
 ```python
-<span class="token comment"># OpenAI-wire</span>
-args <span class="token operator">=</span> json<span class="token punctuation">.</span>loads<span class="token punctuation">(</span>tool_call<span class="token punctuation">[</span><span class="token string">"function"</span><span class="token punctuation">]</span><span class="token punctuation">[</span><span class="token string">"arguments"</span><span class="token punctuation">]</span><span class="token punctuation">)</span>
+# OpenAI-wire
+args = json.loads(tool_call["function"]["arguments"])
 
-<span class="token comment"># Anthropic-wire</span>
-args <span class="token operator">=</span> block<span class="token punctuation">[</span><span class="token string">"input"</span><span class="token punctuation">]</span>
+# Anthropic-wire
+args = block["input"]
 ```
 
 
@@ -477,11 +483,11 @@ args <span class="token operator">=</span> block<span class="token punctuation">
 
 
 ```json
-<span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"role"</span><span class="token operator">:</span> <span class="token string">"tool"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"tool_call_id"</span><span class="token operator">:</span> <span class="token string">"call_1"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"content"</span><span class="token operator">:</span> <span class="token string">"工具执行结果"</span>
-<span class="token punctuation">}</span>
+{
+"role": "tool",
+"tool_call_id": "call_1",
+"content": "工具执行结果"
+}
 ```
 
 
@@ -489,16 +495,16 @@ args <span class="token operator">=</span> block<span class="token punctuation">
 
 
 ```json
-<span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"role"</span><span class="token operator">:</span> <span class="token string">"user"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"content"</span><span class="token operator">:</span> <span class="token punctuation">[</span>
-<span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"type"</span><span class="token operator">:</span> <span class="token string">"tool_result"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"tool_use_id"</span><span class="token operator">:</span> <span class="token string">"toolu_1"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"content"</span><span class="token operator">:</span> <span class="token string">"工具执行结果"</span>
-<span class="token punctuation">}</span>
-<span class="token punctuation">]</span>
-<span class="token punctuation">}</span>
+{
+"role": "user",
+"content": [
+{
+"type": "tool_result",
+"tool_use_id": "toolu_1",
+"content": "工具执行结果"
+}
+]
+}
 ```
 
 
@@ -519,23 +525,23 @@ Anthropic-wire: 工具结果使用 role = user
 
 
 ```json
-<span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"role"</span><span class="token operator">:</span> <span class="token string">"assistant"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"content"</span><span class="token operator">:</span> <span class="token punctuation">[</span>
-<span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"type"</span><span class="token operator">:</span> <span class="token string">"text"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"text"</span><span class="token operator">:</span> <span class="token string">"我先读取 README 文件。"</span>
-<span class="token punctuation">}</span><span class="token punctuation">,</span>
-<span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"type"</span><span class="token operator">:</span> <span class="token string">"tool_use"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"id"</span><span class="token operator">:</span> <span class="token string">"toolu_1"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"name"</span><span class="token operator">:</span> <span class="token string">"read_file"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"input"</span><span class="token operator">:</span> <span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"path"</span><span class="token operator">:</span> <span class="token string">"README.md"</span>
-<span class="token punctuation">}</span>
-<span class="token punctuation">}</span>
-<span class="token punctuation">]</span>
-<span class="token punctuation">}</span>
+{
+"role": "assistant",
+"content": [
+{
+"type": "text",
+"text": "我先读取 README 文件。"
+},
+{
+"type": "tool_use",
+"id": "toolu_1",
+"name": "read_file",
+"input": {
+"path": "README.md"
+}
+}
+]
+}
 ```
 
 
@@ -544,12 +550,12 @@ Anthropic-wire: 工具结果使用 role = user
 
 
 ```python
-<span class="token keyword">for</span> block <span class="token keyword">in</span> response<span class="token punctuation">[</span><span class="token string">"content"</span><span class="token punctuation">]</span><span class="token punctuation">:</span>
-<span class="token keyword">if</span> block<span class="token punctuation">[</span><span class="token string">"type"</span><span class="token punctuation">]</span> <span class="token operator">==</span> <span class="token string">"text"</span><span class="token punctuation">:</span>
-collect_text<span class="token punctuation">(</span>block<span class="token punctuation">[</span><span class="token string">"text"</span><span class="token punctuation">]</span><span class="token punctuation">)</span>
+for block in response["content"]:
+if block["type"] == "text":
+collect_text(block["text"])
 
-<span class="token keyword">elif</span> block<span class="token punctuation">[</span><span class="token string">"type"</span><span class="token punctuation">]</span> <span class="token operator">==</span> <span class="token string">"tool_use"</span><span class="token punctuation">:</span>
-collect_tool_call<span class="token punctuation">(</span>block<span class="token punctuation">)</span>
+elif block["type"] == "tool_use":
+collect_tool_call(block)
 ```
 
 
@@ -582,16 +588,16 @@ DeepSeek
 
 
 ```python
-<span class="token keyword">if</span> provider <span class="token operator">==</span> <span class="token string">"openai"</span><span class="token punctuation">:</span>
-<span class="token comment"># 解析 assistant.tool_calls</span>
-<span class="token comment"># 工具结果用 role=tool</span>
-<span class="token keyword">elif</span> provider <span class="token operator">==</span> <span class="token string">"anthropic"</span><span class="token punctuation">:</span>
-<span class="token comment"># 遍历 assistant.content</span>
-<span class="token comment"># 工具结果用 role=user + tool_result</span>
-<span class="token keyword">elif</span> provider <span class="token operator">==</span> <span class="token string">"gemini"</span><span class="token punctuation">:</span>
-<span class="token comment"># 又是另一套格式</span>
-<span class="token keyword">elif</span> provider <span class="token operator">==</span> <span class="token string">"qwen"</span><span class="token punctuation">:</span>
-<span class="token comment"># 可能还有特殊格式</span>
+if provider == "openai":
+# 解析 assistant.tool_calls
+# 工具结果用 role=tool
+elif provider == "anthropic":
+# 遍历 assistant.content
+# 工具结果用 role=user + tool_result
+elif provider == "gemini":
+# 又是另一套格式
+elif provider == "qwen":
+# 可能还有特殊格式
 ```
 
 
@@ -665,34 +671,34 @@ Provider Adapter 负责翻译不同模型厂商的格式
 
 
 ```python
-<span class="token keyword">def</span> <span class="token function">run_agent</span><span class="token punctuation">(</span>user_input<span class="token punctuation">,</span> tools<span class="token punctuation">)</span><span class="token punctuation">:</span>
-messages <span class="token operator">=</span> <span class="token punctuation">[</span>
-<span class="token punctuation">{<!-- --></span>
-<span class="token string">"role"</span><span class="token punctuation">:</span> <span class="token string">"user"</span><span class="token punctuation">,</span>
-<span class="token string">"content"</span><span class="token punctuation">:</span> user_input
-<span class="token punctuation">}</span>
-<span class="token punctuation">]</span>
+def run_agent(user_input, tools):
+messages = [
+{
+"role": "user",
+"content": user_input
+}
+]
 
-<span class="token keyword">while</span> <span class="token boolean">True</span><span class="token punctuation">:</span>
-response <span class="token operator">=</span> call_model<span class="token punctuation">(</span>messages<span class="token punctuation">,</span> tools<span class="token punctuation">)</span>
+while True:
+response = call_model(messages, tools)
 
-<span class="token comment"># 如果模型没有请求工具调用，说明可以直接返回最终答案</span>
-<span class="token keyword">if</span> <span class="token keyword">not</span> has_tool_calls<span class="token punctuation">(</span>response<span class="token punctuation">)</span><span class="token punctuation">:</span>
-<span class="token keyword">return</span> response<span class="token punctuation">[</span><span class="token string">"content"</span><span class="token punctuation">]</span>
+# 如果模型没有请求工具调用，说明可以直接返回最终答案
+if not has_tool_calls(response):
+return response["content"]
 
-<span class="token comment"># 如果模型请求了工具调用，则执行工具</span>
-<span class="token keyword">for</span> tool_call <span class="token keyword">in</span> response<span class="token punctuation">[</span><span class="token string">"tool_calls"</span><span class="token punctuation">]</span><span class="token punctuation">:</span>
-tool_call_id <span class="token operator">=</span> tool_call<span class="token punctuation">[</span><span class="token string">"id"</span><span class="token punctuation">]</span>
-tool_name <span class="token operator">=</span> tool_call<span class="token punctuation">[</span><span class="token string">"function"</span><span class="token punctuation">]</span><span class="token punctuation">[</span><span class="token string">"name"</span><span class="token punctuation">]</span>
-tool_args <span class="token operator">=</span> json<span class="token punctuation">.</span>loads<span class="token punctuation">(</span>tool_call<span class="token punctuation">[</span><span class="token string">"function"</span><span class="token punctuation">]</span><span class="token punctuation">[</span><span class="token string">"arguments"</span><span class="token punctuation">]</span><span class="token punctuation">)</span>
+# 如果模型请求了工具调用，则执行工具
+for tool_call in response["tool_calls"]:
+tool_call_id = tool_call["id"]
+tool_name = tool_call["function"]["name"]
+tool_args = json.loads(tool_call["function"]["arguments"])
 
-result <span class="token operator">=</span> execute_tool<span class="token punctuation">(</span>tool_name<span class="token punctuation">,</span> tool_args<span class="token punctuation">)</span>
+result = execute_tool(tool_name, tool_args)
 
-messages<span class="token punctuation">.</span>append<span class="token punctuation">(</span><span class="token punctuation">{<!-- --></span>
-<span class="token string">"role"</span><span class="token punctuation">:</span> <span class="token string">"tool"</span><span class="token punctuation">,</span>
-<span class="token string">"tool_call_id"</span><span class="token punctuation">:</span> tool_call_id<span class="token punctuation">,</span>
-<span class="token string">"content"</span><span class="token punctuation">:</span> result
-<span class="token punctuation">}</span><span class="token punctuation">)</span>
+messages.append({
+"role": "tool",
+"tool_call_id": tool_call_id,
+"content": result
+})
 ```
 
 
@@ -700,11 +706,11 @@ messages<span class="token punctuation">.</span>append<span class="token punctua
 
 
 ```python
-response<span class="token punctuation">[</span><span class="token string">"tool_calls"</span><span class="token punctuation">]</span>
-tool_call<span class="token punctuation">[</span><span class="token string">"function"</span><span class="token punctuation">]</span><span class="token punctuation">[</span><span class="token string">"name"</span><span class="token punctuation">]</span>
-tool_call<span class="token punctuation">[</span><span class="token string">"function"</span><span class="token punctuation">]</span><span class="token punctuation">[</span><span class="token string">"arguments"</span><span class="token punctuation">]</span>
-role <span class="token operator">=</span> <span class="token string">"tool"</span>
-tool_call_id <span class="token operator">=</span> xxx
+response["tool_calls"]
+tool_call["function"]["name"]
+tool_call["function"]["arguments"]
+role = "tool"
+tool_call_id = xxx
 ```
 
 
@@ -718,20 +724,20 @@ tool_call_id <span class="token operator">=</span> xxx
 
 
 ```json
-<span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"role"</span><span class="token operator">:</span> <span class="token string">"assistant"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"content"</span><span class="token operator">:</span> <span class="token keyword">null</span><span class="token punctuation">,</span>
-<span class="token string-property property">"tool_calls"</span><span class="token operator">:</span> <span class="token punctuation">[</span>
-<span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"id"</span><span class="token operator">:</span> <span class="token string">"call_1"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"type"</span><span class="token operator">:</span> <span class="token string">"function"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"function"</span><span class="token operator">:</span> <span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"name"</span><span class="token operator">:</span> <span class="token string">"read_file"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"arguments"</span><span class="token operator">:</span> <span class="token string">"{\"path\":\"README.md\"}"</span>
-<span class="token punctuation">}</span>
-<span class="token punctuation">}</span>
-<span class="token punctuation">]</span>
-<span class="token punctuation">}</span>
+{
+"role": "assistant",
+"content": null,
+"tool_calls": [
+{
+"id": "call_1",
+"type": "function",
+"function": {
+"name": "read_file",
+"arguments": "{\"path\":\"README.md\"}"
+}
+}
+]
+}
 ```
 
 
@@ -739,19 +745,19 @@ tool_call_id <span class="token operator">=</span> xxx
 
 
 ```json
-<span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"role"</span><span class="token operator">:</span> <span class="token string">"assistant"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"content"</span><span class="token operator">:</span> <span class="token punctuation">[</span>
-<span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"type"</span><span class="token operator">:</span> <span class="token string">"tool_use"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"id"</span><span class="token operator">:</span> <span class="token string">"call_1"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"name"</span><span class="token operator">:</span> <span class="token string">"read_file"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"input"</span><span class="token operator">:</span> <span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"path"</span><span class="token operator">:</span> <span class="token string">"README.md"</span>
-<span class="token punctuation">}</span>
-<span class="token punctuation">}</span>
-<span class="token punctuation">]</span>
-<span class="token punctuation">}</span>
+{
+"role": "assistant",
+"content": [
+{
+"type": "tool_use",
+"id": "call_1",
+"name": "read_file",
+"input": {
+"path": "README.md"
+}
+}
+]
+}
 ```
 
 
@@ -759,30 +765,30 @@ tool_call_id <span class="token operator">=</span> xxx
 
 
 ```python
-<span class="token keyword">import</span> json
+import json
 
-<span class="token keyword">def</span> <span class="token function">openai_assistant_to_anthropic</span><span class="token punctuation">(</span>message<span class="token punctuation">)</span><span class="token punctuation">:</span>
-content <span class="token operator">=</span> <span class="token punctuation">[</span><span class="token punctuation">]</span>
+def openai_assistant_to_anthropic(message):
+content = []
 
-<span class="token comment"># 如果原 assistant 消息里有普通文本，也需要保留</span>
-<span class="token keyword">if</span> message<span class="token punctuation">.</span>get<span class="token punctuation">(</span><span class="token string">"content"</span><span class="token punctuation">)</span><span class="token punctuation">:</span>
-content<span class="token punctuation">.</span>append<span class="token punctuation">(</span><span class="token punctuation">{<!-- --></span>
-<span class="token string">"type"</span><span class="token punctuation">:</span> <span class="token string">"text"</span><span class="token punctuation">,</span>
-<span class="token string">"text"</span><span class="token punctuation">:</span> message<span class="token punctuation">[</span><span class="token string">"content"</span><span class="token punctuation">]</span>
-<span class="token punctuation">}</span><span class="token punctuation">)</span>
+# 如果原 assistant 消息里有普通文本，也需要保留
+if message.get("content"):
+content.append({
+"type": "text",
+"text": message["content"]
+})
 
-<span class="token keyword">for</span> tool_call <span class="token keyword">in</span> message<span class="token punctuation">.</span>get<span class="token punctuation">(</span><span class="token string">"tool_calls"</span><span class="token punctuation">,</span> <span class="token punctuation">[</span><span class="token punctuation">]</span><span class="token punctuation">)</span><span class="token punctuation">:</span>
-content<span class="token punctuation">.</span>append<span class="token punctuation">(</span><span class="token punctuation">{<!-- --></span>
-<span class="token string">"type"</span><span class="token punctuation">:</span> <span class="token string">"tool_use"</span><span class="token punctuation">,</span>
-<span class="token string">"id"</span><span class="token punctuation">:</span> tool_call<span class="token punctuation">[</span><span class="token string">"id"</span><span class="token punctuation">]</span><span class="token punctuation">,</span>
-<span class="token string">"name"</span><span class="token punctuation">:</span> tool_call<span class="token punctuation">[</span><span class="token string">"function"</span><span class="token punctuation">]</span><span class="token punctuation">[</span><span class="token string">"name"</span><span class="token punctuation">]</span><span class="token punctuation">,</span>
-<span class="token string">"input"</span><span class="token punctuation">:</span> json<span class="token punctuation">.</span>loads<span class="token punctuation">(</span>tool_call<span class="token punctuation">[</span><span class="token string">"function"</span><span class="token punctuation">]</span><span class="token punctuation">[</span><span class="token string">"arguments"</span><span class="token punctuation">]</span><span class="token punctuation">)</span>
-<span class="token punctuation">}</span><span class="token punctuation">)</span>
+for tool_call in message.get("tool_calls", []):
+content.append({
+"type": "tool_use",
+"id": tool_call["id"],
+"name": tool_call["function"]["name"],
+"input": json.loads(tool_call["function"]["arguments"])
+})
 
-<span class="token keyword">return</span> <span class="token punctuation">{<!-- --></span>
-<span class="token string">"role"</span><span class="token punctuation">:</span> <span class="token string">"assistant"</span><span class="token punctuation">,</span>
-<span class="token string">"content"</span><span class="token punctuation">:</span> content
-<span class="token punctuation">}</span>
+return {
+"role": "assistant",
+"content": content
+}
 ```
 
 
@@ -808,11 +814,11 @@ OpenAI tool_calls[].function.arguments
 
 
 ```json
-<span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"role"</span><span class="token operator">:</span> <span class="token string">"tool"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"tool_call_id"</span><span class="token operator">:</span> <span class="token string">"call_1"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"content"</span><span class="token operator">:</span> <span class="token string">"# Hermes Agent..."</span>
-<span class="token punctuation">}</span>
+{
+"role": "tool",
+"tool_call_id": "call_1",
+"content": "# Hermes Agent..."
+}
 ```
 
 
@@ -820,16 +826,16 @@ OpenAI tool_calls[].function.arguments
 
 
 ```json
-<span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"role"</span><span class="token operator">:</span> <span class="token string">"user"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"content"</span><span class="token operator">:</span> <span class="token punctuation">[</span>
-<span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"type"</span><span class="token operator">:</span> <span class="token string">"tool_result"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"tool_use_id"</span><span class="token operator">:</span> <span class="token string">"call_1"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"content"</span><span class="token operator">:</span> <span class="token string">"# Hermes Agent..."</span>
-<span class="token punctuation">}</span>
-<span class="token punctuation">]</span>
-<span class="token punctuation">}</span>
+{
+"role": "user",
+"content": [
+{
+"type": "tool_result",
+"tool_use_id": "call_1",
+"content": "# Hermes Agent..."
+}
+]
+}
 ```
 
 
@@ -837,17 +843,17 @@ OpenAI tool_calls[].function.arguments
 
 
 ```python
-<span class="token keyword">def</span> <span class="token function">openai_tool_result_to_anthropic</span><span class="token punctuation">(</span>message<span class="token punctuation">)</span><span class="token punctuation">:</span>
-<span class="token keyword">return</span> <span class="token punctuation">{<!-- --></span>
-<span class="token string">"role"</span><span class="token punctuation">:</span> <span class="token string">"user"</span><span class="token punctuation">,</span>
-<span class="token string">"content"</span><span class="token punctuation">:</span> <span class="token punctuation">[</span>
-<span class="token punctuation">{<!-- --></span>
-<span class="token string">"type"</span><span class="token punctuation">:</span> <span class="token string">"tool_result"</span><span class="token punctuation">,</span>
-<span class="token string">"tool_use_id"</span><span class="token punctuation">:</span> message<span class="token punctuation">[</span><span class="token string">"tool_call_id"</span><span class="token punctuation">]</span><span class="token punctuation">,</span>
-<span class="token string">"content"</span><span class="token punctuation">:</span> message<span class="token punctuation">[</span><span class="token string">"content"</span><span class="token punctuation">]</span>
-<span class="token punctuation">}</span>
-<span class="token punctuation">]</span>
-<span class="token punctuation">}</span>
+def openai_tool_result_to_anthropic(message):
+return {
+"role": "user",
+"content": [
+{
+"type": "tool_result",
+"tool_use_id": message["tool_call_id"],
+"content": message["content"]
+}
+]
+}
 ```
 
 
@@ -872,21 +878,21 @@ OpenAI content
 
 
 ```json
-<span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"type"</span><span class="token operator">:</span> <span class="token string">"function"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"function"</span><span class="token operator">:</span> <span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"name"</span><span class="token operator">:</span> <span class="token string">"read_file"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"description"</span><span class="token operator">:</span> <span class="token string">"Read a file"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"parameters"</span><span class="token operator">:</span> <span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"type"</span><span class="token operator">:</span> <span class="token string">"object"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"properties"</span><span class="token operator">:</span> <span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"path"</span><span class="token operator">:</span> <span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"type"</span><span class="token operator">:</span> <span class="token string">"string"</span>
-<span class="token punctuation">}</span>
-<span class="token punctuation">}</span>
-<span class="token punctuation">}</span>
-<span class="token punctuation">}</span>
-<span class="token punctuation">}</span>
+{
+"type": "function",
+"function": {
+"name": "read_file",
+"description": "Read a file",
+"parameters": {
+"type": "object",
+"properties": {
+"path": {
+"type": "string"
+}
+}
+}
+}
+}
 ```
 
 
@@ -894,18 +900,18 @@ OpenAI content
 
 
 ```json
-<span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"name"</span><span class="token operator">:</span> <span class="token string">"read_file"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"description"</span><span class="token operator">:</span> <span class="token string">"Read a file"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"input_schema"</span><span class="token operator">:</span> <span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"type"</span><span class="token operator">:</span> <span class="token string">"object"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"properties"</span><span class="token operator">:</span> <span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"path"</span><span class="token operator">:</span> <span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"type"</span><span class="token operator">:</span> <span class="token string">"string"</span>
-<span class="token punctuation">}</span>
-<span class="token punctuation">}</span>
-<span class="token punctuation">}</span>
-<span class="token punctuation">}</span>
+{
+"name": "read_file",
+"description": "Read a file",
+"input_schema": {
+"type": "object",
+"properties": {
+"path": {
+"type": "string"
+}
+}
+}
+}
 ```
 
 
@@ -913,14 +919,14 @@ OpenAI content
 
 
 ```python
-<span class="token keyword">def</span> <span class="token function">openai_tool_to_anthropic_tool</span><span class="token punctuation">(</span>tool<span class="token punctuation">)</span><span class="token punctuation">:</span>
-function <span class="token operator">=</span> tool<span class="token punctuation">[</span><span class="token string">"function"</span><span class="token punctuation">]</span>
+def openai_tool_to_anthropic_tool(tool):
+function = tool["function"]
 
-<span class="token keyword">return</span> <span class="token punctuation">{<!-- --></span>
-<span class="token string">"name"</span><span class="token punctuation">:</span> function<span class="token punctuation">[</span><span class="token string">"name"</span><span class="token punctuation">]</span><span class="token punctuation">,</span>
-<span class="token string">"description"</span><span class="token punctuation">:</span> function<span class="token punctuation">.</span>get<span class="token punctuation">(</span><span class="token string">"description"</span><span class="token punctuation">,</span> <span class="token string">""</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
-<span class="token string">"input_schema"</span><span class="token punctuation">:</span> function<span class="token punctuation">[</span><span class="token string">"parameters"</span><span class="token punctuation">]</span>
-<span class="token punctuation">}</span>
+return {
+"name": function["name"],
+"description": function.get("description", ""),
+"input_schema": function["parameters"]
+}
 ```
 
 
@@ -946,23 +952,23 @@ OpenAI function.parameters
 
 
 ```json
-<span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"role"</span><span class="token operator">:</span> <span class="token string">"assistant"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"content"</span><span class="token operator">:</span> <span class="token punctuation">[</span>
-<span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"type"</span><span class="token operator">:</span> <span class="token string">"text"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"text"</span><span class="token operator">:</span> <span class="token string">"我需要先读取 README 文件。"</span>
-<span class="token punctuation">}</span><span class="token punctuation">,</span>
-<span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"type"</span><span class="token operator">:</span> <span class="token string">"tool_use"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"id"</span><span class="token operator">:</span> <span class="token string">"toolu_1"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"name"</span><span class="token operator">:</span> <span class="token string">"read_file"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"input"</span><span class="token operator">:</span> <span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"path"</span><span class="token operator">:</span> <span class="token string">"README.md"</span>
-<span class="token punctuation">}</span>
-<span class="token punctuation">}</span>
-<span class="token punctuation">]</span>
-<span class="token punctuation">}</span>
+{
+"role": "assistant",
+"content": [
+{
+"type": "text",
+"text": "我需要先读取 README 文件。"
+},
+{
+"type": "tool_use",
+"id": "toolu_1",
+"name": "read_file",
+"input": {
+"path": "README.md"
+}
+}
+]
+}
 ```
 
 
@@ -970,20 +976,20 @@ OpenAI function.parameters
 
 
 ```json
-<span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"role"</span><span class="token operator">:</span> <span class="token string">"assistant"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"content"</span><span class="token operator">:</span> <span class="token string">"我需要先读取 README 文件。"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"tool_calls"</span><span class="token operator">:</span> <span class="token punctuation">[</span>
-<span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"id"</span><span class="token operator">:</span> <span class="token string">"toolu_1"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"type"</span><span class="token operator">:</span> <span class="token string">"function"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"function"</span><span class="token operator">:</span> <span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"name"</span><span class="token operator">:</span> <span class="token string">"read_file"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"arguments"</span><span class="token operator">:</span> <span class="token string">"{\"path\":\"README.md\"}"</span>
-<span class="token punctuation">}</span>
-<span class="token punctuation">}</span>
-<span class="token punctuation">]</span>
-<span class="token punctuation">}</span>
+{
+"role": "assistant",
+"content": "我需要先读取 README 文件。",
+"tool_calls": [
+{
+"id": "toolu_1",
+"type": "function",
+"function": {
+"name": "read_file",
+"arguments": "{\"path\":\"README.md\"}"
+}
+}
+]
+}
 ```
 
 
@@ -991,35 +997,35 @@ OpenAI function.parameters
 
 
 ```python
-<span class="token keyword">import</span> json
+import json
 
-<span class="token keyword">def</span> <span class="token function">anthropic_assistant_to_openai</span><span class="token punctuation">(</span>message<span class="token punctuation">)</span><span class="token punctuation">:</span>
-texts <span class="token operator">=</span> <span class="token punctuation">[</span><span class="token punctuation">]</span>
-tool_calls <span class="token operator">=</span> <span class="token punctuation">[</span><span class="token punctuation">]</span>
+def anthropic_assistant_to_openai(message):
+texts = []
+tool_calls = []
 
-<span class="token keyword">for</span> block <span class="token keyword">in</span> message<span class="token punctuation">.</span>get<span class="token punctuation">(</span><span class="token string">"content"</span><span class="token punctuation">,</span> <span class="token punctuation">[</span><span class="token punctuation">]</span><span class="token punctuation">)</span><span class="token punctuation">:</span>
-<span class="token keyword">if</span> block<span class="token punctuation">[</span><span class="token string">"type"</span><span class="token punctuation">]</span> <span class="token operator">==</span> <span class="token string">"text"</span><span class="token punctuation">:</span>
-texts<span class="token punctuation">.</span>append<span class="token punctuation">(</span>block<span class="token punctuation">[</span><span class="token string">"text"</span><span class="token punctuation">]</span><span class="token punctuation">)</span>
+for block in message.get("content", []):
+if block["type"] == "text":
+texts.append(block["text"])
 
-<span class="token keyword">elif</span> block<span class="token punctuation">[</span><span class="token string">"type"</span><span class="token punctuation">]</span> <span class="token operator">==</span> <span class="token string">"tool_use"</span><span class="token punctuation">:</span>
-tool_calls<span class="token punctuation">.</span>append<span class="token punctuation">(</span><span class="token punctuation">{<!-- --></span>
-<span class="token string">"id"</span><span class="token punctuation">:</span> block<span class="token punctuation">[</span><span class="token string">"id"</span><span class="token punctuation">]</span><span class="token punctuation">,</span>
-<span class="token string">"type"</span><span class="token punctuation">:</span> <span class="token string">"function"</span><span class="token punctuation">,</span>
-<span class="token string">"function"</span><span class="token punctuation">:</span> <span class="token punctuation">{<!-- --></span>
-<span class="token string">"name"</span><span class="token punctuation">:</span> block<span class="token punctuation">[</span><span class="token string">"name"</span><span class="token punctuation">]</span><span class="token punctuation">,</span>
-<span class="token string">"arguments"</span><span class="token punctuation">:</span> json<span class="token punctuation">.</span>dumps<span class="token punctuation">(</span>block<span class="token punctuation">[</span><span class="token string">"input"</span><span class="token punctuation">]</span><span class="token punctuation">,</span> ensure_ascii<span class="token operator">=</span><span class="token boolean">False</span><span class="token punctuation">)</span>
-<span class="token punctuation">}</span>
-<span class="token punctuation">}</span><span class="token punctuation">)</span>
+elif block["type"] == "tool_use":
+tool_calls.append({
+"id": block["id"],
+"type": "function",
+"function": {
+"name": block["name"],
+"arguments": json.dumps(block["input"], ensure_ascii=False)
+}
+})
 
-openai_message <span class="token operator">=</span> <span class="token punctuation">{<!-- --></span>
-<span class="token string">"role"</span><span class="token punctuation">:</span> <span class="token string">"assistant"</span><span class="token punctuation">,</span>
-<span class="token string">"content"</span><span class="token punctuation">:</span> <span class="token string">"\n"</span><span class="token punctuation">.</span>join<span class="token punctuation">(</span>texts<span class="token punctuation">)</span> <span class="token keyword">if</span> texts <span class="token keyword">else</span> <span class="token boolean">None</span>
-<span class="token punctuation">}</span>
+openai_message = {
+"role": "assistant",
+"content": "\n".join(texts) if texts else None
+}
 
-<span class="token keyword">if</span> tool_calls<span class="token punctuation">:</span>
-openai_message<span class="token punctuation">[</span><span class="token string">"tool_calls"</span><span class="token punctuation">]</span> <span class="token operator">=</span> tool_calls
+if tool_calls:
+openai_message["tool_calls"] = tool_calls
 
-<span class="token keyword">return</span> openai_message
+return openai_message
 ```
 
 
@@ -1039,120 +1045,120 @@ Anthropic input 对象
 
 
 ```python
-<span class="token keyword">class</span> <span class="token class-name">ProviderAdapter</span><span class="token punctuation">:</span>
-<span class="token keyword">def</span> <span class="token function">call</span><span class="token punctuation">(</span>self<span class="token punctuation">,</span> messages<span class="token punctuation">,</span> tools<span class="token punctuation">)</span><span class="token punctuation">:</span>
-<span class="token keyword">raise</span> NotImplementedError
+class ProviderAdapter:
+def call(self, messages, tools):
+raise NotImplementedError
 
-<span class="token keyword">class</span> <span class="token class-name">OpenAIAdapter</span><span class="token punctuation">(</span>ProviderAdapter<span class="token punctuation">)</span><span class="token punctuation">:</span>
-<span class="token keyword">def</span> <span class="token function">call</span><span class="token punctuation">(</span>self<span class="token punctuation">,</span> messages<span class="token punctuation">,</span> tools<span class="token punctuation">)</span><span class="token punctuation">:</span>
-<span class="token comment"># OpenAI-wire 内部格式可以基本原样发送</span>
-<span class="token keyword">return</span> openai_client<span class="token punctuation">.</span>chat<span class="token punctuation">.</span>completions<span class="token punctuation">.</span>create<span class="token punctuation">(</span>
-model<span class="token operator">=</span><span class="token string">"gpt-4"</span><span class="token punctuation">,</span>
-messages<span class="token operator">=</span>messages<span class="token punctuation">,</span>
-tools<span class="token operator">=</span>tools
-<span class="token punctuation">)</span>
+class OpenAIAdapter(ProviderAdapter):
+def call(self, messages, tools):
+# OpenAI-wire 内部格式可以基本原样发送
+return openai_client.chat.completions.create(
+model="gpt-4",
+messages=messages,
+tools=tools
+)
 
-<span class="token keyword">class</span> <span class="token class-name">AnthropicAdapter</span><span class="token punctuation">(</span>ProviderAdapter<span class="token punctuation">)</span><span class="token punctuation">:</span>
-<span class="token keyword">def</span> <span class="token function">call</span><span class="token punctuation">(</span>self<span class="token punctuation">,</span> messages<span class="token punctuation">,</span> tools<span class="token punctuation">)</span><span class="token punctuation">:</span>
-anthropic_messages <span class="token operator">=</span> self<span class="token punctuation">.</span>convert_messages_to_anthropic<span class="token punctuation">(</span>messages<span class="token punctuation">)</span>
-anthropic_tools <span class="token operator">=</span> self<span class="token punctuation">.</span>convert_tools_to_anthropic<span class="token punctuation">(</span>tools<span class="token punctuation">)</span>
+class AnthropicAdapter(ProviderAdapter):
+def call(self, messages, tools):
+anthropic_messages = self.convert_messages_to_anthropic(messages)
+anthropic_tools = self.convert_tools_to_anthropic(tools)
 
-response <span class="token operator">=</span> anthropic_client<span class="token punctuation">.</span>messages<span class="token punctuation">.</span>create<span class="token punctuation">(</span>
-model<span class="token operator">=</span><span class="token string">"claude-xxx"</span><span class="token punctuation">,</span>
-messages<span class="token operator">=</span>anthropic_messages<span class="token punctuation">,</span>
-tools<span class="token operator">=</span>anthropic_tools
-<span class="token punctuation">)</span>
+response = anthropic_client.messages.create(
+model="claude-xxx",
+messages=anthropic_messages,
+tools=anthropic_tools
+)
 
-<span class="token keyword">return</span> self<span class="token punctuation">.</span>convert_response_to_openai<span class="token punctuation">(</span>response<span class="token punctuation">)</span>
+return self.convert_response_to_openai(response)
 
-<span class="token keyword">def</span> <span class="token function">convert_messages_to_anthropic</span><span class="token punctuation">(</span>self<span class="token punctuation">,</span> messages<span class="token punctuation">)</span><span class="token punctuation">:</span>
-result <span class="token operator">=</span> <span class="token punctuation">[</span><span class="token punctuation">]</span>
+def convert_messages_to_anthropic(self, messages):
+result = []
 
-<span class="token keyword">for</span> message <span class="token keyword">in</span> messages<span class="token punctuation">:</span>
-role <span class="token operator">=</span> message<span class="token punctuation">[</span><span class="token string">"role"</span><span class="token punctuation">]</span>
+for message in messages:
+role = message["role"]
 
-<span class="token keyword">if</span> role <span class="token operator">==</span> <span class="token string">"tool"</span><span class="token punctuation">:</span>
-result<span class="token punctuation">.</span>append<span class="token punctuation">(</span><span class="token punctuation">{<!-- --></span>
-<span class="token string">"role"</span><span class="token punctuation">:</span> <span class="token string">"user"</span><span class="token punctuation">,</span>
-<span class="token string">"content"</span><span class="token punctuation">:</span> <span class="token punctuation">[</span>
-<span class="token punctuation">{<!-- --></span>
-<span class="token string">"type"</span><span class="token punctuation">:</span> <span class="token string">"tool_result"</span><span class="token punctuation">,</span>
-<span class="token string">"tool_use_id"</span><span class="token punctuation">:</span> message<span class="token punctuation">[</span><span class="token string">"tool_call_id"</span><span class="token punctuation">]</span><span class="token punctuation">,</span>
-<span class="token string">"content"</span><span class="token punctuation">:</span> message<span class="token punctuation">[</span><span class="token string">"content"</span><span class="token punctuation">]</span>
-<span class="token punctuation">}</span>
-<span class="token punctuation">]</span>
-<span class="token punctuation">}</span><span class="token punctuation">)</span>
+if role == "tool":
+result.append({
+"role": "user",
+"content": [
+{
+"type": "tool_result",
+"tool_use_id": message["tool_call_id"],
+"content": message["content"]
+}
+]
+})
 
-<span class="token keyword">elif</span> role <span class="token operator">==</span> <span class="token string">"assistant"</span> <span class="token keyword">and</span> message<span class="token punctuation">.</span>get<span class="token punctuation">(</span><span class="token string">"tool_calls"</span><span class="token punctuation">)</span><span class="token punctuation">:</span>
-content <span class="token operator">=</span> <span class="token punctuation">[</span><span class="token punctuation">]</span>
+elif role == "assistant" and message.get("tool_calls"):
+content = []
 
-<span class="token keyword">if</span> message<span class="token punctuation">.</span>get<span class="token punctuation">(</span><span class="token string">"content"</span><span class="token punctuation">)</span><span class="token punctuation">:</span>
-content<span class="token punctuation">.</span>append<span class="token punctuation">(</span><span class="token punctuation">{<!-- --></span>
-<span class="token string">"type"</span><span class="token punctuation">:</span> <span class="token string">"text"</span><span class="token punctuation">,</span>
-<span class="token string">"text"</span><span class="token punctuation">:</span> message<span class="token punctuation">[</span><span class="token string">"content"</span><span class="token punctuation">]</span>
-<span class="token punctuation">}</span><span class="token punctuation">)</span>
+if message.get("content"):
+content.append({
+"type": "text",
+"text": message["content"]
+})
 
-<span class="token keyword">for</span> tool_call <span class="token keyword">in</span> message<span class="token punctuation">[</span><span class="token string">"tool_calls"</span><span class="token punctuation">]</span><span class="token punctuation">:</span>
-content<span class="token punctuation">.</span>append<span class="token punctuation">(</span><span class="token punctuation">{<!-- --></span>
-<span class="token string">"type"</span><span class="token punctuation">:</span> <span class="token string">"tool_use"</span><span class="token punctuation">,</span>
-<span class="token string">"id"</span><span class="token punctuation">:</span> tool_call<span class="token punctuation">[</span><span class="token string">"id"</span><span class="token punctuation">]</span><span class="token punctuation">,</span>
-<span class="token string">"name"</span><span class="token punctuation">:</span> tool_call<span class="token punctuation">[</span><span class="token string">"function"</span><span class="token punctuation">]</span><span class="token punctuation">[</span><span class="token string">"name"</span><span class="token punctuation">]</span><span class="token punctuation">,</span>
-<span class="token string">"input"</span><span class="token punctuation">:</span> json<span class="token punctuation">.</span>loads<span class="token punctuation">(</span>tool_call<span class="token punctuation">[</span><span class="token string">"function"</span><span class="token punctuation">]</span><span class="token punctuation">[</span><span class="token string">"arguments"</span><span class="token punctuation">]</span><span class="token punctuation">)</span>
-<span class="token punctuation">}</span><span class="token punctuation">)</span>
+for tool_call in message["tool_calls"]:
+content.append({
+"type": "tool_use",
+"id": tool_call["id"],
+"name": tool_call["function"]["name"],
+"input": json.loads(tool_call["function"]["arguments"])
+})
 
-result<span class="token punctuation">.</span>append<span class="token punctuation">(</span><span class="token punctuation">{<!-- --></span>
-<span class="token string">"role"</span><span class="token punctuation">:</span> <span class="token string">"assistant"</span><span class="token punctuation">,</span>
-<span class="token string">"content"</span><span class="token punctuation">:</span> content
-<span class="token punctuation">}</span><span class="token punctuation">)</span>
+result.append({
+"role": "assistant",
+"content": content
+})
 
-<span class="token keyword">else</span><span class="token punctuation">:</span>
-result<span class="token punctuation">.</span>append<span class="token punctuation">(</span><span class="token punctuation">{<!-- --></span>
-<span class="token string">"role"</span><span class="token punctuation">:</span> role<span class="token punctuation">,</span>
-<span class="token string">"content"</span><span class="token punctuation">:</span> message<span class="token punctuation">[</span><span class="token string">"content"</span><span class="token punctuation">]</span>
-<span class="token punctuation">}</span><span class="token punctuation">)</span>
+else:
+result.append({
+"role": role,
+"content": message["content"]
+})
 
-<span class="token keyword">return</span> result
+return result
 
-<span class="token keyword">def</span> <span class="token function">convert_tools_to_anthropic</span><span class="token punctuation">(</span>self<span class="token punctuation">,</span> tools<span class="token punctuation">)</span><span class="token punctuation">:</span>
-result <span class="token operator">=</span> <span class="token punctuation">[</span><span class="token punctuation">]</span>
+def convert_tools_to_anthropic(self, tools):
+result = []
 
-<span class="token keyword">for</span> tool <span class="token keyword">in</span> tools<span class="token punctuation">:</span>
-function <span class="token operator">=</span> tool<span class="token punctuation">[</span><span class="token string">"function"</span><span class="token punctuation">]</span>
-result<span class="token punctuation">.</span>append<span class="token punctuation">(</span><span class="token punctuation">{<!-- --></span>
-<span class="token string">"name"</span><span class="token punctuation">:</span> function<span class="token punctuation">[</span><span class="token string">"name"</span><span class="token punctuation">]</span><span class="token punctuation">,</span>
-<span class="token string">"description"</span><span class="token punctuation">:</span> function<span class="token punctuation">.</span>get<span class="token punctuation">(</span><span class="token string">"description"</span><span class="token punctuation">,</span> <span class="token string">""</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
-<span class="token string">"input_schema"</span><span class="token punctuation">:</span> function<span class="token punctuation">[</span><span class="token string">"parameters"</span><span class="token punctuation">]</span>
-<span class="token punctuation">}</span><span class="token punctuation">)</span>
+for tool in tools:
+function = tool["function"]
+result.append({
+"name": function["name"],
+"description": function.get("description", ""),
+"input_schema": function["parameters"]
+})
 
-<span class="token keyword">return</span> result
+return result
 
-<span class="token keyword">def</span> <span class="token function">convert_response_to_openai</span><span class="token punctuation">(</span>self<span class="token punctuation">,</span> response<span class="token punctuation">)</span><span class="token punctuation">:</span>
-texts <span class="token operator">=</span> <span class="token punctuation">[</span><span class="token punctuation">]</span>
-tool_calls <span class="token operator">=</span> <span class="token punctuation">[</span><span class="token punctuation">]</span>
+def convert_response_to_openai(self, response):
+texts = []
+tool_calls = []
 
-<span class="token keyword">for</span> block <span class="token keyword">in</span> response<span class="token punctuation">.</span>content<span class="token punctuation">:</span>
-<span class="token keyword">if</span> block<span class="token punctuation">.</span><span class="token builtin">type</span> <span class="token operator">==</span> <span class="token string">"text"</span><span class="token punctuation">:</span>
-texts<span class="token punctuation">.</span>append<span class="token punctuation">(</span>block<span class="token punctuation">.</span>text<span class="token punctuation">)</span>
+for block in response.content:
+if block.type == "text":
+texts.append(block.text)
 
-<span class="token keyword">elif</span> block<span class="token punctuation">.</span><span class="token builtin">type</span> <span class="token operator">==</span> <span class="token string">"tool_use"</span><span class="token punctuation">:</span>
-tool_calls<span class="token punctuation">.</span>append<span class="token punctuation">(</span><span class="token punctuation">{<!-- --></span>
-<span class="token string">"id"</span><span class="token punctuation">:</span> block<span class="token punctuation">.</span><span class="token builtin">id</span><span class="token punctuation">,</span>
-<span class="token string">"type"</span><span class="token punctuation">:</span> <span class="token string">"function"</span><span class="token punctuation">,</span>
-<span class="token string">"function"</span><span class="token punctuation">:</span> <span class="token punctuation">{<!-- --></span>
-<span class="token string">"name"</span><span class="token punctuation">:</span> block<span class="token punctuation">.</span>name<span class="token punctuation">,</span>
-<span class="token string">"arguments"</span><span class="token punctuation">:</span> json<span class="token punctuation">.</span>dumps<span class="token punctuation">(</span>block<span class="token punctuation">.</span><span class="token builtin">input</span><span class="token punctuation">,</span> ensure_ascii<span class="token operator">=</span><span class="token boolean">False</span><span class="token punctuation">)</span>
-<span class="token punctuation">}</span>
-<span class="token punctuation">}</span><span class="token punctuation">)</span>
+elif block.type == "tool_use":
+tool_calls.append({
+"id": block.id,
+"type": "function",
+"function": {
+"name": block.name,
+"arguments": json.dumps(block.input, ensure_ascii=False)
+}
+})
 
-message <span class="token operator">=</span> <span class="token punctuation">{<!-- --></span>
-<span class="token string">"role"</span><span class="token punctuation">:</span> <span class="token string">"assistant"</span><span class="token punctuation">,</span>
-<span class="token string">"content"</span><span class="token punctuation">:</span> <span class="token string">"\n"</span><span class="token punctuation">.</span>join<span class="token punctuation">(</span>texts<span class="token punctuation">)</span> <span class="token keyword">if</span> texts <span class="token keyword">else</span> <span class="token boolean">None</span>
-<span class="token punctuation">}</span>
+message = {
+"role": "assistant",
+"content": "\n".join(texts) if texts else None
+}
 
-<span class="token keyword">if</span> tool_calls<span class="token punctuation">:</span>
-message<span class="token punctuation">[</span><span class="token string">"tool_calls"</span><span class="token punctuation">]</span> <span class="token operator">=</span> tool_calls
+if tool_calls:
+message["tool_calls"] = tool_calls
 
-<span class="token keyword">return</span> message
+return message
 ```
 
 
@@ -1182,11 +1188,11 @@ Qwen API 的兼容接口
 
 
 ```python
-assistant_message<span class="token punctuation">[</span><span class="token string">"tool_calls"</span><span class="token punctuation">]</span>
-tool_call<span class="token punctuation">[</span><span class="token string">"function"</span><span class="token punctuation">]</span><span class="token punctuation">[</span><span class="token string">"name"</span><span class="token punctuation">]</span>
-tool_call<span class="token punctuation">[</span><span class="token string">"function"</span><span class="token punctuation">]</span><span class="token punctuation">[</span><span class="token string">"arguments"</span><span class="token punctuation">]</span>
-role <span class="token operator">=</span> <span class="token string">"tool"</span>
-tool_call_id <span class="token operator">=</span> xxx
+assistant_message["tool_calls"]
+tool_call["function"]["name"]
+tool_call["function"]["arguments"]
+role = "tool"
+tool_call_id = xxx
 ```
 
 
@@ -1226,8 +1232,8 @@ OpenAI-wire ↔ PrivateModel-wire
 
 
 ```python
-args <span class="token operator">=</span> tool_call<span class="token punctuation">[</span><span class="token string">"function"</span><span class="token punctuation">]</span><span class="token punctuation">[</span><span class="token string">"arguments"</span><span class="token punctuation">]</span>
-execute_tool<span class="token punctuation">(</span>name<span class="token punctuation">,</span> args<span class="token punctuation">)</span>
+args = tool_call["function"]["arguments"]
+execute_tool(name, args)
 ```
 
 
@@ -1235,7 +1241,7 @@ execute_tool<span class="token punctuation">(</span>name<span class="token punct
 
 
 ```python
-<span class="token string">"{\"path\": \"README.md\"}"</span>
+"{\"path\": \"README.md\"}"
 ```
 
 
@@ -1243,8 +1249,8 @@ execute_tool<span class="token punctuation">(</span>name<span class="token punct
 
 
 ```python
-args <span class="token operator">=</span> json<span class="token punctuation">.</span>loads<span class="token punctuation">(</span>tool_call<span class="token punctuation">[</span><span class="token string">"function"</span><span class="token punctuation">]</span><span class="token punctuation">[</span><span class="token string">"arguments"</span><span class="token punctuation">]</span><span class="token punctuation">)</span>
-execute_tool<span class="token punctuation">(</span>name<span class="token punctuation">,</span> args<span class="token punctuation">)</span>
+args = json.loads(tool_call["function"]["arguments"])
+execute_tool(name, args)
 ```
 
 
@@ -1254,11 +1260,11 @@ execute_tool<span class="token punctuation">(</span>name<span class="token punct
 
 
 ```json
-<span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"role"</span><span class="token operator">:</span> <span class="token string">"tool"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"tool_call_id"</span><span class="token operator">:</span> <span class="token string">"toolu_1"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"content"</span><span class="token operator">:</span> <span class="token string">"工具结果"</span>
-<span class="token punctuation">}</span>
+{
+"role": "tool",
+"tool_call_id": "toolu_1",
+"content": "工具结果"
+}
 ```
 
 
@@ -1267,16 +1273,16 @@ execute_tool<span class="token punctuation">(</span>name<span class="token punct
 
 
 ```json
-<span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"role"</span><span class="token operator">:</span> <span class="token string">"user"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"content"</span><span class="token operator">:</span> <span class="token punctuation">[</span>
-<span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"type"</span><span class="token operator">:</span> <span class="token string">"tool_result"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"tool_use_id"</span><span class="token operator">:</span> <span class="token string">"toolu_1"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"content"</span><span class="token operator">:</span> <span class="token string">"工具结果"</span>
-<span class="token punctuation">}</span>
-<span class="token punctuation">]</span>
-<span class="token punctuation">}</span>
+{
+"role": "user",
+"content": [
+{
+"type": "tool_result",
+"tool_use_id": "toolu_1",
+"content": "工具结果"
+}
+]
+}
 ```
 
 
@@ -1286,7 +1292,7 @@ execute_tool<span class="token punctuation">(</span>name<span class="token punct
 
 
 ```python
-block <span class="token operator">=</span> response<span class="token punctuation">[</span><span class="token string">"content"</span><span class="token punctuation">]</span><span class="token punctuation">[</span><span class="token number">0</span><span class="token punctuation">]</span>
+block = response["content"][0]
 ```
 
 
@@ -1294,10 +1300,10 @@ block <span class="token operator">=</span> response<span class="token punctuati
 
 
 ```json
-<span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"type"</span><span class="token operator">:</span> <span class="token string">"text"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"text"</span><span class="token operator">:</span> <span class="token string">"我需要先读取文件。"</span>
-<span class="token punctuation">}</span>
+{
+"type": "text",
+"text": "我需要先读取文件。"
+}
 ```
 
 
@@ -1305,12 +1311,12 @@ block <span class="token operator">=</span> response<span class="token punctuati
 
 
 ```python
-<span class="token keyword">for</span> block <span class="token keyword">in</span> response<span class="token punctuation">[</span><span class="token string">"content"</span><span class="token punctuation">]</span><span class="token punctuation">:</span>
-<span class="token keyword">if</span> block<span class="token punctuation">[</span><span class="token string">"type"</span><span class="token punctuation">]</span> <span class="token operator">==</span> <span class="token string">"text"</span><span class="token punctuation">:</span>
-handle_text<span class="token punctuation">(</span>block<span class="token punctuation">)</span>
+for block in response["content"]:
+if block["type"] == "text":
+handle_text(block)
 
-<span class="token keyword">elif</span> block<span class="token punctuation">[</span><span class="token string">"type"</span><span class="token punctuation">]</span> <span class="token operator">==</span> <span class="token string">"tool_use"</span><span class="token punctuation">:</span>
-handle_tool_use<span class="token punctuation">(</span>block<span class="token punctuation">)</span>
+elif block["type"] == "tool_use":
+handle_tool_use(block)
 ```
 
 
@@ -1372,29 +1378,29 @@ tool_call_id = call_3
 
 
 ```json
-<span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"role"</span><span class="token operator">:</span> <span class="token string">"assistant"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"content"</span><span class="token operator">:</span> <span class="token punctuation">[</span>
-<span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"type"</span><span class="token operator">:</span> <span class="token string">"tool_use"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"id"</span><span class="token operator">:</span> <span class="token string">"toolu_1"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"name"</span><span class="token operator">:</span> <span class="token string">"read_file"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"input"</span><span class="token operator">:</span> <span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"path"</span><span class="token operator">:</span> <span class="token string">"README.md"</span>
-<span class="token punctuation">}</span>
-<span class="token punctuation">}</span>
-<span class="token punctuation">]</span>
-<span class="token punctuation">}</span><span class="token punctuation">,</span>
-<span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"role"</span><span class="token operator">:</span> <span class="token string">"user"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"content"</span><span class="token operator">:</span> <span class="token punctuation">[</span>
-<span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"type"</span><span class="token operator">:</span> <span class="token string">"tool_result"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"tool_use_id"</span><span class="token operator">:</span> <span class="token string">"toolu_1"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"content"</span><span class="token operator">:</span> <span class="token string">"文件内容"</span>
-<span class="token punctuation">}</span>
-<span class="token punctuation">]</span>
-<span class="token punctuation">}</span>
+{
+"role": "assistant",
+"content": [
+{
+"type": "tool_use",
+"id": "toolu_1",
+"name": "read_file",
+"input": {
+"path": "README.md"
+}
+}
+]
+},
+{
+"role": "user",
+"content": [
+{
+"type": "tool_result",
+"tool_use_id": "toolu_1",
+"content": "文件内容"
+}
+]
+}
 ```
 
 

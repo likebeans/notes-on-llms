@@ -3,15 +3,15 @@ title: 视觉编码器
 description: ViT、CLIP 与视觉表征的数学原理
 pageType: article
 module: multimodal
-updated: '2025-12-29'
+updated: '2026-10-08'
 contentStatus: needs-review
 tags:
   - multimodal
 level: advanced
 prerequisites:
   - /guide/prerequisites
-reviewed: '2026-08-25'
-techVersion: 待复核（2026-08）
+reviewed: '2026-10-08'
+techVersion: 原理复核于 2026-10；示例未执行模型推理或训练
 ---
 
 # 视觉编码器：从像素到语义
@@ -22,7 +22,7 @@ techVersion: 待复核（2026-08）
 
 ## Vision Transformer (ViT)
 
-ViT 的出现标志着计算机视觉从 CNN 向 Transformer 的彻底转型，极大削弱了对归纳偏置的依赖。
+[ViT](https://arxiv.org/abs/2010.11929)把图像 patch 序列交给 Transformer，相比卷积网络减少了局部性等内置假设，但仍有 patch 切分与位置编码等设计偏置；CNN 与混合架构仍是有效路线。
 
 ### 核心架构
 
@@ -39,15 +39,17 @@ flowchart LR
 
 ### Patch Embedding 数学原理
 
-输入图像 $\mathbf{x} \in \mathbb{R}^{H \times W \times C}$ 被划分为固定大小的 Patch（通常 $16 \times 16$）：
+输入图像 `x ∈ ℝ^(H × W × C)` 被划分为固定大小的 Patch（通常 `16 × 16`）：
 
-$$\mathbf{z}_0 = [\mathbf{x}_{cls}; \mathbf{x}_p^1\mathbf{E}; \mathbf{x}_p^2\mathbf{E}; \cdots; \mathbf{x}_p^N\mathbf{E}] + \mathbf{E}_{pos}$$
+```text
+z₀ = concat(x_cls, x_p¹ E, x_p² E, …, x_pᴺ E) + E_pos
+```
 
 其中：
 
-- $\mathbf{E} \in \mathbb{R}^{(P^2 \cdot C) \times D}$ 是线性投影矩阵
-- $\mathbf{E}_{pos}$ 是位置编码
-- 对于 $224 \times 224$ 图像，产生 $14 \times 14 = 196$ 个 Patch
+- `E ∈ ℝ^((P² × C) × D)` 是线性投影矩阵
+- `E_pos` 是位置编码
+- 对于 `224 × 224` 图像，产生 `14 × 14 = 196` 个 Patch
 
 ### 处理流程详解
 
@@ -61,7 +63,7 @@ $$\mathbf{z}_0 = [\mathbf{x}_{cls}; \mathbf{x}_p^1\mathbf{E}; \mathbf{x}_p^2\mat
 
 ### 位置编码演进
 
-由于 Transformer 本质上是置换不变的（Permutation Invariant），位置编码至关重要。
+不含位置线索、采用对称可见性 mask 的 self-attention 对 token 排列是置换等变的：输入换序，输出随之换序。它本身不能知道二维坐标，因此需要位置编码；这不同于输出完全不变。
 
 | 方案 | 原理 | 优势 | 局限 |
 | :--- | :--- | :--- | :--- |
@@ -70,9 +72,7 @@ $$\mathbf{z}_0 = [\mathbf{x}_{cls}; \mathbf{x}_p^1\mathbf{E}; \mathbf{x}_p^2\mat
 | **RoPE 2D** | 旋转位置编码扩展到二维 | 支持可变分辨率 | 实现复杂 |
 | **缩放平均位置嵌入** | 编码相对感受野大小 | 多尺度适应 | 计算开销 |
 
-::: tip 缩放平均位置嵌入
-RetinaViT 引入的机制：当输入分辨率变化时，通过计算 Patch 在 3D 图像金字塔中的相对位置来调整嵌入的范数，不仅保留二维位置信息，还编码相对感受野大小。
-:::
+输入尺寸变化时，常见方案包括对固定位置嵌入做插值、使用二维相对位置或模型支持的动态分辨率处理。是否有效取决于训练分布，不能只替换位置编码而忽略图像预处理和 checkpoint 的要求。
 
 ### ViT 变体对比
 
@@ -110,29 +110,39 @@ flowchart TB
 
 ### InfoNCE Loss 数学原理
 
-假设 Batch 中有 $N$ 个图像-文本对 $(I_1, T_1), \dots, (I_N, T_N)$：
+假设 Batch 中有 `N` 个图像-文本对 `(I₁, T₁), …, (Iₙ, Tₙ)`：
 
 **相似度计算**：
-$$\text{sim}(I_i, T_j) = \frac{f_I(I_i) \cdot f_T(T_j)}{\|f_I(I_i)\| \|f_T(T_j)\|}$$
+```text
+sim(I_i,T_j) = (f_I(I_i) · f_T(T_j)) / (||f_I(I_i)||₂ × ||f_T(T_j)||₂)
+```
 
 **图像到文本的损失**：
-$$\mathcal{L}_{I \to T, i} = -\log \frac{\exp(\text{sim}(I_i, T_i) / \tau)}{\sum_{j=1}^N \exp(\text{sim}(I_i, T_j) / \tau)}$$
+```text
+L_I→T(i) = −log [ exp(sim(I_i,T_i) / τ)
+                  / Σ_(j=1…N) exp(sim(I_i,T_j) / τ) ]
+```
 
 **文本到图像的损失**：
-$$\mathcal{L}_{T \to I, i} = -\log \frac{\exp(\text{sim}(T_i, I_i) / \tau)}{\sum_{j=1}^N \exp(\text{sim}(T_i, I_j) / \tau)}$$
+```text
+L_T→I(i) = −log [ exp(sim(I_i,T_i) / τ)
+                  / Σ_(j=1…N) exp(sim(I_j,T_i) / τ) ]
+```
 
 **总损失**：
-$$\mathcal{L} = \frac{1}{2N} \sum_{i=1}^N (\mathcal{L}_{I \to T, i} + \mathcal{L}_{T \to I, i})$$
+```text
+L = (1 / (2N)) × Σ_(i=1…N) [L_I→T(i) + L_T→I(i)]
+```
 
-其中 $\tau$ 是可学习的温度系数，调节分布尖锐程度。
+其中 `τ` 是可学习的温度系数，调节分布尖锐程度。
 
 #### 温度系数 τ 的深度解析
 
-**参数化方式**：CLIP 将温度系数参数化为可学习标量 $\tau = \log(e^{\tau'})$
+**参数化方式**：官方实现学习 `logit_scale`，计算相似度时使用 `exp(logit_scale)`；若写成温度形式，则 `1/τ = exp(logit_scale)`，初值对应 `τ = 0.07`。[CLIP 官方代码](https://github.com/openai/CLIP/blob/main/clip/model.py)
 
 | 特性 | 说明 |
 | :--- | :--- |
-| **初始值** | $\tau \approx 0.07$（对应约14的倒数） |
+| **初始值** | `τ ≈ 0.07`（对应约14的倒数） |
 | **训练过程** | 允许模型自适应调节对比学习难度 |
 | **作用机制** | 动态调整logits分布的尖锐程度 |
 | **稳定性** | 防止大规模训练中的梯度消失/爆炸 |
@@ -147,10 +157,10 @@ $$\mathcal{L} = \frac{1}{2N} \sum_{i=1}^N (\mathcal{L}_{I \to T, i} + \mathcal{L
 
 | 元素 | 作用 |
 | :--- | :--- |
-| **正样本对** | 对角线元素 $(I_i, T_i)$，最大化相似度 |
-| **负样本对** | 非对角线元素 $(I_i, T_j)_{i \neq j}$，最小化相似度 |
+| **正样本对** | 对角线元素 `(I_i, T_i)`，最大化相似度 |
+| **负样本对** | 非对角线元素 `(I_i, T_j)，i ≠ j`，最小化相似度 |
 | **温度系数 τ** | 小 τ → 分布更尖锐，学习更难的负样本 |
-| **Batch Size** | 越大 → 负样本越多 → 对比学习效果越好 |
+| **Batch Size** | 增加候选负样本，也可能增加假负例；收益并非无限单调 |
 
 ### CLIP 的革命性意义
 
@@ -170,65 +180,38 @@ $$\mathcal{L} = \frac{1}{2N} \sum_{i=1}^N (\mathcal{L}_{I \to T, i} + \mathcal{L
 
 #### 提示工程（Prompt Engineering）
 
-**单模板 vs 多模板集成**：
-
-| 方法 | 示例 | ImageNet准确率 |
-| :--- | :--- | :--- |
-| **单模板** | "A photo of a {label}." | ~60% |
-| **多模板集成（80个）** | 见下方示例 | **76.2%** |
-
-**多模板示例**：
+**单模板与多模板集成**：模板改变类别的语言描述。集成先对每个模板文本特征归一化，按类别平均再归一化；是否改善由目标数据决定，不能把不同 CLIP 型号的 ImageNet 成绩当作同模型的模板增益。
 
 ```python
-# CLIP 提示模板集成
-templates = [
-    "a photo of a {}.",
-    "a rendering of a {}.",
-    "a cropped photo of the {}.",
-    "the photo of a {}.",
-    "a photo of a clean {}.",
-    "a photo of a dirty {}.",
-    "a dark photo of the {}.",
-    "a photo of my {}.",
-    "a photo of the cool {}.",
-    "a close-up photo of a {}.",
-    # ... 共80个模板
-]
+# 依赖 OpenAI CLIP、PyTorch、Pillow；需下载模型，本文未实测
+import torch
+import clip
+from PIL import Image
 
-# 对每个模板计算相似度，然后平均
-def zero_shot_classify(image, labels, templates):
-    image_features = clip.encode_image(image)
-    
-    logits_per_template = []
-    for template in templates:
-        # 为每个类别生成提示
-        texts = [template.format(label) for label in labels]
-        text_features = clip.encode_text(texts)
-        
-        # 计算相似度
-        logits = (image_features @ text_features.T)
-        logits_per_template.append(logits)
-    
-    # 平均所有模板的logits
-    final_logits = torch.stack(logits_per_template).mean(dim=0)
-    probs = final_logits.softmax(dim=-1)
-    
-    return probs
+device = "cuda" if torch.cuda.is_available() else "cpu"
+model, preprocess = clip.load("ViT-B/32", device=device)
+labels = ["dog", "cat", "bird"]
+templates = ["a photo of a {}.", "a close-up photo of a {}."]
+
+with torch.no_grad():
+    class_features = []
+    for label in labels:
+        tokens = clip.tokenize([t.format(label) for t in templates]).to(device)
+        features = model.encode_text(tokens)
+        features = features / features.norm(dim=-1, keepdim=True)
+        feature = features.mean(dim=0)
+        class_features.append(feature / feature.norm())
+    text_features = torch.stack(class_features)
+    image = preprocess(Image.open("example.jpg").convert("RGB")).unsqueeze(0).to(device)
+    image_features = model.encode_image(image)
+    image_features = image_features / image_features.norm(dim=-1, keepdim=True)
+    logits = model.logit_scale.exp() * image_features @ text_features.T
+    probabilities = logits.softmax(dim=-1)
 ```
-
-**原理**：不同模板激活语言模型中对同一概念的不同表述，平均后更鲁棒。
 
 #### Zero-shot 分类流程
 
-```python
-# 基础 Zero-shot 分类
-image_features = clip.encode_image(image)
-text_features = clip.encode_text(["a dog", "a cat", "a bird"])
-
-# 计算相似度
-similarity = (image_features @ text_features.T).softmax(dim=-1)
-# 输出: [0.95, 0.03, 0.02] → 预测为 "a dog"
-```
+固定候选标签 → 用模板编码类别 → 图像预处理与编码 → 特征归一化 → 相似度与候选内 softmax。softmax 只在当前候选集里归一化；即使图像不属于任何候选，也会选出最高项。因此它不是“图片确实属于该类”的校准概率，开放集拒识需单独设计与测试。
 
 ---
 
@@ -236,48 +219,19 @@ similarity = (image_features @ text_features.T).softmax(dim=-1)
 
 ### ALIGN (Google, 2021)：规模暴力
 
-**核心思想**：数据规模 > 数据质量（在足够大时）
-
-| 特性 | ALIGN | CLIP |
-| :--- | :--- | :--- |
-| **数据规模** | 18亿对 | 4亿对 |
-| **数据质量** | 未清洗Alt-text | 基础过滤 |
-| **清洗策略** | 几乎无 | CLIP过滤 |
-| **结论** | 规模足够大，噪声学习仍有效 | 需要一定过滤 |
-
-**关键发现**：
-
-- 在10亿+规模时，简单双塔架构也能从噪声数据中学到SOTA表征
-- 证明了"数据规模定律"在多模态领域同样适用
+ALIGN 探索在大规模噪声图文对上学习双塔表示；结论是弱监督数据可以有用，不是“数据越脏、规模越大越好”。抓取、过滤、语言覆盖和评估分布都影响结果，不能声称原始 CLIP 用 CLIP 自身过滤了训练数据。[ALIGN 原论文](https://arxiv.org/abs/2102.05918)
 
 ### SigLIP (2023)：损失函数革命
 
-**问题**：Softmax在分布式训练中的通信瓶颈
+SigLIP 使用配对 sigmoid 损失，不需要 softmax 对所有配对相似度做全局归一化。令归一化图文向量的 logit 为 `z_ij = t × (v_i · u_j) + b`，正例 `y_ij = 1`、负例 `y_ij = −1`，可写为：
 
-```python
-# Softmax需要全局归一化（All-Reduce）
-loss_i2t = -log(exp(sim(i,t_i)) / sum_j exp(sim(i,t_j)))  # 需要所有GPU的sim
+```text
+L = −(1/N) × Σ_(i,j) log σ(y_ij × z_ij)
 ```
 
-**SigLIP方案**：使用Sigmoid替代Softmax
+实际实现要说明负样本选择与归一化口径。省去全局归一化不等于消除所有跨设备通信，特征交换与梯度同步仍可能存在；sigmoid 也需稳定的 log-sigmoid 实现。[SigLIP 论文](https://arxiv.org/abs/2303.15343)
 
-$$\mathcal{L} = -\frac{1}{N^2} \sum_{i,j} \log \sigma(y_{ij} \cdot z_{ij})$$
-
-其中 $y_{ij} = 1$ 如果 $i = j$，否则 $y_{ij} = -1$。
-
-**优势**：
-
-- ✅ **消除全局通信**：每个样本对独立计算损失
-- ✅ **支持极大Batch**：32k+（传统Softmax难以达到）
-- ✅ **训练更稳定**：避免指数运算的数值问题
-- ✅ **负样本利用更高效**：所有配对都参与训练
-
-**性能对比**：
-
-| 模型 | Batch Size | ImageNet准确率 |
-| :--- | :--- | :--- |
-| CLIP | 32K | 76.2% |
-| SigLIP | 32K | **78.1%** |
+对固定模型与训练预算，比较 batch、负正比例和检索指标；多语言能力取决于 checkpoint 与训练数据，不能仅凭损失名推断。
 
 ### CoCa (Google, 2022)：理解+生成统一
 
@@ -310,12 +264,14 @@ flowchart TB
 
 **训练目标**：
 
-$$\mathcal{L}_{total} = \mathcal{L}_{contrastive} + \mathcal{L}_{captioning}$$
+```text
+L_total = L_contrastive + L_captioning
+```
 
 **效果**：
 
-- ImageNet零样本：**86.3%**（超越CLIP的76.2%）
-- 同时具备理解和生成能力
+- 论文报告了强零样本与迁移能力；跨模型比较须控制规模、数据与分辨率
+- 同时优化对比表示与图像条件文本生成，不等于直接生成图像
 - 一次前向传播计算两种损失
 
 ---
@@ -329,7 +285,7 @@ $$\mathcal{L}_{total} = \mathcal{L}_{contrastive} + \mathcal{L}_{captioning}$$
 | **通用理解** | CLIP ViT-L/14 | 平衡效果与效率 |
 | **细粒度识别** | ViT-H/14 或更大 | 更多参数捕获细节 |
 | **实时应用** | ViT-B/16 | 速度优先 |
-| **多语言** | SigLIP | 更好的多语言支持 |
+| **多语言** | 经目标语言验证的 checkpoint | 检查语言覆盖、tokenizer 与跨语言检索 |
 
 ### 常见问题
 
@@ -338,6 +294,15 @@ ViT 对分辨率敏感。如果推理分辨率与训练不同，需要插值位�
 :::
 
 ---
+
+### 编码器接入与验收
+
+先固定 checkpoint、输入色彩通道、resize/crop、归一化、输出层和是否保留 CLS。用于整图检索的 pooled embedding 与送入 VLM 的 patch features 不是可直接互换的接口。
+
+1. 用清晰/模糊、小字/大字、正常/旋转图片构造切片，测零样本分类或检索 Recall@K；不要只看 ImageNet。
+2. 对候选 label 改写和换序，检查是否只对单一模板有效；包含“不属于任一类别”的负例。
+3. 若接入后所有相似度异常，先查 RGB、预处理、维度和归一化；只有 OCR 差时，优先查分辨率与训练覆盖。
+4. 报告每张图 token 数、编码耗时、显存和任务指标，在同一成本约束下选择模型大小。
 
 ## 参考资源
 

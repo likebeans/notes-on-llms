@@ -3,15 +3,17 @@ title: RAG 评估方法详解
 description: RAG 系统评估指标、框架与实战方法
 pageType: article
 module: rag
-updated: '2025-12-27'
+updated: '2026-10-08'
 contentStatus: needs-review
 tags:
   - rag
 level: intermediate
 prerequisites:
   - /llms/prompt/
-reviewed: '2026-08-25'
-techVersion: 待复核（2026-08）
+reviewed: '2026-10-08'
+reviewScope: Ragas 当前指标接口与 Recall 分母、视觉证据评估口径对照；未调用评判模型
+exampleStatus: not-run
+techVersion: 2026-10 定向资料复核；核验范围见 reviewScope，外部服务未运行
 ---
 
 # RAG 评估方法详解
@@ -25,16 +27,16 @@ techVersion: 待复核（2026-08）
 RAG系统的复杂性要求我们建立**科学、全面的评估体系**来衡量其效果：
 
 - **多组件系统**：检索器+生成器的联合优化需要分别和整体评估
-- **质量控制**：确保系统在生产环境中的稳定性和可靠性  
+- **质量控制**：确保系统在生产环境中的稳定性和可靠性
 - **持续改进**：通过量化指标指导系统优化方向
 - **业务价值**：将技术指标与业务目标对齐
 
 ### 评估的核心挑战
 
 ::: warning 关键难点
-**主观性强**：文本质量评估往往带有主观色彩  
-**多维度权衡**：准确性、相关性、流畅性需要综合考虑  
-**成本高昂**：人工标注和评估成本较高  
+**主观性强**：文本质量评估往往带有主观色彩
+**多维度权衡**：准确性、相关性、流畅性需要综合考虑
+**成本高昂**：人工标注和评估成本较高
 **动态变化**：用户需求和数据分布随时间变化
 :::
 
@@ -69,7 +71,7 @@ RAG系统的复杂性要求我们建立**科学、全面的评估体系**来衡�
 # RAG评估的三个层次
 RAG系统评估 = {
     "检索层评估": "评估检索组件的效果",
-    "生成层评估": "评估生成组件的质量", 
+    "生成层评估": "评估生成组件的质量",
     "端到端评估": "评估整体系统性能"
 }
 ```
@@ -146,9 +148,13 @@ TruLens框架提出的**"RAG三元组（RAG Triad）"**概念模型，将高质�
 ```python
 def recall_at_k(relevant_docs, retrieved_docs, k):
     """计算Recall@K指标"""
-    retrieved_k = retrieved_docs[:k]
+    if k <= 0:
+        raise ValueError("k 必须为正")
+    if not relevant_docs:
+        return None  # 无答案问题另评拒答，不记作召回失败
+    retrieved_k = list(dict.fromkeys(retrieved_docs))[:k]
     relevant_retrieved = set(retrieved_k) & set(relevant_docs)
-    return len(relevant_retrieved) / len(relevant_docs)
+    return len(relevant_retrieved) / len(set(relevant_docs))
 
 # 示例
 relevant_docs = ['doc1', 'doc3', 'doc5', 'doc7']  # 相关文档
@@ -159,129 +165,103 @@ print(f"Recall@5: {recall_5:.3f}")  # 输出：0.750
 ```
 
 #### 2. 平均倒数排名（MRR）
+
+先按文档 ID 保序去重，再计算第一个相关结果的排名。MRR 的分母只包含有已标注相关文档的查询；其中检索为空或未命中记为 0。无答案查询不计入该分母，单独评估拒答；空样本或全部无答案时返回 `None`，表示没有可计算的样本。
+
 ```python
 def mean_reciprocal_rank(queries_results):
-    """计算多查询的平均倒数排名"""
+    """计算有答案查询的 MRR；每个查询按文档 ID 保序去重。"""
     total_rr = 0
     valid_queries = 0
-    
+
     for relevant_docs, retrieved_docs in queries_results:
-        rr = 0
-        for i, doc in enumerate(retrieved_docs):
-            if doc in relevant_docs:
-                rr = 1 / (i + 1)  # 第一个相关文档的倒数排名
-                break
+        relevant = set(relevant_docs)
+        if not relevant:
+            continue  # 无答案查询另分桶，不进入 MRR 分母
+        retrieved = list(dict.fromkeys(retrieved_docs))
+        rr = next((1 / rank for rank, doc in enumerate(retrieved, start=1)
+                   if doc in relevant), 0)
         total_rr += rr
         valid_queries += 1
-    
-    return total_rr / valid_queries if valid_queries > 0 else 0
 
-# 示例
+    return total_rr / valid_queries if valid_queries else None
+
+# 示例：第三个查询无答案，不计入 MRR 分母
 queries_data = [
-    (['doc1', 'doc3'], ['doc2', 'doc1', 'doc4']),  # 第一个查询
-    (['doc5'], ['doc5', 'doc6', 'doc7']),           # 第二个查询
+    (['doc1', 'doc3'], ['doc2', 'doc2', 'doc1', 'doc4']),  # 去重后首命中排名 2
+    (['doc5'], ['doc5', 'doc6', 'doc7']),                  # 首命中排名 1
+    ([], ['doc6']),                                      # 无答案，另评拒答
 ]
 
 mrr = mean_reciprocal_rank(queries_data)
-print(f"MRR: {mrr:.3f}")
+print(f"MRR: {mrr:.3f}")  # 输出：0.750
 ```
 
+此函数使用完整返回列表；计算 MRR@K 时，应将各查询结果**先去重，再截取前 K 项**后传入。下方 `retrieval_metrics` 的 `mrr` 是前 K 项内的倒数排名，跨查询平均时采用相同分母。
+
 #### 3. 归一化折扣累积增益（NDCG）
+
+用文档 ID 关联相关性标注，避免重复结果重复贡献增益。下面采用非负标注的**线性 gain**，IDCG 来自该查询的完整标注集合；未标注文档在此基线中暂按 0 处理。无正相关标注时返回 `None`；有正相关标注但检索为空时返回 0。
+
 ```python
-import numpy as np
+from math import log2
 
 def dcg_at_k(relevance_scores, k):
-    """计算DCG@K"""
-    relevance_scores = np.array(relevance_scores[:k])
-    if relevance_scores.size:
-        return np.sum(relevance_scores / np.log2(np.arange(2, relevance_scores.size + 2)))
-    return 0
+    """计算线性 gain 的 DCG@K。"""
+    if k <= 0:
+        raise ValueError("k 必须为正")
+    return sum(score / log2(rank + 2)
+               for rank, score in enumerate(relevance_scores[:k]))
 
-def ndcg_at_k(relevant_scores, retrieved_scores, k):
-    """计算NDCG@K"""
-    dcg = dcg_at_k(retrieved_scores, k)
-    idcg = dcg_at_k(sorted(relevant_scores, reverse=True), k)
-    return dcg / idcg if idcg > 0 else 0
+def ndcg_at_k(relevant_scores, retrieved_docs, k):
+    """relevant_scores 为文档 ID 到非负相关性分数的映射。"""
+    if k <= 0:
+        raise ValueError("k 必须为正")
+    if any(score < 0 for score in relevant_scores.values()):
+        raise ValueError("相关性分数必须非负")
+    retrieved = list(dict.fromkeys(retrieved_docs))[:k]
+    dcg = dcg_at_k([relevant_scores.get(doc, 0) for doc in retrieved], k)
+    idcg = dcg_at_k(sorted(relevant_scores.values(), reverse=True), k)
+    return dcg / idcg if idcg > 0 else None
 
-# 示例：相关性分数（0-3分）
-relevant_scores = [3, 2, 3, 1, 2]  # 理想排序的相关性
-retrieved_scores = [3, 1, 2, 3, 0]  # 实际检索的相关性
+# 示例：相关性标注（0–3 分），重复 doc1 只计一次
+relevant_scores = {'doc1': 3, 'doc2': 2, 'doc3': 3, 'doc4': 1, 'doc5': 2}
+retrieved_docs = ['doc1', 'doc1', 'doc4', 'doc2', 'doc3', 'doc6']
 
-ndcg_5 = ndcg_at_k(relevant_scores, retrieved_scores, k=5)
+ndcg_5 = ndcg_at_k(relevant_scores, retrieved_docs, k=5)
 print(f"NDCG@5: {ndcg_5:.3f}")
 ```
 
+跨查询汇总 NDCG 时，对非 `None` 分数取宏平均，分母为有正相关标注的查询数；如果该数量为 0，汇总仍返回 `None`。同时报告总样本数、有效样本数和无答案样本数；标注缺失不能直接当成确认无答案，应先补标或单列数据质量问题。
+
 ### 实战评估代码
 
+下面是纯 Python 的二值相关性基线，输入为去重文档 ID 与人工相关集；可以直接运行。无答案查询的 Recall、Precision、MRR、NDCG 均返回 `None`，不进入这些指标的宏平均分母，另行评估拒答，不能与“应有答案却没找到”混算。Precision@K 采用固定 K 分母，少返回结果不会人为抬高精确率。
+
 ```python
-class RetrievalEvaluator:
-    def __init__(self, ground_truth_path):
-        """
-        ground_truth_path: 标准答案文件路径
-        格式: {
-            "query_id": {
-                "query": "查询文本",
-                "relevant_docs": ["doc1", "doc2", ...]
-            }
-        }
-        """
-        with open(ground_truth_path, 'r', encoding='utf-8') as f:
-            self.ground_truth = json.load(f)
-    
-    def evaluate_retriever(self, retriever, top_k=10):
-        """评估检索器性能"""
-        metrics = {
-            'recall': [],
-            'precision': [],
-            'mrr': [],
-            'ndcg': []
-        }
-        
-        for query_id, data in self.ground_truth.items():
-            query = data['query']
-            relevant_docs = data['relevant_docs']
-            
-            # 执行检索
-            results = retriever.retrieve(query, top_k)
-            retrieved_docs = [r['doc_id'] for r in results]
-            
-            # 计算指标
-            recall = self._calculate_recall(relevant_docs, retrieved_docs)
-            precision = self._calculate_precision(relevant_docs, retrieved_docs)
-            mrr = self._calculate_single_mrr(relevant_docs, retrieved_docs)
-            
-            metrics['recall'].append(recall)
-            metrics['precision'].append(precision)
-            metrics['mrr'].append(mrr)
-        
-        # 计算平均值
-        avg_metrics = {k: np.mean(v) for k, v in metrics.items()}
-        return avg_metrics
-    
-    def _calculate_recall(self, relevant, retrieved):
-        if not relevant:
-            return 0
-        return len(set(relevant) & set(retrieved)) / len(relevant)
-    
-    def _calculate_precision(self, relevant, retrieved):
-        if not retrieved:
-            return 0
-        return len(set(relevant) & set(retrieved)) / len(retrieved)
-    
-    def _calculate_single_mrr(self, relevant, retrieved):
-        for i, doc in enumerate(retrieved):
-            if doc in relevant:
-                return 1 / (i + 1)
-        return 0
+from math import log2
 
-# 使用示例
-evaluator = RetrievalEvaluator('ground_truth.json')
-metrics = evaluator.evaluate_retriever(my_retriever)
+def retrieval_metrics(relevant_docs, retrieved_docs, k=5):
+    if k <= 0:
+        raise ValueError("k 必须为正")
+    relevant = set(relevant_docs)
+    retrieved = list(dict.fromkeys(retrieved_docs))[:k]
+    if not relevant:
+        return {"recall": None, "precision": None, "mrr": None, "ndcg": None}
+    hits = [int(doc_id in relevant) for doc_id in retrieved]
+    dcg = sum(hit / log2(rank + 2) for rank, hit in enumerate(hits))
+    idcg = sum(1 / log2(rank + 2) for rank in range(min(k, len(relevant))))
+    return {
+        "recall": sum(hits) / len(relevant),
+        "precision": sum(hits) / k,
+        "mrr": next((1 / (rank + 1) for rank, hit in enumerate(hits) if hit), 0),
+        "ndcg": dcg / idcg,
+    }
 
-print("检索评估结果:")
-for metric, value in metrics.items():
-    print(f"{metric.upper()}: {value:.3f}")
+print(retrieval_metrics({"d1", "d3"}, ["d2", "d1", "d1", "d3"], k=3))
 ```
+
+MRR 只看第一个相关结果，不能衡量多跳证据是否齐全。分级 NDCG 应说明使用线性 gain 还是 `2**label - 1`，并用同一标注全集构造理想排序。若相关集并不完整，报告标注覆盖和抽检方式，避免把未标注材料一律判无关。
 
 ---
 
@@ -308,62 +288,20 @@ for metric, value in metrics.items():
 2. **逐一验证**：判断每个声明是否能从上下文得到支持或推断
 3. **计算得分**：得分范围0~1，越接近1表示幻觉程度越低
 
-```python
-from openai import OpenAI
+建议让评判器返回逐声明结构，而非一个无法审计的小数：
 
-class FaithfulnessEvaluator:
-    def __init__(self):
-        self.client = OpenAI()
-    
-    def evaluate_faithfulness(self, context: str, generated_answer: str):
-        """评估答案对上下文的忠实度"""
-        prompt = f"""
-请评估以下生成的答案是否忠实于给定的上下文信息。
-
-上下文：
-{context}
-
-生成的答案：
-{generated_answer}
-
-评估标准：
-1. 答案中的事实是否都能在上下文中找到支撑
-2. 是否存在与上下文矛盾的信息
-3. 是否添加了上下文中没有的信息
-
-请给出0-1之间的分数，其中：
-- 1.0：完全忠实，所有信息都来自上下文
-- 0.8：基本忠实，少量合理推理
-- 0.6：部分忠实，有一些不准确信息
-- 0.4：较多不准确信息
-- 0.2：大量错误信息
-- 0.0：完全不忠实或无关
-
-分数："""
-        
-        response = self.client.chat.completions.create(
-            model="gpt-4",
-            messages=[{"role": "user", "content": prompt}],
-            temperature=0.1
-        )
-        
-        # 提取分数
-        import re
-        score_text = response.choices[0].message.content
-        score_match = re.search(r'分数[：:]\s*([0-9.]+)', score_text)
-        
-        if score_match:
-            return float(score_match.group(1))
-        return 0.5  # 默认值
-
-# 使用示例
-evaluator = FaithfulnessEvaluator()
-context = "RAG技术结合了检索和生成，能够获取实时信息..."
-answer = "RAG是一种将信息检索与文本生成相结合的技术..."
-
-faithfulness_score = evaluator.evaluate_faithfulness(context, answer)
-print(f"忠实度分数: {faithfulness_score:.2f}")
+```json
+{
+  "claims": [
+    {"text": "该政策自 7 月生效", "verdict": "supported", "source_ids": ["policy-v3"]},
+    {"text": "适用于所有外包人员", "verdict": "unsupported", "source_ids": []}
+  ]
+}
 ```
+
+用 `supported / 全部事实声明` 汇总，并分别保留 `contradicted`、`unsupported` 和 `uncertain`。无事实声明的拒答不能自动拿忠实度满分，应进入拒答判定。解析失败、模型超时或不合法标签返回“评估失败”，不能默认成 0.5。
+
+这里的声明分解是评估器的测量方式，不是真值保证；抽取器可能漏掉关键声明。以人工标注子集检查评判器的一致性，锁定 grader 的模型、模板和版本。[Ragas 忠实度文档](https://docs.ragas.io/en/stable/concepts/metrics/available_metrics/faithfulness/) 说明了声明支持率的具体定义。
 
 #### 2. 答案相关性（Answer Relevance）
 
@@ -377,95 +315,17 @@ RAGAs等框架采用创新方法，避免对"黄金标准答案"的依赖：
 2. **语义相似度计算**：将潜在问题与用户原始查询转为向量，计算余弦相似度
 3. **计算得分**：答案相关性得分 = 所有潜在问题与原始查询的相似度平均值
 
-```python
-class RelevanceEvaluator:
-    def __init__(self):
-        self.client = OpenAI()
-    
-    def evaluate_relevance(self, query: str, generated_answer: str):
-        """评估答案与查询的相关性"""
-        prompt = f"""
-请评估生成的答案与用户查询的相关性。
+逆向问题相似度是一种代理指标，不等价于答案正确率：错误答案也可能与问题高度相关。复杂业务任务更适合把问题拆成必须回答的要点，逐项检查覆盖，并检查多余或矛盾内容。以上“逆向生成”定义与直接给答案打 0–1 分的 rubric 是不同测量方式，报告时不要混名。
 
-用户查询：
-{query}
+### 生成层的最小验收记录
 
-生成的答案：
-{generated_answer}
-
-评估标准：
-1. 答案是否直接回应了用户的问题
-2. 答案是否包含用户需要的核心信息
-3. 答案的详细程度是否适当
-
-请给出0-1之间的分数：
-- 1.0：完全相关，直接回答问题
-- 0.8：高度相关，基本回答问题
-- 0.6：部分相关，回答了部分问题
-- 0.4：相关性较低
-- 0.2：相关性很低
-- 0.0：完全不相关
-
-分数："""
-        
-        response = self.client.chat.completions.create(
-            model="gpt-4",
-            messages=[{"role": "user", "content": prompt}],
-            temperature=0.1
-        )
-        
-        # 提取分数的逻辑同上
-        # ...
-        
-# 批量评估工具
-class BatchGenerationEvaluator:
-    def __init__(self):
-        self.faithfulness_evaluator = FaithfulnessEvaluator()
-        self.relevance_evaluator = RelevanceEvaluator()
-    
-    def evaluate_batch(self, test_cases):
-        """批量评估生成质量"""
-        results = []
-        
-        for case in test_cases:
-            query = case['query']
-            context = case['context']
-            generated_answer = case['generated_answer']
-            
-            faithfulness = self.faithfulness_evaluator.evaluate_faithfulness(
-                context, generated_answer
-            )
-            relevance = self.relevance_evaluator.evaluate_relevance(
-                query, generated_answer
-            )
-            
-            results.append({
-                'query': query,
-                'faithfulness': faithfulness,
-                'relevance': relevance,
-                'overall': (faithfulness + relevance) / 2
-            })
-        
-        return results
-
-# 使用示例
-test_cases = [
-    {
-        'query': '什么是RAG技术？',
-        'context': 'RAG技术文档内容...',
-        'generated_answer': 'RAG是检索增强生成技术...'
-    }
-    # 更多测试用例...
-]
-
-batch_evaluator = BatchGenerationEvaluator()
-results = batch_evaluator.evaluate_batch(test_cases)
-
-avg_faithfulness = np.mean([r['faithfulness'] for r in results])
-avg_relevance = np.mean([r['relevance'] for r in results])
-print(f"平均忠实度: {avg_faithfulness:.3f}")
-print(f"平均相关性: {avg_relevance:.3f}")
-```
+| 字段 | 记录什么 | 用途 |
+| --- | --- | --- |
+| `answer_claims` | 原子声明与支持证据 ID | 定位无依据内容 |
+| `required_points` | 问题要求的要点及覆盖情况 | 避免忠实但答非所问 |
+| `citation_support` | 每条引用是否支持紧邻结论 | 避免“引用存在但引错” |
+| `grader_status` | 成功、超时、解析失败、人工复核 | 避免缺测被算成低分或平均分 |
+| `answerable` / `abstained` | 语料是否可答、系统是否拒答 | 同时测误拒绝与无依据作答 |
 
 ---
 
@@ -474,78 +334,36 @@ print(f"平均相关性: {avg_relevance:.3f}")
 ### 综合评估指标
 
 #### 1. 答案准确率（Answer Accuracy）
+
+正确性与忠实度分开：旧版文档支持的回答可以忠实但已过期；模型依靠已有知识猜对也可以正确但无证据。标准答案应带有效日期、允许的等价答案和必要限定条件。
+
+EM 适用于日期、实体或可规范化短答案；token F1 是表面重叠指标，需要多重集计数，不能用集合丢掉重复词。中文不能直接用空格分词。下面要求调用方传入已经按评测协议分好的 token，避免隐藏分词差异。
+
 ```python
-class AnswerAccuracyEvaluator:
-    def __init__(self):
-        self.client = OpenAI()
-    
-    def evaluate_accuracy(self, query: str, generated_answer: str, ground_truth: str):
-        """评估答案准确性"""
-        prompt = f"""
-请比较生成答案与标准答案的准确性。
+from collections import Counter
 
-问题：{query}
+def token_f1(pred_tokens, reference_tokens):
+    if not pred_tokens or not reference_tokens:
+        return float(pred_tokens == reference_tokens)
+    common = sum((Counter(pred_tokens) & Counter(reference_tokens)).values())
+    if common == 0:
+        return 0.0
+    precision = common / len(pred_tokens)
+    recall = common / len(reference_tokens)
+    return 2 * precision * recall / (precision + recall)
 
-生成答案：{generated_answer}
-
-标准答案：{ground_truth}
-
-请判断生成答案是否正确，给出分数：
-- 1：完全正确
-- 0.8：基本正确，有细微差异
-- 0.6：部分正确
-- 0.4：有较多错误
-- 0.2：大部分错误
-- 0：完全错误
-
-分数："""
-        
-        # LLM评估逻辑...
-        
-    def calculate_accuracy_metrics(self, predictions, ground_truths):
-        """计算准确率相关指标"""
-        exact_matches = []
-        f1_scores = []
-        
-        for pred, gt in zip(predictions, ground_truths):
-            # 精确匹配
-            exact_match = 1 if pred.strip().lower() == gt.strip().lower() else 0
-            exact_matches.append(exact_match)
-            
-            # F1分数（基于词级别）
-            f1 = self._calculate_f1(pred, gt)
-            f1_scores.append(f1)
-        
-        return {
-            'exact_match': np.mean(exact_matches),
-            'f1_score': np.mean(f1_scores)
-        }
-    
-    def _calculate_f1(self, prediction, ground_truth):
-        """计算F1分数"""
-        pred_tokens = set(prediction.lower().split())
-        gt_tokens = set(ground_truth.lower().split())
-        
-        if len(pred_tokens) == 0:
-            return 0
-        
-        common_tokens = pred_tokens & gt_tokens
-        precision = len(common_tokens) / len(pred_tokens)
-        recall = len(common_tokens) / len(gt_tokens) if len(gt_tokens) > 0 else 0
-        
-        if precision + recall == 0:
-            return 0
-        
-        return 2 * (precision * recall) / (precision + recall)
+print(token_f1(["RAG", "结合", "检索", "和", "生成"], ["RAG", "结合", "检索", "生成"]))
 ```
+
+长答案用要点 rubric、数字/日期精确检查及人工抽检；不把 EM 或 F1 包装为通用事实准确率。
 
 #### 2. 用户满意度评估
 ```python
 class UserSatisfactionEvaluator:
     def __init__(self):
         self.satisfaction_history = []
-    
-    def collect_feedback(self, query: str, answer: str, user_rating: int, 
+
+    def collect_feedback(self, query: str, answer: str, user_rating: int,
                         feedback_text: str = ""):
         """收集用户反馈"""
         feedback = {
@@ -556,20 +374,20 @@ class UserSatisfactionEvaluator:
             'feedback': feedback_text
         }
         self.satisfaction_history.append(feedback)
-    
+
     def calculate_satisfaction_metrics(self, time_window_days=30):
         """计算满意度指标"""
         cutoff_date = datetime.now() - timedelta(days=time_window_days)
         recent_feedback = [
-            f for f in self.satisfaction_history 
+            f for f in self.satisfaction_history
             if f['timestamp'] > cutoff_date
         ]
-        
+
         if not recent_feedback:
             return None
-        
+
         ratings = [f['rating'] for f in recent_feedback]
-        
+
         return {
             'avg_rating': np.mean(ratings),
             'satisfaction_rate': len([r for r in ratings if r >= 4]) / len(ratings),
@@ -588,13 +406,13 @@ class UserSatisfactionEvaluator:
 
 | 框架 | 核心特点 | 优势 | 局限 | 适用场景 |
 |------|----------|------|------|----------|
-| **RAGAs** | 无参考评估，LLM-as-a-Judge | 无需黄金标准，快速验证 | 依赖LLM判断稳定性 | 快速原型验证、迭代监控 |
-| **ARES** | 合成数据+微调评判者 | 高精度、领域适配 | 设置成本高 | 生产级严格验证 |
+| **RAGAs** | 无参考评估，LLM-as-a-Judge | 部分指标无需参考答案 | 依赖LLM判断稳定性 | 快速原型验证、迭代监控 |
+| **ARES** | 合成数据+微调评判者 | 可适配领域并做统计校正 | 设置成本高 | 生产级严格验证 |
 | **TruLens** | 开发集成、RAG三元组 | 端到端追踪、可视化 | 配置复杂 | 开发调试、全链路监控 |
 
 ### 1. RAGAs框架详解
 
-RAGAs（Retrieval-Augmented Generation Assessment）是由IBM Research开源的RAG专用评估框架，其核心标签是**"无参考评估"**——无需人工标注的黄金标准答案，极大降低了评估门槛。
+[Ragas 原论文](https://arxiv.org/abs/2309.15217) 由 Shahul Es 等作者提出，研究自动化、多维度 RAG 评估。不能笼统归为 IBM Research 项目，也不能把“无参考评估”理解为所有指标都不需要标准答案。具体需求取决于所选指标与版本。
 
 #### 核心设计哲学
 
@@ -604,65 +422,41 @@ RAGAs通过**"LLM即评判者（LLM-as-a-Judge）"**范式，让强大的通用L
 
 | 指标 | 评估对象 | 含义 | 计算方式 |
 |------|----------|------|----------|
-| **上下文精确率** | 检索器 | 检索的上下文中有多少是回答问题必需的 | 必需句子数 / 总句子数 |
+| **上下文精确率** | 检索器 | 相关片段是否排在前面 | 对相关位置的 Precision@k 加权汇总；按具体实现确认 |
 | **上下文召回率** | 检索器 | 黄金答案中的信息有多少能在上下文中找到 | 可归因声明数 / 总声明数 |
 | **忠实度** | 生成器 | 答案的事实声明是否都能从上下文验证 | 被证实声明数 / 总声明数 |
 | **答案相关性** | 生成器 | 答案是否直接回应用户查询意图 | 逆向问题与原始查询的语义相似度 |
 
-::: tip 提示词设计细节
-RAGAs的提示词遵循"指令+示例"结构——例如计算上下文精确率时，会先向LLM说明"必需句子"的定义，再给出2~3个正反示例，确保LLM理解评判标准，减少主观偏差。
-:::
+[Ragas Context Precision 官方文档](https://docs.ragas.io/en/stable/concepts/metrics/available_metrics/context_precision/) 区分需要 reference 与不需要 reference 的实现。它不是简单的“必需句子数 / 总句子数”。对不同版本的数值进行比较前，应固定相同数据字段、grader 和计算方式。
 
-```python
-from ragas import evaluate
-from ragas.metrics import (
-    faithfulness,
-    answer_relevancy,
-    context_recall,
-    context_precision,
-)
+旧版 `question/contexts/answer/ground_truths` 示例不可直接当作当前 API。接入时遵循安装版本对应的官方示例，并先用一个人工可判定样本核对以下接口契约：
 
-class RAGAsEvaluator:
-    def __init__(self):
-        self.metrics = [
-            faithfulness,
-            answer_relevancy, 
-            context_recall,
-            context_precision
-        ]
-    
-    def evaluate_with_ragas(self, dataset):
-        """使用RAGAs进行评估"""
-        # dataset格式：
-        # {
-        #     'question': [...],
-        #     'contexts': [...],  # 检索到的上下文列表
-        #     'answer': [...],    # 生成的答案
-        #     'ground_truths': [...] # 标准答案
-        # }
-        
-        results = evaluate(
-            dataset=dataset,
-            metrics=self.metrics
-        )
-        
-        return results.to_pandas()
-
-# 使用示例
-evaluator = RAGAsEvaluator()
-
-# 准备数据集
-eval_dataset = {
-    'question': ['什么是RAG技术？'],
-    'contexts': [['RAG是检索增强生成技术，结合了检索和生成...']],
-    'answer': ['RAG技术是一种结合检索和生成的AI技术...'],
-    'ground_truths': [['RAG（检索增强生成）是一种AI技术...']]
-}
-
-results_df = evaluator.evaluate_with_ragas(eval_dataset)
-print("RAGAs评估结果：")
-print(results_df.describe())
+```text
+user_input          用户问题
+retrieved_contexts  实际送入生成器的片段列表，保持顺序
+response            生成答案
+reference           仅在所选指标需要时提供
+reference_contexts  仅在证据标注型指标需要时提供
 ```
+
+报告中写明包版本、指标类、输入字段、模型/embedding 配置及失败样本数；不要把 dict 直接传入不匹配版本的评估器后宣称完成验证。
+
+### 同名 Recall 必须写清评估对象
+
+**2026-10-08 核验**：[Ragas Context Recall 官方文档](https://docs.ragas.io/en/stable/concepts/metrics/available_metrics/context_recall/)区分基于答案声明、文本匹配和 ID 的实现，并展示新的 `ragas.metrics.collections.ContextRecall` 接口。本文不把某个接口名当作跨版本契约，升级时须固定包版本并运行人工可判定的样本。
+
+| 报告项 | 分子 / 分母 | 回答的问题 |
+| --- | --- | --- |
+| 文档 Recall@K | 命中的去重相关文档 / 已标注相关文档 | 检索器是否漏文档 |
+| 声明级 Context Recall | 上下文支持的参考答案声明 / 参考答案声明 | 送入模型的信息是否足够 |
+| 页级 Recall@K | 命中的相关页 / 标注相关页 | 视觉检索是否找到正确页面 |
+| 引用覆盖率 | 有有效引用支持的应引事实声明 / 应引事实声明 | 答案有没有把证据交给读者 |
+
+多页联合回答可能页 Hit@K 已经为 1、Recall@K 仍低，不能据此宣称“证据完整”。文本 grader 只读 OCR 或 caption 时，也不能验证原图的坐标、颜色、数值和图例关系：应保留原页与证据区域，让具备对应输入能力的评判器或人工复核。
+
+评估产物记录 `metric_name + metric_version + evidence_unit + reference_kind + grader`。评分超时、解析失败、无法判断与不适用分开统计，不能偷偷改成 0、重试到通过或从报告中消失；主指标同时报告有效样本数与评分覆盖率。此处完成定义核验，未调用 Ragas 外部评判模型。
+
+
 
 ### 2. ARES框架：高精度评估
 
@@ -673,6 +467,8 @@ ARES（Automated RAG Evaluation System）是由斯坦福大学团队提出的高
 ARES的设计思路是**"领域适配优于通用能力"**：通用LLM在特定领域（如医疗、金融）的评估准确性仍有差距，可能因不理解专业术语导致误判。
 
 #### 三阶段评估流程
+
+下图概括训练与预测过程；实际系统评估还包含后文的人工标注与 PPI 校正，不能省略这一统计环节。
 
 ```
 ┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
@@ -694,109 +490,21 @@ ARES的设计思路是**"领域适配优于通用能力"**：通用LLM在特定�
 - 在合成数据上进行二分类/回归微调
 - 使其成为该领域的"专家评判者"
 
+**阶段3：使用人工标签校正估计**
+- ARES 使用少量人工标注配合 prediction-powered inference（PPI），降低评判器偏差并估计系统指标；不是仅靠合成标签即可免人工验收。[ARES 原论文](https://arxiv.org/abs/2311.09476)
+
 **适用场景**：对性能要求严苛的生产级场景（医疗、金融、法律）
 
 ### 3. 自定义评估流水线
 
-```python
-class ComprehensiveRAGEvaluator:
-    def __init__(self, config):
-        self.retrieval_evaluator = RetrievalEvaluator(config['ground_truth_path'])
-        self.generation_evaluator = BatchGenerationEvaluator()
-        self.answer_evaluator = AnswerAccuracyEvaluator()
-        
-    def full_evaluation(self, rag_system, test_queries):
-        """完整RAG系统评估"""
-        results = {
-            'retrieval_metrics': {},
-            'generation_metrics': {},
-            'end_to_end_metrics': {},
-            'detailed_results': []
-        }
-        
-        for query_data in test_queries:
-            query = query_data['query']
-            expected_docs = query_data.get('relevant_docs', [])
-            ground_truth_answer = query_data.get('ground_truth', '')
-            
-            # 1. 执行RAG流程
-            retrieved_docs = rag_system.retrieve(query)
-            generated_answer = rag_system.generate(query, retrieved_docs)
-            
-            # 2. 检索评估
-            if expected_docs:
-                retrieval_recall = self._calculate_recall(
-                    expected_docs, [d['id'] for d in retrieved_docs]
-                )
-            
-            # 3. 生成评估
-            context = ' '.join([doc['text'] for doc in retrieved_docs])
-            faithfulness = self.generation_evaluator.faithfulness_evaluator.evaluate_faithfulness(
-                context, generated_answer
-            )
-            relevance = self.generation_evaluator.relevance_evaluator.evaluate_relevance(
-                query, generated_answer  
-            )
-            
-            # 4. 端到端评估
-            if ground_truth_answer:
-                accuracy = self.answer_evaluator.evaluate_accuracy(
-                    query, generated_answer, ground_truth_answer
-                )
-            
-            # 记录详细结果
-            results['detailed_results'].append({
-                'query': query,
-                'retrieval_recall': retrieval_recall if expected_docs else None,
-                'faithfulness': faithfulness,
-                'relevance': relevance,
-                'accuracy': accuracy if ground_truth_answer else None,
-                'generated_answer': generated_answer
-            })
-        
-        # 计算汇总指标
-        results['retrieval_metrics'] = self._summarize_retrieval_metrics(results['detailed_results'])
-        results['generation_metrics'] = self._summarize_generation_metrics(results['detailed_results'])
-        results['end_to_end_metrics'] = self._summarize_e2e_metrics(results['detailed_results'])
-        
-        return results
-    
-    def _summarize_retrieval_metrics(self, detailed_results):
-        recalls = [r['retrieval_recall'] for r in detailed_results if r['retrieval_recall'] is not None]
-        return {'avg_recall': np.mean(recalls)} if recalls else {}
-    
-    def _summarize_generation_metrics(self, detailed_results):
-        faithfulness_scores = [r['faithfulness'] for r in detailed_results]
-        relevance_scores = [r['relevance'] for r in detailed_results]
-        return {
-            'avg_faithfulness': np.mean(faithfulness_scores),
-            'avg_relevance': np.mean(relevance_scores)
-        }
-    
-    def _summarize_e2e_metrics(self, detailed_results):
-        accuracy_scores = [r['accuracy'] for r in detailed_results if r['accuracy'] is not None]
-        return {'avg_accuracy': np.mean(accuracy_scores)} if accuracy_scores else {}
+1. 冻结语料快照、模型、提示、切分、检索与评估器配置。
+2. 按文档/主题划分开发集和测试集，防止同一段落的改写问题跨集合泄漏；合成样本补覆盖，真实问题验证分布。
+3. 每个样本保存原始问题、授权范围、候选、重排结果、实际上下文、答案及引用。
+4. 先用程序核对格式、ID、数字和状态，再由 grader 判语义，最后人工复核分歧与高风险样本。
+5. 分层汇总检索、生成、引用、拒答、延迟和成本，同时报告样本数与缺测率；关键安全指标单独设门槛，不与其他分数平均抵消。
+6. 在相同问题上比较新旧版本，给出配对差值与置信区间，再决定是否灰度。
 
-# 使用示例
-config = {'ground_truth_path': 'test_data.json'}
-evaluator = ComprehensiveRAGEvaluator(config)
-
-test_queries = [
-    {
-        'query': '什么是RAG技术？',
-        'relevant_docs': ['doc1', 'doc3'],
-        'ground_truth': 'RAG是检索增强生成技术...'
-    }
-    # 更多测试查询...
-]
-
-evaluation_results = evaluator.full_evaluation(my_rag_system, test_queries)
-
-print("完整评估结果:")
-print(f"检索指标: {evaluation_results['retrieval_metrics']}")
-print(f"生成指标: {evaluation_results['generation_metrics']}")
-print(f"端到端指标: {evaluation_results['end_to_end_metrics']}")
-```
+无答案样本至少区分“知识库中不存在”“证据被权限限制”“版本已过期”与“模型不确定”。前三类不能通过放宽召回阈值自动变为可答。
 
 ---
 
@@ -862,102 +570,21 @@ print(f"端到端指标: {evaluation_results['end_to_end_metrics']}")
 
 ### 1. 在线评估系统
 
-```python
-class OnlineRAGMonitor:
-    def __init__(self, rag_system):
-        self.rag_system = rag_system
-        self.metrics_buffer = []
-        
-    def log_interaction(self, query: str, answer: str, user_feedback: dict):
-        """记录用户交互"""
-        interaction = {
-            'timestamp': datetime.now(),
-            'query': query,
-            'answer': answer,
-            'feedback': user_feedback,
-            'response_time': user_feedback.get('response_time', 0)
-        }
-        self.metrics_buffer.append(interaction)
-        
-        # 定期分析
-        if len(self.metrics_buffer) >= 100:
-            self._analyze_recent_performance()
-    
-    def _analyze_recent_performance(self):
-        """分析最近性能"""
-        recent_interactions = self.metrics_buffer[-100:]
-        
-        # 计算关键指标
-        avg_rating = np.mean([i['feedback'].get('rating', 0) for i in recent_interactions])
-        avg_response_time = np.mean([i['response_time'] for i in recent_interactions])
-        
-        # 检测异常
-        if avg_rating < 3.5:
-            self._alert_low_satisfaction()
-        if avg_response_time > 5.0:
-            self._alert_slow_response()
-    
-    def _alert_low_satisfaction(self):
-        """低满意度告警"""
-        print("⚠️ 警告：用户满意度下降")
-    
-    def _alert_slow_response(self):
-        """响应慢告警"""
-        print("⚠️ 警告：系统响应时间过长")
+线上监控分别观察质量与服务状态：错误率、超时率、p50/p95/p99、每次成功任务成本、引用支持率和错误拒答率。用户未评分不是零分；只统计有评分的样本并报告反馈覆盖率，低覆盖评分不可代表全部用户。
 
-# 2. A/B测试框架
-class RAGABTester:
-    def __init__(self, system_a, system_b):
-        self.system_a = system_a
-        self.system_b = system_b
-        self.results = {'A': [], 'B': []}
-    
-    def run_test(self, queries, traffic_split=0.5):
-        """运行A/B测试"""
-        for query in queries:
-            # 随机分配流量
-            if random.random() < traffic_split:
-                result = self._test_system('A', self.system_a, query)
-                self.results['A'].append(result)
-            else:
-                result = self._test_system('B', self.system_b, query)
-                self.results['B'].append(result)
-    
-    def _test_system(self, version, system, query):
-        start_time = time.time()
-        answer = system.generate_answer(query)
-        response_time = time.time() - start_time
-        
-        return {
-            'query': query,
-            'answer': answer,
-            'response_time': response_time,
-            'version': version
-        }
-    
-    def analyze_results(self):
-        """分析A/B测试结果"""
-        metrics_a = self._calculate_metrics(self.results['A'])
-        metrics_b = self._calculate_metrics(self.results['B'])
-        
-        # 统计显著性检验
-        from scipy.stats import ttest_ind
-        
-        times_a = [r['response_time'] for r in self.results['A']]
-        times_b = [r['response_time'] for r in self.results['B']]
-        
-        t_stat, p_value = ttest_ind(times_a, times_b)
-        
-        return {
-            'system_a_metrics': metrics_a,
-            'system_b_metrics': metrics_b,
-            'significance_test': {
-                't_statistic': t_stat,
-                'p_value': p_value,
-                'significant': p_value < 0.05
-            }
-        }
-```
+A/B 实验按用户或会话稳定分桶，预先确定样本量、持续时间和停止规则。不能反复查看 p 值直到显著再停止。离线同题比较可采用配对 bootstrap；延迟通常偏态，报告分位数与置信区间，均值 t 检验不足以证明 p95 改善。
+
+### 2. 失败归因与上线门槛
+
+| 观察 | 下一步实验 | 不应误做的调整 |
+| --- | --- | --- |
+| 标准证据在候选中缺失 | 检查语料、过滤、精确检索基线 | 仅加大生成模型 |
+| 候选有依据，最终上下文没有 | 比较排序、去重与裁剪前后 ID | 盲目增加上下文窗口 |
+| 上下文完整，答案失真 | 原子声明核对、生成约束消融 | 只看最终平均分 |
+| 忠实但过期 | 按文档有效时间重测 | 放宽相关阈值 |
+| grader 分歧大 | 人工复标、调整 rubric 与证据要求 | 把低一致性分数当精确真值 |
+
+验收阈值由场景风险与基线确定，没有通用“RAG 总分 0.8 即合格”。至少保留端到端成功率、无答案误接受率、引用支持率、权限泄漏测试和成本/延迟预算；任何关键项越界均有明确回滚或降级动作。
 
 ---
 

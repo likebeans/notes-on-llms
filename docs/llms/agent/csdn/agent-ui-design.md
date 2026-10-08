@@ -3,7 +3,7 @@ title: "从 Chat UI 到 Agent UI：如何设计一个真正可用的智能体交
 description: "CSDN 原文全文镜像：文章摘要： 随着AI Agent的发展，传统聊天界面(Chat UI)已无法满足复杂任务需求。本文分析了Chat UI与Agent UI的本质差异：Chat UI围绕消息展开，适合简单问答；而Agent UI需处理持续运行的任务执行过程……"
 pageType: article
 module: agent
-updated: '2026-08-05'
+updated: '2026-10-08'
 contentStatus: needs-review
 tags:
   - "csdn-mirror"
@@ -21,10 +21,16 @@ author: likebeans
 ---
 
 ::: info CSDN 原文镜像
-本文为作者 CSDN 博客的全文镜像，原文发布于 2026-08-05。为适配本站结构，仅补充了站内元数据与来源说明，正文主体保持原文内容。
+本文为作者 CSDN 博客的全文镜像，原文发布于 2026-08-05。本站补充导读与相关主线链接，并修复代码展示；原文观点、来源与发布时间保留。
 
 - 原文链接：[https://blog.csdn.net/m0_63309778/article/details/163493846](https://blog.csdn.net/m0_63309778/article/details/163493846)
 - 站内分区：Agent / Agent UI
+:::
+
+::: tip 站内导读与实践边界
+本文适合从运行状态反推界面：工具正在执行、等待用户、已取消、产物完成应可区分。Message Part、Reducer 和 Artifact 是可选建模方式，并非所有产品都要复制相同布局。验收时检查刷新恢复、迟到事件、重复审批和部分失败能否被正确呈现。
+
+继续阅读：[人机协同](/llms/agent/human-in-the-loop)、[评估与监控](/llms/agent/evaluation-monitoring)。
 :::
 
 <p><img src="https://i-blog.csdnimg.cn/direct/49aafe00eb0f4d6f9ec24d119c069617.png" alt="# 从 Chat UI 到 Agent UI&#xff1a;如何设计一个真正可用的智能体交互界面" /></p>
@@ -238,10 +244,10 @@ Event
 
 
 ```typescript
-<span class="token keyword">interface</span> <span class="token class-name">Message</span> <span class="token punctuation">{<!-- --></span>
-role<span class="token operator">:</span> <span class="token string">"user"</span> <span class="token operator">|</span> <span class="token string">"assistant"</span><span class="token punctuation">;</span>
-content<span class="token operator">:</span> <span class="token builtin">string</span><span class="token punctuation">;</span>
-<span class="token punctuation">}</span>
+interface Message {
+role: "user" | "assistant";
+content: string;
+}
 ```
 
 
@@ -262,12 +268,12 @@ Message
 
 
 ```typescript
-<span class="token keyword">interface</span> <span class="token class-name">AgentMessage</span> <span class="token punctuation">{<!-- --></span>
-id<span class="token operator">:</span> <span class="token builtin">string</span><span class="token punctuation">;</span>
-role<span class="token operator">:</span> <span class="token string">"user"</span> <span class="token operator">|</span> <span class="token string">"assistant"</span><span class="token punctuation">;</span>
-status<span class="token operator">:</span> <span class="token string">"pending"</span> <span class="token operator">|</span> <span class="token string">"streaming"</span> <span class="token operator">|</span> <span class="token string">"completed"</span> <span class="token operator">|</span> <span class="token string">"failed"</span><span class="token punctuation">;</span>
-parts<span class="token operator">:</span> MessagePart<span class="token punctuation">[</span><span class="token punctuation">]</span><span class="token punctuation">;</span>
-<span class="token punctuation">}</span>
+interface AgentMessage {
+id: string;
+role: "user" | "assistant";
+status: "pending" | "streaming" | "completed" | "failed";
+parts: MessagePart[];
+}
 ```
 
 
@@ -275,14 +281,14 @@ parts<span class="token operator">:</span> MessagePart<span class="token punctua
 
 
 ```typescript
-<span class="token keyword">type</span> <span class="token class-name">MessagePart</span> <span class="token operator">=</span>
-<span class="token operator">|</span> TextPart
-<span class="token operator">|</span> PlanPart
-<span class="token operator">|</span> ToolPart
-<span class="token operator">|</span> ApprovalPart
-<span class="token operator">|</span> ArtifactPart
-<span class="token operator">|</span> SourcePart
-<span class="token operator">|</span> ErrorPart<span class="token punctuation">;</span>
+type MessagePart =
+| TextPart
+| PlanPart
+| ToolPart
+| ApprovalPart
+| ArtifactPart
+| SourcePart
+| ErrorPart;
 ```
 
 
@@ -314,27 +320,27 @@ Assistant Message
 
 
 ```typescript
-<span class="token keyword">function</span> <span class="token function">MessagePartRenderer</span><span class="token punctuation">(</span><span class="token punctuation">{<!-- --></span> part <span class="token punctuation">}</span><span class="token operator">:</span> <span class="token punctuation">{<!-- --></span> part<span class="token operator">:</span> MessagePart <span class="token punctuation">}</span><span class="token punctuation">)</span> <span class="token punctuation">{<!-- --></span>
-<span class="token keyword">switch</span> <span class="token punctuation">(</span>part<span class="token punctuation">.</span>type<span class="token punctuation">)</span> <span class="token punctuation">{<!-- --></span>
-<span class="token keyword">case</span> <span class="token string">"text"</span><span class="token operator">:</span>
-<span class="token keyword">return</span> <span class="token operator"><</span>MarkdownContent text<span class="token operator">=</span><span class="token punctuation">{<!-- --></span>part<span class="token punctuation">.</span>text<span class="token punctuation">}</span> <span class="token operator">/</span><span class="token operator">></span><span class="token punctuation">;</span>
+function MessagePartRenderer({ part }: { part: MessagePart }) {
+switch (part.type) {
+case "text":
+return <MarkdownContent text={part.text} />;
 
-<span class="token keyword">case</span> <span class="token string">"plan"</span><span class="token operator">:</span>
-<span class="token keyword">return</span> <span class="token operator"><</span>PlanCard plan<span class="token operator">=</span><span class="token punctuation">{<!-- --></span>part<span class="token punctuation">}</span> <span class="token operator">/</span><span class="token operator">></span><span class="token punctuation">;</span>
+case "plan":
+return <PlanCard plan={part} />;
 
-<span class="token keyword">case</span> <span class="token string">"tool"</span><span class="token operator">:</span>
-<span class="token keyword">return</span> <span class="token operator"><</span>ToolCard tool<span class="token operator">=</span><span class="token punctuation">{<!-- --></span>part<span class="token punctuation">}</span> <span class="token operator">/</span><span class="token operator">></span><span class="token punctuation">;</span>
+case "tool":
+return <ToolCard tool={part} />;
 
-<span class="token keyword">case</span> <span class="token string">"approval"</span><span class="token operator">:</span>
-<span class="token keyword">return</span> <span class="token operator"><</span>ApprovalCard approval<span class="token operator">=</span><span class="token punctuation">{<!-- --></span>part<span class="token punctuation">}</span> <span class="token operator">/</span><span class="token operator">></span><span class="token punctuation">;</span>
+case "approval":
+return <ApprovalCard approval={part} />;
 
-<span class="token keyword">case</span> <span class="token string">"artifact"</span><span class="token operator">:</span>
-<span class="token keyword">return</span> <span class="token operator"><</span>ArtifactCard artifact<span class="token operator">=</span><span class="token punctuation">{<!-- --></span>part<span class="token punctuation">}</span> <span class="token operator">/</span><span class="token operator">></span><span class="token punctuation">;</span>
+case "artifact":
+return <ArtifactCard artifact={part} />;
 
-<span class="token keyword">case</span> <span class="token string">"error"</span><span class="token operator">:</span>
-<span class="token keyword">return</span> <span class="token operator"><</span>ErrorCard error<span class="token operator">=</span><span class="token punctuation">{<!-- --></span>part<span class="token punctuation">}</span> <span class="token operator">/</span><span class="token operator">></span><span class="token punctuation">;</span>
-<span class="token punctuation">}</span>
-<span class="token punctuation">}</span>
+case "error":
+return <ErrorCard error={part} />;
+}
+}
 ```
 
 
@@ -360,13 +366,13 @@ create_document
 
 
 ```json
-<span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"tool"</span><span class="token operator">:</span> <span class="token string">"search_documents"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"args"</span><span class="token operator">:</span> <span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"keyword"</span><span class="token operator">:</span> <span class="token string">"评分办法"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"top_k"</span><span class="token operator">:</span> <span class="token number">20</span>
-<span class="token punctuation">}</span>
-<span class="token punctuation">}</span>
+{
+"tool": "search_documents",
+"args": {
+"keyword": "评分办法",
+"top_k": 20
+}
+}
 ```
 
 
@@ -435,13 +441,13 @@ Trace ID：trace_10001
 
 
 ```typescript
-<span class="token keyword">const</span> toolRenderers <span class="token operator">=</span> <span class="token punctuation">{<!-- --></span>
-search_documents<span class="token operator">:</span> SearchResultCard<span class="token punctuation">,</span>
-query_database<span class="token operator">:</span> DataTableCard<span class="token punctuation">,</span>
-generate_chart<span class="token operator">:</span> ChartCard<span class="token punctuation">,</span>
-create_document<span class="token operator">:</span> DocumentArtifactCard<span class="token punctuation">,</span>
-send_email<span class="token operator">:</span> EmailApprovalCard<span class="token punctuation">,</span>
-<span class="token punctuation">}</span><span class="token punctuation">;</span>
+const toolRenderers = {
+search_documents: SearchResultCard,
+query_database: DataTableCard,
+generate_chart: ChartCard,
+create_document: DocumentArtifactCard,
+send_email: EmailApprovalCard,
+};
 ```
 
 
@@ -484,12 +490,12 @@ send_email<span class="token operator">:</span> EmailApprovalCard<span class="to
 
 
 ```typescript
-<span class="token keyword">type</span> <span class="token class-name">StepStatus</span> <span class="token operator">=</span>
-<span class="token operator">|</span> <span class="token string">"pending"</span>
-<span class="token operator">|</span> <span class="token string">"running"</span>
-<span class="token operator">|</span> <span class="token string">"completed"</span>
-<span class="token operator">|</span> <span class="token string">"failed"</span>
-<span class="token operator">|</span> <span class="token string">"skipped"</span><span class="token punctuation">;</span>
+type StepStatus =
+| "pending"
+| "running"
+| "completed"
+| "failed"
+| "skipped";
 ```
 
 
@@ -572,13 +578,13 @@ approval.rejected
 
 
 ```typescript
-<span class="token keyword">interface</span> <span class="token class-name">Artifact</span> <span class="token punctuation">{<!-- --></span>
-id<span class="token operator">:</span> <span class="token builtin">string</span><span class="token punctuation">;</span>
-type<span class="token operator">:</span> <span class="token string">"document"</span> <span class="token operator">|</span> <span class="token string">"table"</span> <span class="token operator">|</span> <span class="token string">"chart"</span> <span class="token operator">|</span> <span class="token string">"code"</span> <span class="token operator">|</span> <span class="token string">"html"</span><span class="token punctuation">;</span>
-title<span class="token operator">:</span> <span class="token builtin">string</span><span class="token punctuation">;</span>
-status<span class="token operator">:</span> <span class="token string">"creating"</span> <span class="token operator">|</span> <span class="token string">"ready"</span> <span class="token operator">|</span> <span class="token string">"failed"</span><span class="token punctuation">;</span>
-version<span class="token operator">:</span> <span class="token builtin">number</span><span class="token punctuation">;</span>
-<span class="token punctuation">}</span>
+interface Artifact {
+id: string;
+type: "document" | "table" | "chart" | "code" | "html";
+title: string;
+status: "creating" | "ready" | "failed";
+version: number;
+}
 ```
 
 
@@ -773,13 +779,13 @@ Live Stream
 
 
 ```typescript
-source<span class="token punctuation">.</span><span class="token function">addEventListener</span><span class="token punctuation">(</span><span class="token string">"tool.started"</span><span class="token punctuation">,</span> <span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">{<!-- --></span>
-<span class="token comment">// 修改工具组件</span>
-<span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+source.addEventListener("tool.started", () => {
+// 修改工具组件
+});
 
-source<span class="token punctuation">.</span><span class="token function">addEventListener</span><span class="token punctuation">(</span><span class="token string">"assistant.delta"</span><span class="token punctuation">,</span> <span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">{<!-- --></span>
-<span class="token comment">// 修改消息内容</span>
-<span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+source.addEventListener("assistant.delta", () => {
+// 修改消息内容
+});
 ```
 
 
@@ -788,39 +794,39 @@ source<span class="token punctuation">.</span><span class="token function">addEv
 
 
 ```typescript
-<span class="token keyword">function</span> <span class="token function">applyAgentEvent</span><span class="token punctuation">(</span>
-state<span class="token operator">:</span> AgentState<span class="token punctuation">,</span>
-event<span class="token operator">:</span> AgentEvent<span class="token punctuation">,</span>
-<span class="token punctuation">)</span><span class="token operator">:</span> AgentState <span class="token punctuation">{<!-- --></span>
-<span class="token keyword">switch</span> <span class="token punctuation">(</span>event<span class="token punctuation">.</span>type<span class="token punctuation">)</span> <span class="token punctuation">{<!-- --></span>
-<span class="token keyword">case</span> <span class="token string">"run.started"</span><span class="token operator">:</span>
-<span class="token keyword">return</span> <span class="token function">startRun</span><span class="token punctuation">(</span>state<span class="token punctuation">,</span> event<span class="token punctuation">)</span><span class="token punctuation">;</span>
+function applyAgentEvent(
+state: AgentState,
+event: AgentEvent,
+): AgentState {
+switch (event.type) {
+case "run.started":
+return startRun(state, event);
 
-<span class="token keyword">case</span> <span class="token string">"assistant.delta"</span><span class="token operator">:</span>
-<span class="token keyword">return</span> <span class="token function">appendText</span><span class="token punctuation">(</span>state<span class="token punctuation">,</span> event<span class="token punctuation">)</span><span class="token punctuation">;</span>
+case "assistant.delta":
+return appendText(state, event);
 
-<span class="token keyword">case</span> <span class="token string">"plan.updated"</span><span class="token operator">:</span>
-<span class="token keyword">return</span> <span class="token function">updatePlan</span><span class="token punctuation">(</span>state<span class="token punctuation">,</span> event<span class="token punctuation">)</span><span class="token punctuation">;</span>
+case "plan.updated":
+return updatePlan(state, event);
 
-<span class="token keyword">case</span> <span class="token string">"tool.started"</span><span class="token operator">:</span>
-<span class="token keyword">return</span> <span class="token function">startTool</span><span class="token punctuation">(</span>state<span class="token punctuation">,</span> event<span class="token punctuation">)</span><span class="token punctuation">;</span>
+case "tool.started":
+return startTool(state, event);
 
-<span class="token keyword">case</span> <span class="token string">"tool.completed"</span><span class="token operator">:</span>
-<span class="token keyword">return</span> <span class="token function">completeTool</span><span class="token punctuation">(</span>state<span class="token punctuation">,</span> event<span class="token punctuation">)</span><span class="token punctuation">;</span>
+case "tool.completed":
+return completeTool(state, event);
 
-<span class="token keyword">case</span> <span class="token string">"approval.required"</span><span class="token operator">:</span>
-<span class="token keyword">return</span> <span class="token function">requireApproval</span><span class="token punctuation">(</span>state<span class="token punctuation">,</span> event<span class="token punctuation">)</span><span class="token punctuation">;</span>
+case "approval.required":
+return requireApproval(state, event);
 
-<span class="token keyword">case</span> <span class="token string">"artifact.created"</span><span class="token operator">:</span>
-<span class="token keyword">return</span> <span class="token function">createArtifact</span><span class="token punctuation">(</span>state<span class="token punctuation">,</span> event<span class="token punctuation">)</span><span class="token punctuation">;</span>
+case "artifact.created":
+return createArtifact(state, event);
 
-<span class="token keyword">case</span> <span class="token string">"run.completed"</span><span class="token operator">:</span>
-<span class="token keyword">return</span> <span class="token function">completeRun</span><span class="token punctuation">(</span>state<span class="token punctuation">,</span> event<span class="token punctuation">)</span><span class="token punctuation">;</span>
+case "run.completed":
+return completeRun(state, event);
 
-<span class="token keyword">default</span><span class="token operator">:</span>
-<span class="token keyword">return</span> state<span class="token punctuation">;</span>
-<span class="token punctuation">}</span>
-<span class="token punctuation">}</span>
+default:
+return state;
+}
+}
 ```
 
 
@@ -871,12 +877,12 @@ OpenAI Events ────┤
 
 
 ```typescript
-<span class="token keyword">const</span> componentRegistry <span class="token operator">=</span> <span class="token punctuation">{<!-- --></span>
-risk_list<span class="token operator">:</span> RiskList<span class="token punctuation">,</span>
-project_table<span class="token operator">:</span> ProjectTable<span class="token punctuation">,</span>
-approval_form<span class="token operator">:</span> ApprovalForm<span class="token punctuation">,</span>
-comparison_chart<span class="token operator">:</span> ComparisonChart<span class="token punctuation">,</span>
-<span class="token punctuation">}</span><span class="token punctuation">;</span>
+const componentRegistry = {
+risk_list: RiskList,
+project_table: ProjectTable,
+approval_form: ApprovalForm,
+comparison_chart: ComparisonChart,
+};
 ```
 
 
@@ -884,12 +890,12 @@ comparison_chart<span class="token operator">:</span> ComparisonChart<span class
 
 
 ```json
-<span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"component"</span><span class="token operator">:</span> <span class="token string">"risk_list"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"props"</span><span class="token operator">:</span> <span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"items"</span><span class="token operator">:</span> <span class="token punctuation">[</span><span class="token punctuation">]</span>
-<span class="token punctuation">}</span>
-<span class="token punctuation">}</span>
+{
+"component": "risk_list",
+"props": {
+"items": []
+}
+}
 ```
 
 
@@ -897,19 +903,19 @@ comparison_chart<span class="token operator">:</span> ComparisonChart<span class
 
 
 ```json
-<span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"type"</span><span class="token operator">:</span> <span class="token string">"card"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"children"</span><span class="token operator">:</span> <span class="token punctuation">[</span>
-<span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"type"</span><span class="token operator">:</span> <span class="token string">"heading"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"text"</span><span class="token operator">:</span> <span class="token string">"风险分析"</span>
-<span class="token punctuation">}</span><span class="token punctuation">,</span>
-<span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"type"</span><span class="token operator">:</span> <span class="token string">"list"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"items"</span><span class="token operator">:</span> <span class="token punctuation">[</span><span class="token punctuation">]</span>
-<span class="token punctuation">}</span>
-<span class="token punctuation">]</span>
-<span class="token punctuation">}</span>
+{
+"type": "card",
+"children": [
+{
+"type": "heading",
+"text": "风险分析"
+},
+{
+"type": "list",
+"items": []
+}
+]
+}
 ```
 
 

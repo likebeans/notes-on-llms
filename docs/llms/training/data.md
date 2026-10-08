@@ -3,15 +3,15 @@ title: 训练数据处理
 description: 高质量微调数据的准备与处理
 pageType: article
 module: training
-updated: '2025-12-27'
+updated: '2026-10-08'
 contentStatus: needs-review
 tags:
   - training
 level: advanced
 prerequisites:
   - /guide/prerequisites
-reviewed: '2026-08-25'
-techVersion: 待复核（2026-08）
+reviewed: '2026-10-08'
+techVersion: 原理与示例复核于 2026-10；依赖接口需锁定版本
 ---
 
 # 训练数据处理
@@ -25,11 +25,8 @@ techVersion: 待复核（2026-08）
 ![数据质量金字塔](https://pic2.zhimg.com/v2-44f397a445692fe8631990b251d10bdf_r.jpg)
 *数据是 LLM 训练的基石*
 
-::: tip 关键洞察
-微调大语言模型的核心在于**高质量数据**。研究表明：
-- 高质量的 1,000 条数据 > 低质量的 100,000 条数据
-- 数据多样性比数量更重要
-- 混入 5-10% 通用数据可防止灾难性遗忘
+::: tip 先确定数据要改变什么
+格式遵循需要一致示范，领域任务需要覆盖真实问题，偏好优化需要可解释的相对选择。数据量与质量没有通用换算关系；[LIMA](https://arxiv.org/abs/2305.11206)的小样本结果不意味着任何任务都能用 1,000 条替代 100,000 条。先建立按任务与来源分组的留出集，再衡量增量数据的价值。
 :::
 
 ### 数据质量维度
@@ -123,7 +120,7 @@ SFT 数据集需包含明确的结构：
     │
     ▼
 ┌─────────────┐
-│  去重处理    │ → 基于嵌入的语义去重（超级过滤）
+│  去重处理    │ → 精确哈希、近重复检测与语义候选复核
 └─────────────┘
     │
     ▼
@@ -138,7 +135,7 @@ SFT 数据集需包含明确的结构：
     │
     ▼
 ┌─────────────┐
-│  混合策略    │ → 混入 5-10% 通用数据防止灾难性遗忘
+│  混合策略    │ → 按回归评估选择通用/领域采样配比
 └─────────────┘
     │
     ▼
@@ -152,47 +149,32 @@ SFT 数据集需包含明确的结构：
 | **GPT-4 生成** | 利用强 LLM 生成、过滤高质量数据，提升数据质量与多样性 |
 | **人工审核** | 关键数据需专家审核，确保准确性 |
 | **多样性检查** | 通过嵌入聚类分析，确保数据覆盖广泛 |
-| **混合通用数据** | 领域微调时混入 5-10% 通用数据，防止 CF |
+| **混合通用数据** | 比较多个通用数据比例，检查通用能力回退与领域收益 |
 
 ### 数据清洗
 
+清洗规则要按数据类型分流：代码缩进、Markdown 换行、数学比较符号和工具 JSON 都有语义。统一删除 `<...>` 或把所有空白变成空格，可能把正确样本清坏；HTML 只在确认字段是 HTML 时用解析器处理。
+
 ```python
-import re
+import unicodedata
 
 def clean_text(text: str) -> str:
-    """清洗文本数据"""
-    # 1. 去除HTML标签
-    text = re.sub(r'<[^>]+>', '', text)
-    
-    # 2. 规范化空白字符
-    text = re.sub(r'\s+', ' ', text)
-    
-    # 3. 去除特殊控制字符
-    text = ''.join(c for c in text if c.isprintable() or c in '\n\t')
-    
-    # 4. 修复编码问题
-    text = text.encode('utf-8', errors='ignore').decode('utf-8')
-    
-    return text.strip()
+    # NFC 保留字符语义；不合并换行、不删除尖括号
+    text = unicodedata.normalize("NFC", text.replace("\r\n", "\n"))
+    return "".join(c for c in text if c in "\n\t" or unicodedata.category(c) != "Cc")
 
-def filter_low_quality(samples: list) -> list:
-    """过滤低质量样本"""
-    filtered = []
-    for sample in samples:
-        # 长度检查
-        if len(sample.get('output', '')) < 10:
-            continue
-        # 重复检查
-        if sample.get('output', '') == sample.get('input', ''):
-            continue
-        # 语言检查（可选）
-        if not is_valid_language(sample.get('output', '')):
-            continue
-        filtered.append(sample)
-    return filtered
+def validate_sample(sample):
+    # 短答案、复制任务与数字输出均可能正确，不按字符数机械删除
+    return (isinstance(sample.get("instruction"), str)
+            and isinstance(sample.get("output"), str)
+            and bool(sample["output"].strip()))
 ```
 
+保存原始文本、清洗版本与变更理由；抽样比较前后 diff，发现公式或代码被损坏时能追溯并回退规则。
+
 ### PII脱敏
+
+下面正则只是候选识别示例，不能覆盖姓名、地址、上下文组合标识，也会误报普通数字。生产中需加标注抽检、实体识别和一致替换；留意同一人物跨轮指代被破坏、评估数据泄漏与日志中的原始值。
 
 ```python
 import re
@@ -219,6 +201,8 @@ class PIIAnonymizer:
 
 ### 嵌入空间分析
 
+聚类只是覆盖诊断，不代表任务难度或答案正确性。以下英文编码器示例未针对中文数据验证；实际选择需以目标语言的相似样本抽检为准，且 `n_clusters` 不能超过样本数。
+
 ```python
 from sentence_transformers import SentenceTransformer
 from sklearn.cluster import KMeans
@@ -236,6 +220,7 @@ def analyze_diversity(texts: list, n_clusters: int = 10):
     
     # 计算多样性指标
     cluster_sizes = np.bincount(labels)
+    # 示例描述量可为负，不能解释为 [0,1] 的质量分
     diversity_score = 1 - (cluster_sizes.std() / cluster_sizes.mean())
     
     return {
@@ -246,6 +231,8 @@ def analyze_diversity(texts: list, n_clusters: int = 10):
 ```
 
 ### 超级过滤技术
+
+这里是语义近重复筛查示例，不是名为 Superfiltering 的具体论文算法。全量相似度矩阵需要 O(N²) 存储，只适合小样本；大数据先用哈希/分桶/近邻索引找候选。相似指令的不同答案可能是冲突标签，应人工处理而非仅留第一条。
 
 ```python
 def super_filter(samples: list, threshold: float = 0.9) -> list:
@@ -281,11 +268,9 @@ def super_filter(samples: list, threshold: float = 0.9) -> list:
 
 ### 为什么使用Parquet？
 
-| 指标 | CSV/JSON | Parquet | 提升 |
-|------|----------|---------|------|
-| **存储空间** | 100% | 13% | 87%↓ |
-| **查询速度** | 1x | 34.8x | 34.8x↑ |
-| **数据扫描** | 100% | 0.2% | 99.8%↓ |
+Parquet 的列式布局、压缩和列裁剪，适合按字段扫描、统计和流式加载；实际收益取决于压缩算法、行组大小、字段分布与读取模式。不能从一个基准推导“空间固定减少 87%”或“查询固定快 34.8 倍”。[Apache Parquet 概述](https://parquet.apache.org/docs/overview/)
+
+若训练总是顺序读完整 messages，测全字段吞吐；若只统计元数据，测列裁剪。数据规模大时分片写入，下面的 pandas 全量加载只是小文件转换示例。
 
 ### 转换示例
 
@@ -323,7 +308,7 @@ def read_parquet_efficiently(parquet_path: str, columns: list = None):
 > 来源：[深入探秘LLM的"暗语"：特殊Token与LlamaFactory的模板魔法](https://dd-ff.blog.csdn.net/article/details/152328698)
 
 ::: danger 关键警告
-**90%的微调性能下降**可归因于训练与推理阶段模板结构不一致！
+训练与推理模板不一致是需要优先排查的故障，但没有通用的“90%”归因比例。[Transformers chat templates](https://huggingface.co/docs/transformers/chat_templating)说明了模型控制 token 与模板的一致性要求。
 :::
 
 ### 常见特殊Token
@@ -349,21 +334,25 @@ def read_parquet_efficiently(parquet_path: str, columns: list = None):
 ### 模板匹配检查
 
 ```python
-def validate_template_consistency(train_template: str, infer_template: str) -> bool:
-    """验证训练和推理模板一致性"""
-    # 提取特殊Token
-    train_tokens = set(re.findall(r'<\|?\w+\|?>', train_template))
-    infer_tokens = set(re.findall(r'<\|?\w+\|?>', infer_template))
-    
-    if train_tokens != infer_tokens:
-        print(f"警告：Token不一致！")
-        print(f"训练: {train_tokens}")
-        print(f"推理: {infer_tokens}")
-        return False
-    return True
+# 示例：保存实际 token ID 作为回归样本，而非只比特殊 token 集合
+messages = [{"role": "user", "content": "输出 JSON: {\"ok\": true}"}]
+ids = tokenizer.apply_chat_template(messages, tokenize=True, add_generation_prompt=True)
+print(ids)
+print(tokenizer.decode(ids, skip_special_tokens=False))
 ```
 
----
+训练时包含完整 assistant 回答，推理时只包含待续写的 assistant 前缀，二者不应逐字相同。核对的是相同会话前缀的 token 序列、角色顺序、终止符及生成起点；集合相同不能发现顺序错乱或重复 BOS/EOS。
+
+## 数据集交付与失败诊断
+
+1. 先按来源文档、用户/会话或时间建立分组，再去重和切分，避免同一事实改写分散到训练与测试。
+2. 合成数据记录生成模型、prompt 与种子；针对答案正确性审核，不把流畅度当作事实证据。
+3. 统计每轮处理的保留率、任务占比、长度/token 分布、截断率与重复率。过滤后某个语言或难例骤减，要检查阈值偏置。
+4. 输出 manifest：数据版本、来源许可、清洗规则、分片哈希、采样比例和留出策略，支持删除与重建。
+
+验收从分层抽样开始：人审错误率、模板一致性、有效回答标签比例与跨切分重复量均有报告。若训练指标突然大幅改善但新问题不变，优先查污染；若代码任务退化，优先查空白/标签清洗，再调模型。
+
+## 🔗 相关阅读
 
 ## 🔗 相关阅读
 

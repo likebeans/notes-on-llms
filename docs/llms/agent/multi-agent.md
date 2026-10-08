@@ -3,7 +3,7 @@ title: 多智能体系统
 description: 多智能体协作架构 - 从单Agent到Multi-Agent
 pageType: article
 module: agent
-updated: '2025-12-27'
+updated: '2026-10-08'
 contentStatus: needs-review
 tags:
   - agent
@@ -77,7 +77,7 @@ techVersion: 待复核（2026-08）
 | 架构 | 特点 | 优势 | 劣势 |
 |------|------|------|------|
 | **单智能体** | 独立运行，无交互 | 简单易管理 | 能力受限 |
-| **网络化** | 点对点去中心化 | 无单点故障 | 通信开销大 |
+| **网络化** | 点对点去中心化 | 可分散部分调度职责 | 通信与一致性开销大；仍可能有共享依赖故障 |
 | **监督者** | 中心枢纽协调 | 职责清晰 | 可能瓶颈 |
 | **监督者作为工具** | 提供资源而非指挥 | 灵活 | 设计复杂 |
 | **层级** | 多层监督者结构 | 可扩展 | 结构复杂 |
@@ -102,7 +102,7 @@ techVersion: 待复核（2026-08）
 | **任务复杂度** | 复杂任务需要层级或网络化 |
 | **智能体数量** | 数量多时需要监督者 |
 | **自治程度** | 高自治选网络化，低自治选监督者 |
-| **鲁棒性要求** | 高鲁棒性选网络化（无单点故障） |
+| **鲁棒性要求** | 按故障域、重试、状态恢复和共享依赖评估，不能只看拓扑 |
 
 ---
 
@@ -118,12 +118,15 @@ techVersion: 待复核（2026-08）
 
 ### 1. 监督者模式（Supervisor）
 
+以下为图结构示意，`llm`、`do_research`、`write_code`、`run_tests` 由业务实现；进入模型前应把内部事件转成 SDK 接受的消息角色。路由返回值必须做枚举校验，不能直接信任模型给出的节点名。
+
 ```python
 from langgraph.graph import StateGraph, END
-from typing import TypedDict, Literal
+from typing import TypedDict, Literal, Annotated
+import operator
 
 class SupervisorState(TypedDict):
-    messages: list
+    messages: Annotated[list, operator.add]
     next_worker: str
 
 def supervisor(state: SupervisorState) -> SupervisorState:
@@ -136,8 +139,10 @@ def supervisor(state: SupervisorState) -> SupervisorState:
 
 当前消息：{state['messages'][-1]}"""
     
-    response = llm.generate(prompt)
-    return {"next_worker": response.strip()}
+    response = llm.generate(prompt).strip()
+    if response not in {"researcher", "coder", "tester", "FINISH"}:
+        raise ValueError("监督者返回了未知 Worker")
+    return {"next_worker": response}
 
 def researcher(state): 
     result = do_research(state["messages"])
@@ -147,11 +152,15 @@ def coder(state):
     result = write_code(state["messages"])
     return {"messages": [{"role": "coder", "content": result}]}
 
+def tester(state):
+    return {"messages": [{"role": "tester", "content": run_tests(state)}]}
+
 # 构建图
 graph = StateGraph(SupervisorState)
 graph.add_node("supervisor", supervisor)
 graph.add_node("researcher", researcher)
 graph.add_node("coder", coder)
+graph.add_node("tester", tester)
 
 def route(state) -> str:
     if state["next_worker"] == "FINISH":
@@ -161,6 +170,7 @@ def route(state) -> str:
 graph.add_conditional_edges("supervisor", route)
 graph.add_edge("researcher", "supervisor")
 graph.add_edge("coder", "supervisor")
+graph.add_edge("tester", "supervisor")
 graph.set_entry_point("supervisor")
 ```
 
@@ -181,11 +191,23 @@ def agent_b(state) -> dict:
 
 ---
 
+## 委派契约与共享状态
+
+先用单 Agent 和固定工作流建立基线。只有子任务能分开取证、使用不同工具或独立验收时，才值得引入多个 Agent。把同一提示复制给更多角色，可能只增加重复错误和汇总成本。
+
+每次委派应明确目标、输入快照、允许修改的资源、预算、预期产物和验收标准。子 Agent 返回结论、证据、产物地址与未解决项；主 Agent 负责整合与最终验收，不能把“子 Agent 说完成了”当作完成证据。
+
+对共享文件或数据库，先划定单一写入者或使用版本检查。消息有唯一 ID，重复接收不重复执行；增加最大委派深度、轮数和费用上限，避免 A 委派 B、B 再委派 A 的循环。通信协议参见 [A2A](/llms/agent/a2a)，它不会自动提供业务一致性。
+
+验收按同样预算比较单 Agent 与多 Agent：任务成功率、端到端耗时、总 Token、重复工作量和合并冲突数。再演练一个 Worker 失败或返回矛盾证据的情况，检查监督者是否能明确处理分歧。
+
 ## 🔄 AutoGen多智能体团队
 
 > 来源：[AutoGen多智能体团队实战指南](https://dd-ff.blog.csdn.net/article/details/149090900)
 
 ### RoundRobinGroupChat
+
+以下是 AgentChat 接口片段，需安装对应版本并初始化 `model_client`。轮询团队是按顺序发言，不等于并行执行；顶部 `await` 需放在支持它的 notebook 或异步入口内。
 
 ```python
 from autogen_agentchat.agents import AssistantAgent
@@ -233,21 +255,21 @@ team = SelectorGroupChat(
 
 ### 反思模式（Reflection）
 
-```python
+```text
 # 生成者 + 评审者循环
 generator → reviewer → refiner → reviewer → ... → APPROVED
 ```
 
 ### 分工模式
 
-```python
+```text
 # 并行执行子任务
 planner → [executor1, executor2, executor3] → aggregator → reporter
 ```
 
 ### 辩论模式
 
-```python
+```text
 # 正反方辩论，裁判评估
 pro_agent ←→ con_agent → judge → conclusion
 ```

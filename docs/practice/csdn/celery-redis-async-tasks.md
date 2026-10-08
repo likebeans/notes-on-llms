@@ -3,7 +3,7 @@ title: "从分布式系统到 Celery + Redis：一篇文章讲清异步任务工
 description: "CSDN 原文全文镜像：异步任务处理：Celery + Redis 解决方案 本文介绍了在Web系统中处理耗时任务的异步解决方案。传统同步模式在处理PDF解析、OCR识别、批量邮件等长时间任务时存在超时、连接断开和服务阻塞等问题。通过Celery和Redis构……"
 pageType: article
 module: site
-updated: '2026-08-04'
+updated: '2026-10-08'
 contentStatus: needs-review
 tags:
   - "csdn-mirror"
@@ -20,10 +20,18 @@ author: likebeans
 ---
 
 ::: info CSDN 原文镜像
-本文为作者 CSDN 博客的全文镜像，原文发布于 2026-08-04。为适配本站结构，仅补充了站内元数据与来源说明，正文主体保持原文内容。
+本文为作者 CSDN 博客的全文镜像，原文发布于 2026-08-04。为适配本站结构，补充了站内导读、元数据与来源说明，并清理代码高亮标记；原文观点与主体内容保留。
 
 - 原文链接：[https://blog.csdn.net/m0_63309778/article/details/163476127](https://blog.csdn.net/m0_63309778/article/details/163476127)
 - 站内分区：工程实践 / 异步任务架构
+:::
+
+::: tip 站内导读：把异步任务接到 RAG 与 Agent
+重点阅读任务入队、Worker 执行和结果回查。把它映射到文档解析、索引构建或 Agent 长任务时，应分别记录业务任务状态与消息投递状态。
+
+练习：让 Worker 在写入结果后、确认消息前退出，检查重试是否造成重复业务动作；再验证取消、超时和重启后的状态查询。
+
+相关主线：[异常恢复](/llms/agent/exception-handling) · [RAG 生产实践](/llms/rag/production)。本导读不代表对原文全部代码与结论的重新核验。
 :::
 
 <p><img src="https://i-blog.csdnimg.cn/direct/c1f769834c51471bbed7a58168d6c99a.png" alt="在这里插入图片描述" /></p>
@@ -75,10 +83,10 @@ Web 服务记录任务
 
 
 ```python
-<span class="token keyword">def</span> <span class="token function">upload_and_parse</span><span class="token punctuation">(</span><span class="token builtin">file</span><span class="token punctuation">)</span><span class="token punctuation">:</span>
-save_file<span class="token punctuation">(</span><span class="token builtin">file</span><span class="token punctuation">)</span>
-result <span class="token operator">=</span> parse_pdf<span class="token punctuation">(</span><span class="token builtin">file</span><span class="token punctuation">)</span>
-<span class="token keyword">return</span> result
+def upload_and_parse(file):
+save_file(file)
+result = parse_pdf(file)
+return result
 ```
 
 
@@ -130,10 +138,10 @@ Worker 获取任务
 
 
 ```json
-<span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"taskId"</span><span class="token operator">:</span> <span class="token number">10001</span><span class="token punctuation">,</span>
-<span class="token string-property property">"status"</span><span class="token operator">:</span> <span class="token string">"QUEUED"</span>
-<span class="token punctuation">}</span>
+{<!-- -->
+"taskId": 10001,
+"status": "QUEUED"
+}
 ```
 
 
@@ -179,13 +187,13 @@ OCR Worker
 
 
 ```python
-<span class="token keyword">from</span> celery <span class="token keyword">import</span> Celery
+from celery import Celery
 
-app <span class="token operator">=</span> Celery<span class="token punctuation">(</span><span class="token string">"demo"</span><span class="token punctuation">)</span>
+app = Celery("demo")
 
-<span class="token decorator annotation punctuation">@app<span class="token punctuation">.</span>task</span>
-<span class="token keyword">def</span> <span class="token function">add</span><span class="token punctuation">(</span>x<span class="token punctuation">,</span> y<span class="token punctuation">)</span><span class="token punctuation">:</span>
-<span class="token keyword">return</span> x <span class="token operator">+</span> y
+@app.task
+def add(x, y):
+return x + y
 ```
 
 
@@ -193,7 +201,7 @@ app <span class="token operator">=</span> Celery<span class="token punctuation">
 
 
 ```python
-result <span class="token operator">=</span> add<span class="token punctuation">.</span>delay<span class="token punctuation">(</span><span class="token number">1</span><span class="token punctuation">,</span> <span class="token number">2</span><span class="token punctuation">)</span>
+result = add.delay(1, 2)
 ```
 
 
@@ -244,11 +252,11 @@ Result Backend：任务执行得怎么样
 
 
 ```python
-app <span class="token operator">=</span> Celery<span class="token punctuation">(</span>
-<span class="token string">"demo"</span><span class="token punctuation">,</span>
-broker<span class="token operator">=</span><span class="token string">"redis://localhost:6379/0"</span><span class="token punctuation">,</span>
-backend<span class="token operator">=</span><span class="token string">"redis://localhost:6379/1"</span><span class="token punctuation">,</span>
-<span class="token punctuation">)</span>
+app = Celery(
+"demo",
+broker="redis://localhost:6379/0",
+backend="redis://localhost:6379/1",
+)
 ```
 
 
@@ -293,7 +301,7 @@ Redis DB 1：保存任务状态和结果
 
 
 ```bash
-celery <span class="token parameter variable">-A</span> app worker <span class="token parameter variable">--loglevel</span><span class="token operator">=</span>INFO
+celery -A app worker --loglevel=INFO
 ```
 
 
@@ -341,7 +349,7 @@ Celery 状态：任务执行层状态
 
 
 ```python
-parse_document<span class="token punctuation">.</span>delay<span class="token punctuation">(</span>file_id<span class="token operator">=</span><span class="token number">1001</span><span class="token punctuation">)</span>
+parse_document.delay(file_id=1001)
 ```
 
 
@@ -376,10 +384,10 @@ Celery task_id：用于 Celery 执行追踪
 
 
 ```python
-result <span class="token operator">=</span> parse_document<span class="token punctuation">.</span>delay<span class="token punctuation">(</span>
-business_task_id<span class="token operator">=</span><span class="token number">80001</span><span class="token punctuation">,</span>
-file_id<span class="token operator">=</span><span class="token number">1001</span><span class="token punctuation">,</span>
-<span class="token punctuation">)</span>
+result = parse_document.delay(
+business_task_id=80001,
+file_id=1001,
+)
 ```
 
 
@@ -388,15 +396,15 @@ file_id<span class="token operator">=</span><span class="token number">1001</spa
 
 
 ```json
-<span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"task"</span><span class="token operator">:</span> <span class="token string">"tasks.parse_document"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"id"</span><span class="token operator">:</span> <span class="token string">"celery-task-uuid"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"args"</span><span class="token operator">:</span> <span class="token punctuation">[</span><span class="token punctuation">]</span><span class="token punctuation">,</span>
-<span class="token string-property property">"kwargs"</span><span class="token operator">:</span> <span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"business_task_id"</span><span class="token operator">:</span> <span class="token number">80001</span><span class="token punctuation">,</span>
-<span class="token string-property property">"file_id"</span><span class="token operator">:</span> <span class="token number">1001</span>
-<span class="token punctuation">}</span>
-<span class="token punctuation">}</span>
+{<!-- -->
+"task": "tasks.parse_document",
+"id": "celery-task-uuid",
+"args": [],
+"kwargs": {<!-- -->
+"business_task_id": 80001,
+"file_id": 1001
+}
+}
 ```
 
 
@@ -419,10 +427,10 @@ file_id<span class="token operator">=</span><span class="token number">1001</spa
 
 
 ```json
-<span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"taskId"</span><span class="token operator">:</span> <span class="token number">80001</span><span class="token punctuation">,</span>
-<span class="token string-property property">"status"</span><span class="token operator">:</span> <span class="token string">"QUEUED"</span>
-<span class="token punctuation">}</span>
+{<!-- -->
+"taskId": 80001,
+"status": "QUEUED"
+}
 ```
 
 
@@ -447,20 +455,20 @@ tasks.parse_document
 
 
 ```python
-<span class="token decorator annotation punctuation">@app<span class="token punctuation">.</span>task</span>
-<span class="token keyword">def</span> <span class="token function">parse_document</span><span class="token punctuation">(</span>business_task_id<span class="token punctuation">,</span> file_id<span class="token punctuation">)</span><span class="token punctuation">:</span>
-update_status<span class="token punctuation">(</span>business_task_id<span class="token punctuation">,</span> <span class="token string">"RUNNING"</span><span class="token punctuation">)</span>
+@app.task
+def parse_document(business_task_id, file_id):
+update_status(business_task_id, "RUNNING")
 
-file_path <span class="token operator">=</span> download_file<span class="token punctuation">(</span>file_id<span class="token punctuation">)</span>
-result <span class="token operator">=</span> parse_pdf<span class="token punctuation">(</span>file_path<span class="token punctuation">)</span>
-save_result<span class="token punctuation">(</span>business_task_id<span class="token punctuation">,</span> result<span class="token punctuation">)</span>
+file_path = download_file(file_id)
+result = parse_pdf(file_path)
+save_result(business_task_id, result)
 
-update_status<span class="token punctuation">(</span>business_task_id<span class="token punctuation">,</span> <span class="token string">"SUCCESS"</span><span class="token punctuation">)</span>
+update_status(business_task_id, "SUCCESS")
 
-<span class="token keyword">return</span> <span class="token punctuation">{<!-- --></span>
-<span class="token string">"business_task_id"</span><span class="token punctuation">:</span> business_task_id<span class="token punctuation">,</span>
-<span class="token string">"page_count"</span><span class="token punctuation">:</span> result<span class="token punctuation">.</span>page_count<span class="token punctuation">,</span>
-<span class="token punctuation">}</span>
+return {<!-- -->
+"business_task_id": business_task_id,
+"page_count": result.page_count,
+}
 ```
 
 
@@ -490,13 +498,13 @@ update_status<span class="token punctuation">(</span>business_task_id<span class
 
 
 ```json
-<span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"status"</span><span class="token operator">:</span> <span class="token string">"SUCCESS"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"result"</span><span class="token operator">:</span> <span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"business_task_id"</span><span class="token operator">:</span> <span class="token number">80001</span><span class="token punctuation">,</span>
-<span class="token string-property property">"page_count"</span><span class="token operator">:</span> <span class="token number">326</span>
-<span class="token punctuation">}</span>
-<span class="token punctuation">}</span>
+{<!-- -->
+"status": "SUCCESS",
+"result": {<!-- -->
+"business_task_id": 80001,
+"page_count": 326
+}
+}
 ```
 
 
@@ -516,7 +524,7 @@ result_path：结果地址
 
 
 ```python
-<span class="token keyword">return</span> huge_document_result
+return huge_document_result
 ```
 
 
@@ -524,9 +532,9 @@ result_path：结果地址
 
 
 ```python
-<span class="token keyword">return</span> <span class="token punctuation">{<!-- --></span>
-<span class="token string">"result_path"</span><span class="token punctuation">:</span> <span class="token string">"parse-results/80001/result.json"</span>
-<span class="token punctuation">}</span>
+return {<!-- -->
+"result_path": "parse-results/80001/result.json"
+}
 ```
 
 
@@ -558,7 +566,7 @@ Worker 收到任务
 
 
 ```python
-task_acks_late <span class="token operator">=</span> <span class="token boolean">True</span>
+task_acks_late = True
 ```
 
 
@@ -615,7 +623,7 @@ Worker 收到任务
 
 
 ```sql
-<span class="token keyword">UNIQUE</span><span class="token punctuation">(</span>file_id<span class="token punctuation">,</span> parse_version<span class="token punctuation">)</span>
+UNIQUE(file_id, parse_version)
 ```
 
 
@@ -624,10 +632,10 @@ Worker 收到任务
 
 
 ```sql
-<span class="token keyword">UPDATE</span> task
-<span class="token keyword">SET</span> <span class="token keyword">status</span> <span class="token operator">=</span> <span class="token string">'RUNNING'</span>
-<span class="token keyword">WHERE</span> id <span class="token operator">=</span> <span class="token number">80001</span>
-<span class="token operator">AND</span> <span class="token keyword">status</span> <span class="token operator">=</span> <span class="token string">'QUEUED'</span><span class="token punctuation">;</span>
+UPDATE task
+SET status = 'RUNNING'
+WHERE id = 80001
+AND status = 'QUEUED';
 ```
 
 
@@ -666,15 +674,15 @@ document_parse:1001:v1
 
 
 ```python
-<span class="token decorator annotation punctuation">@app<span class="token punctuation">.</span>task</span><span class="token punctuation">(</span>
-bind<span class="token operator">=</span><span class="token boolean">True</span><span class="token punctuation">,</span>
-autoretry_for<span class="token operator">=</span><span class="token punctuation">(</span>ConnectionError<span class="token punctuation">,</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
-retry_backoff<span class="token operator">=</span><span class="token boolean">True</span><span class="token punctuation">,</span>
-retry_jitter<span class="token operator">=</span><span class="token boolean">True</span><span class="token punctuation">,</span>
-max_retries<span class="token operator">=</span><span class="token number">5</span><span class="token punctuation">,</span>
-<span class="token punctuation">)</span>
-<span class="token keyword">def</span> <span class="token function">process_task</span><span class="token punctuation">(</span>self<span class="token punctuation">,</span> task_id<span class="token punctuation">)</span><span class="token punctuation">:</span>
-<span class="token keyword">return</span> execute_task<span class="token punctuation">(</span>task_id<span class="token punctuation">)</span>
+@app.task(
+bind=True,
+autoretry_for=(ConnectionError,),
+retry_backoff=True,
+retry_jitter=True,
+max_retries=5,
+)
+def process_task(self, task_id):
+return execute_task(task_id)
 ```
 
 
@@ -712,7 +720,7 @@ max_retries：最大重试次数
 
 
 ```bash
-celery <span class="token parameter variable">-A</span> app worker <span class="token parameter variable">--concurrency</span><span class="token operator">=</span><span class="token number">4</span>
+celery -A app worker --concurrency=4
 ```
 
 
@@ -735,17 +743,17 @@ llm
 
 
 ```python
-app<span class="token punctuation">.</span>conf<span class="token punctuation">.</span>task_routes <span class="token operator">=</span> <span class="token punctuation">{<!-- --></span>
-<span class="token string">"tasks.parse_document"</span><span class="token punctuation">:</span> <span class="token punctuation">{<!-- --></span>
-<span class="token string">"queue"</span><span class="token punctuation">:</span> <span class="token string">"document_parse"</span>
-<span class="token punctuation">}</span><span class="token punctuation">,</span>
-<span class="token string">"tasks.run_ocr"</span><span class="token punctuation">:</span> <span class="token punctuation">{<!-- --></span>
-<span class="token string">"queue"</span><span class="token punctuation">:</span> <span class="token string">"ocr"</span>
-<span class="token punctuation">}</span><span class="token punctuation">,</span>
-<span class="token string">"tasks.send_email"</span><span class="token punctuation">:</span> <span class="token punctuation">{<!-- --></span>
-<span class="token string">"queue"</span><span class="token punctuation">:</span> <span class="token string">"notification"</span>
-<span class="token punctuation">}</span><span class="token punctuation">,</span>
-<span class="token punctuation">}</span>
+app.conf.task_routes = {<!-- -->
+"tasks.parse_document": {<!-- -->
+"queue": "document_parse"
+},
+"tasks.run_ocr": {<!-- -->
+"queue": "ocr"
+},
+"tasks.send_email": {<!-- -->
+"queue": "notification"
+},
+}
 ```
 
 
@@ -753,14 +761,14 @@ app<span class="token punctuation">.</span>conf<span class="token punctuation">.
 
 
 ```bash
-celery <span class="token parameter variable">-A</span> app worker <span class="token parameter variable">-Q</span> document_parse <span class="token parameter variable">--concurrency</span><span class="token operator">=</span><span class="token number">4</span>
+celery -A app worker -Q document_parse --concurrency=4
 ```
 
 
 
 
 ```bash
-celery <span class="token parameter variable">-A</span> app worker <span class="token parameter variable">-Q</span> crawler <span class="token parameter variable">--concurrency</span><span class="token operator">=</span><span class="token number">2</span>
+celery -A app worker -Q crawler --concurrency=2
 ```
 
 
@@ -775,8 +783,8 @@ celery <span class="token parameter variable">-A</span> app worker <span class="
 
 
 ```python
-result <span class="token operator">=</span> task<span class="token punctuation">.</span>delay<span class="token punctuation">(</span><span class="token punctuation">)</span>
-<span class="token keyword">return</span> result<span class="token punctuation">.</span>get<span class="token punctuation">(</span>timeout<span class="token operator">=</span><span class="token number">600</span><span class="token punctuation">)</span>
+result = task.delay()
+return result.get(timeout=600)
 ```
 
 
@@ -788,7 +796,7 @@ result <span class="token operator">=</span> task<span class="token punctuation"
 
 
 ```python
-parse_document<span class="token punctuation">.</span>delay<span class="token punctuation">(</span>file_bytes<span class="token punctuation">)</span>
+parse_document.delay(file_bytes)
 ```
 
 
@@ -796,7 +804,7 @@ parse_document<span class="token punctuation">.</span>delay<span class="token pu
 
 
 ```python
-parse_document<span class="token punctuation">.</span>delay<span class="token punctuation">(</span>file_id<span class="token punctuation">)</span>
+parse_document.delay(file_id)
 ```
 
 
@@ -831,8 +839,8 @@ FAILED
 
 
 ```python
-soft_time_limit<span class="token operator">=</span><span class="token number">1800</span>
-time_limit<span class="token operator">=</span><span class="token number">1860</span>
+soft_time_limit=1800
+time_limit=1860
 ```
 
 
@@ -844,7 +852,7 @@ time_limit<span class="token operator">=</span><span class="token number">1860</
 
 
 ```python
-worker_max_tasks_per_child <span class="token operator">=</span> <span class="token number">100</span>
+worker_max_tasks_per_child = 100
 ```
 
 
@@ -873,41 +881,41 @@ current_stage
 
 
 ```python
-<span class="token keyword">from</span> celery <span class="token keyword">import</span> Celery
+from celery import Celery
 
-app <span class="token operator">=</span> Celery<span class="token punctuation">(</span>
-<span class="token string">"document_service"</span><span class="token punctuation">,</span>
-broker<span class="token operator">=</span><span class="token string">"redis://redis:6379/0"</span><span class="token punctuation">,</span>
-backend<span class="token operator">=</span><span class="token string">"redis://redis:6379/1"</span><span class="token punctuation">,</span>
-<span class="token punctuation">)</span>
+app = Celery(
+"document_service",
+broker="redis://redis:6379/0",
+backend="redis://redis:6379/1",
+)
 
-app<span class="token punctuation">.</span>conf<span class="token punctuation">.</span>update<span class="token punctuation">(</span>
-task_serializer<span class="token operator">=</span><span class="token string">"json"</span><span class="token punctuation">,</span>
-result_serializer<span class="token operator">=</span><span class="token string">"json"</span><span class="token punctuation">,</span>
-accept_content<span class="token operator">=</span><span class="token punctuation">[</span><span class="token string">"json"</span><span class="token punctuation">]</span><span class="token punctuation">,</span>
+app.conf.update(
+task_serializer="json",
+result_serializer="json",
+accept_content=["json"],
 
-task_track_started<span class="token operator">=</span><span class="token boolean">True</span><span class="token punctuation">,</span>
-task_acks_late<span class="token operator">=</span><span class="token boolean">True</span><span class="token punctuation">,</span>
+task_track_started=True,
+task_acks_late=True,
 
-worker_prefetch_multiplier<span class="token operator">=</span><span class="token number">1</span><span class="token punctuation">,</span>
-worker_max_tasks_per_child<span class="token operator">=</span><span class="token number">100</span><span class="token punctuation">,</span>
+worker_prefetch_multiplier=1,
+worker_max_tasks_per_child=100,
 
-result_expires<span class="token operator">=</span><span class="token number">86400</span><span class="token punctuation">,</span>
+result_expires=86400,
 
-broker_connection_retry_on_startup<span class="token operator">=</span><span class="token boolean">True</span><span class="token punctuation">,</span>
+broker_connection_retry_on_startup=True,
 
-task_routes<span class="token operator">=</span><span class="token punctuation">{<!-- --></span>
-<span class="token string">"tasks.parse_document"</span><span class="token punctuation">:</span> <span class="token punctuation">{<!-- --></span>
-<span class="token string">"queue"</span><span class="token punctuation">:</span> <span class="token string">"document_parse"</span><span class="token punctuation">,</span>
-<span class="token punctuation">}</span><span class="token punctuation">,</span>
-<span class="token string">"tasks.run_ocr"</span><span class="token punctuation">:</span> <span class="token punctuation">{<!-- --></span>
-<span class="token string">"queue"</span><span class="token punctuation">:</span> <span class="token string">"ocr"</span><span class="token punctuation">,</span>
-<span class="token punctuation">}</span><span class="token punctuation">,</span>
-<span class="token string">"tasks.send_notification"</span><span class="token punctuation">:</span> <span class="token punctuation">{<!-- --></span>
-<span class="token string">"queue"</span><span class="token punctuation">:</span> <span class="token string">"notification"</span><span class="token punctuation">,</span>
-<span class="token punctuation">}</span><span class="token punctuation">,</span>
-<span class="token punctuation">}</span><span class="token punctuation">,</span>
-<span class="token punctuation">)</span>
+task_routes={<!-- -->
+"tasks.parse_document": {<!-- -->
+"queue": "document_parse",
+},
+"tasks.run_ocr": {<!-- -->
+"queue": "ocr",
+},
+"tasks.send_notification": {<!-- -->
+"queue": "notification",
+},
+},
+)
 ```
 
 

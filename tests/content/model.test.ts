@@ -24,3 +24,9 @@ describe('assertValidFrontmatter', () => {
 })
 
 it('identifies drafts', () => expect(isDraft({ contentStatus: 'draft' })).toBe(true))
+
+it('validates optional verification scope and example status without inflating legacy status', () => {
+  expect(() => assertValidFrontmatter({...article,reviewScope:'论文与官方文档',exampleStatus:'not-run'},'article.md')).not.toThrow()
+  expect(() => assertValidFrontmatter({...article,exampleStatus:'all-good'},'article.md')).toThrow('exampleStatus is invalid')
+  expect(() => assertValidFrontmatter({...article,reviewScope:123},'article.md')).toThrow('reviewScope must be text')
+})

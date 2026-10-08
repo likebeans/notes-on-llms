@@ -3,7 +3,7 @@ title: "Agent 对话中的 SSE 状态恢复：切换页面、重新进入与刷�
 description: "CSDN 原文全文镜像：本文探讨了AI Agent对话系统中SSE（Server-Sent Events）的设计挑战与解决方案。主要问题在于如何应对用户切换会话、页面刷新、网络中断等场景导致的状态丢失问题。作者提出\"快照+事件日志+实时流\"的三层架构：通过数据……"
 pageType: article
 module: agent
-updated: '2026-08-04'
+updated: '2026-10-08'
 contentStatus: needs-review
 tags:
   - "csdn-mirror"
@@ -21,10 +21,16 @@ author: likebeans
 ---
 
 ::: info CSDN 原文镜像
-本文为作者 CSDN 博客的全文镜像，原文发布于 2026-08-04。为适配本站结构，仅补充了站内元数据与来源说明，正文主体保持原文内容。
+本文为作者 CSDN 博客的全文镜像，原文发布于 2026-08-04。本站补充导读与相关主线链接，并修复代码展示；原文观点、来源与发布时间保留。
 
 - 原文链接：[https://blog.csdn.net/m0_63309778/article/details/163478430](https://blog.csdn.net/m0_63309778/article/details/163478430)
 - 站内分区：Agent / Agent SSE 状态恢复
+:::
+
+::: tip 站内导读与实践边界
+阅读重点是快照、事件序列和实时连接之间的一致性。SSE 负责传输，任务是否继续运行、事件能回放多久、游标如何去重由应用实现；恢复时应测试快照与订阅之间的竞态、重复事件、日志过期和多标签页。
+
+继续阅读：[记忆系统](/llms/agent/memory)、[异常处理](/llms/agent/exception-handling)。
 :::
 
 <p><img src="https://i-blog.csdnimg.cn/direct/9f876efb4d834a6ab2e8b069ae173bc8.png" alt="在这里插入图片描述" /></p>
@@ -165,29 +171,29 @@ Agent 执行过程中产生的有序事件
 
 
 ```json
-<span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"conversationId"</span><span class="token operator">:</span> <span class="token string">"conv_1001"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"messages"</span><span class="token operator">:</span> <span class="token punctuation">[</span>
-<span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"id"</span><span class="token operator">:</span> <span class="token string">"msg_user_1"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"role"</span><span class="token operator">:</span> <span class="token string">"user"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"content"</span><span class="token operator">:</span> <span class="token string">"分析一下这个项目"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"status"</span><span class="token operator">:</span> <span class="token string">"completed"</span>
-<span class="token punctuation">}</span><span class="token punctuation">,</span>
-<span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"id"</span><span class="token operator">:</span> <span class="token string">"msg_assistant_1"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"role"</span><span class="token operator">:</span> <span class="token string">"assistant"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"content"</span><span class="token operator">:</span> <span class="token string">"项目采用了微服务架构……"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"status"</span><span class="token operator">:</span> <span class="token string">"streaming"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"runId"</span><span class="token operator">:</span> <span class="token string">"run_9001"</span>
-<span class="token punctuation">}</span>
-<span class="token punctuation">]</span><span class="token punctuation">,</span>
-<span class="token string-property property">"activeRun"</span><span class="token operator">:</span> <span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"id"</span><span class="token operator">:</span> <span class="token string">"run_9001"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"status"</span><span class="token operator">:</span> <span class="token string">"running"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"lastEventId"</span><span class="token operator">:</span> <span class="token string">"1058"</span>
-<span class="token punctuation">}</span>
-<span class="token punctuation">}</span>
+{
+"conversationId": "conv_1001",
+"messages": [
+{
+"id": "msg_user_1",
+"role": "user",
+"content": "分析一下这个项目",
+"status": "completed"
+},
+{
+"id": "msg_assistant_1",
+"role": "assistant",
+"content": "项目采用了微服务架构……",
+"status": "streaming",
+"runId": "run_9001"
+}
+],
+"activeRun": {
+"id": "run_9001",
+"status": "running",
+"lastEventId": "1058"
+}
+}
 ```
 
 
@@ -356,9 +362,9 @@ Event：执行过程中发生的变化
 
 
 ```json
-<span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"text"</span><span class="token operator">:</span> <span class="token string">"你好"</span>
-<span class="token punctuation">}</span>
+{
+"text": "你好"
+}
 ```
 
 
@@ -401,20 +407,20 @@ heartbeat
 
 
 ```json
-<span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"eventId"</span><span class="token operator">:</span> <span class="token string">"1058"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"sequence"</span><span class="token operator">:</span> <span class="token number">1058</span><span class="token punctuation">,</span>
-<span class="token string-property property">"type"</span><span class="token operator">:</span> <span class="token string">"tool.completed"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"conversationId"</span><span class="token operator">:</span> <span class="token string">"conv_1001"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"runId"</span><span class="token operator">:</span> <span class="token string">"run_9001"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"blockId"</span><span class="token operator">:</span> <span class="token string">"block_tool_3"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"timestamp"</span><span class="token operator">:</span> <span class="token string">"2026-08-04T16:10:00+08:00"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"payload"</span><span class="token operator">:</span> <span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"toolName"</span><span class="token operator">:</span> <span class="token string">"search_documents"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"status"</span><span class="token operator">:</span> <span class="token string">"completed"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"resultSummary"</span><span class="token operator">:</span> <span class="token string">"找到 12 个相关文档"</span>
-<span class="token punctuation">}</span>
-<span class="token punctuation">}</span>
+{
+"eventId": "1058",
+"sequence": 1058,
+"type": "tool.completed",
+"conversationId": "conv_1001",
+"runId": "run_9001",
+"blockId": "block_tool_3",
+"timestamp": "2026-08-04T16:10:00+08:00",
+"payload": {
+"toolName": "search_documents",
+"status": "completed",
+"resultSummary": "找到 12 个相关文档"
+}
+}
 ```
 
 
@@ -454,7 +460,7 @@ data: {"eventId":"1058","sequence":1058,"type":"tool.completed","runId":"run_900
 
 
 ```typescript
-eventSource<span class="token punctuation">.</span><span class="token function">close</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+eventSource.close();
 ```
 
 
@@ -505,15 +511,15 @@ GET /api/conversations/conv_1001
 
 
 ```json
-<span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"conversationId"</span><span class="token operator">:</span> <span class="token string">"conv_1001"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"messages"</span><span class="token operator">:</span> <span class="token punctuation">[</span><span class="token punctuation">]</span><span class="token punctuation">,</span>
-<span class="token string-property property">"activeRun"</span><span class="token operator">:</span> <span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"id"</span><span class="token operator">:</span> <span class="token string">"run_9001"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"status"</span><span class="token operator">:</span> <span class="token string">"running"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"lastEventId"</span><span class="token operator">:</span> <span class="token string">"1058"</span>
-<span class="token punctuation">}</span>
-<span class="token punctuation">}</span>
+{
+"conversationId": "conv_1001",
+"messages": [],
+"activeRun": {
+"id": "run_9001",
+"status": "running",
+"lastEventId": "1058"
+}
+}
 ```
 
 
@@ -602,9 +608,9 @@ POST /api/conversations/{conversationId}/messages
 
 
 ```json
-<span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"content"</span><span class="token operator">:</span> <span class="token string">"请分析这个项目的技术架构"</span>
-<span class="token punctuation">}</span>
+{
+"content": "请分析这个项目的技术架构"
+}
 ```
 
 
@@ -612,11 +618,11 @@ POST /api/conversations/{conversationId}/messages
 
 
 ```json
-<span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"messageId"</span><span class="token operator">:</span> <span class="token string">"msg_user_1001"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"runId"</span><span class="token operator">:</span> <span class="token string">"run_9001"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"status"</span><span class="token operator">:</span> <span class="token string">"queued"</span>
-<span class="token punctuation">}</span>
+{
+"messageId": "msg_user_1001",
+"runId": "run_9001",
+"status": "queued"
+}
 ```
 
 
@@ -830,74 +836,74 @@ assistant.message.completed：保存最终 Message
 
 
 ```python
-<span class="token keyword">import</span> asyncio
-<span class="token keyword">import</span> json
-<span class="token keyword">from</span> collections<span class="token punctuation">.</span>abc <span class="token keyword">import</span> AsyncGenerator
+import asyncio
+import json
+from collections.abc import AsyncGenerator
 
-<span class="token keyword">from</span> fastapi <span class="token keyword">import</span> APIRouter<span class="token punctuation">,</span> Depends<span class="token punctuation">,</span> Request
-<span class="token keyword">from</span> fastapi<span class="token punctuation">.</span>sse <span class="token keyword">import</span> EventSourceResponse<span class="token punctuation">,</span> ServerSentEvent
+from fastapi import APIRouter, Depends, Request
+from fastapi.sse import EventSourceResponse, ServerSentEvent
 
-router <span class="token operator">=</span> APIRouter<span class="token punctuation">(</span><span class="token punctuation">)</span>
+router = APIRouter()
 
-<span class="token decorator annotation punctuation">@router<span class="token punctuation">.</span>get</span><span class="token punctuation">(</span><span class="token string">"/api/runs/{run_id}/events"</span><span class="token punctuation">)</span>
-<span class="token keyword">async</span> <span class="token keyword">def</span> <span class="token function">subscribe_run_events</span><span class="token punctuation">(</span>
-run_id<span class="token punctuation">:</span> <span class="token builtin">str</span><span class="token punctuation">,</span>
-request<span class="token punctuation">:</span> Request<span class="token punctuation">,</span>
-after<span class="token punctuation">:</span> <span class="token builtin">str</span> <span class="token operator">|</span> <span class="token boolean">None</span> <span class="token operator">=</span> <span class="token boolean">None</span><span class="token punctuation">,</span>
-current_user<span class="token operator">=</span>Depends<span class="token punctuation">(</span>get_current_user<span class="token punctuation">)</span><span class="token punctuation">,</span>
-<span class="token punctuation">)</span> <span class="token operator">-</span><span class="token operator">></span> EventSourceResponse<span class="token punctuation">:</span>
-<span class="token keyword">await</span> check_run_permission<span class="token punctuation">(</span>
-run_id<span class="token operator">=</span>run_id<span class="token punctuation">,</span>
-user_id<span class="token operator">=</span>current_user<span class="token punctuation">.</span><span class="token builtin">id</span><span class="token punctuation">,</span>
-<span class="token punctuation">)</span>
+@router.get("/api/runs/{run_id}/events")
+async def subscribe_run_events(
+run_id: str,
+request: Request,
+after: str | None = None,
+current_user=Depends(get_current_user),
+) -> EventSourceResponse:
+await check_run_permission(
+run_id=run_id,
+user_id=current_user.id,
+)
 
-<span class="token keyword">async</span> <span class="token keyword">def</span> <span class="token function">event_generator</span><span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">-</span><span class="token operator">></span> AsyncGenerator<span class="token punctuation">[</span>ServerSentEvent<span class="token punctuation">,</span> <span class="token boolean">None</span><span class="token punctuation">]</span><span class="token punctuation">:</span>
-cursor <span class="token operator">=</span> after <span class="token keyword">or</span> <span class="token string">"0-0"</span>
+async def event_generator() -> AsyncGenerator[ServerSentEvent, None]:
+cursor = after or "0-0"
 
-<span class="token keyword">while</span> <span class="token boolean">True</span><span class="token punctuation">:</span>
-<span class="token keyword">if</span> <span class="token keyword">await</span> request<span class="token punctuation">.</span>is_disconnected<span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">:</span>
-<span class="token keyword">break</span>
+while True:
+if await request.is_disconnected():
+break
 
-events <span class="token operator">=</span> <span class="token keyword">await</span> event_store<span class="token punctuation">.</span>read_after<span class="token punctuation">(</span>
-run_id<span class="token operator">=</span>run_id<span class="token punctuation">,</span>
-cursor<span class="token operator">=</span>cursor<span class="token punctuation">,</span>
-block_ms<span class="token operator">=</span><span class="token number">15_000</span><span class="token punctuation">,</span>
-count<span class="token operator">=</span><span class="token number">100</span><span class="token punctuation">,</span>
-<span class="token punctuation">)</span>
+events = await event_store.read_after(
+run_id=run_id,
+cursor=cursor,
+block_ms=15_000,
+count=100,
+)
 
-<span class="token keyword">if</span> <span class="token keyword">not</span> events<span class="token punctuation">:</span>
-<span class="token keyword">yield</span> ServerSentEvent<span class="token punctuation">(</span>
-comment<span class="token operator">=</span><span class="token string">"heartbeat"</span><span class="token punctuation">,</span>
-<span class="token punctuation">)</span>
-<span class="token keyword">continue</span>
+if not events:
+yield ServerSentEvent(
+comment="heartbeat",
+)
+continue
 
-<span class="token keyword">for</span> event <span class="token keyword">in</span> events<span class="token punctuation">:</span>
-cursor <span class="token operator">=</span> event<span class="token punctuation">.</span><span class="token builtin">id</span>
+for event in events:
+cursor = event.id
 
-<span class="token keyword">yield</span> ServerSentEvent<span class="token punctuation">(</span>
-event<span class="token operator">=</span>event<span class="token punctuation">.</span><span class="token builtin">type</span><span class="token punctuation">,</span>
-<span class="token builtin">id</span><span class="token operator">=</span>event<span class="token punctuation">.</span><span class="token builtin">id</span><span class="token punctuation">,</span>
-data<span class="token operator">=</span>json<span class="token punctuation">.</span>dumps<span class="token punctuation">(</span>
-event<span class="token punctuation">.</span>to_dict<span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
-ensure_ascii<span class="token operator">=</span><span class="token boolean">False</span><span class="token punctuation">,</span>
-<span class="token punctuation">)</span><span class="token punctuation">,</span>
-retry<span class="token operator">=</span><span class="token number">3000</span><span class="token punctuation">,</span>
-<span class="token punctuation">)</span>
+yield ServerSentEvent(
+event=event.type,
+id=event.id,
+data=json.dumps(
+event.to_dict(),
+ensure_ascii=False,
+),
+retry=3000,
+)
 
-<span class="token keyword">if</span> event<span class="token punctuation">.</span><span class="token builtin">type</span> <span class="token keyword">in</span> <span class="token punctuation">{<!-- --></span>
-<span class="token string">"run.completed"</span><span class="token punctuation">,</span>
-<span class="token string">"run.failed"</span><span class="token punctuation">,</span>
-<span class="token string">"run.cancelled"</span><span class="token punctuation">,</span>
-<span class="token punctuation">}</span><span class="token punctuation">:</span>
-<span class="token keyword">return</span>
+if event.type in {
+"run.completed",
+"run.failed",
+"run.cancelled",
+}:
+return
 
-<span class="token keyword">return</span> EventSourceResponse<span class="token punctuation">(</span>
-event_generator<span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
-headers<span class="token operator">=</span><span class="token punctuation">{<!-- --></span>
-<span class="token string">"Cache-Control"</span><span class="token punctuation">:</span> <span class="token string">"no-cache"</span><span class="token punctuation">,</span>
-<span class="token string">"X-Accel-Buffering"</span><span class="token punctuation">:</span> <span class="token string">"no"</span><span class="token punctuation">,</span>
-<span class="token punctuation">}</span><span class="token punctuation">,</span>
-<span class="token punctuation">)</span>
+return EventSourceResponse(
+event_generator(),
+headers={
+"Cache-Control": "no-cache",
+"X-Accel-Buffering": "no",
+},
+)
 ```
 
 
@@ -943,24 +949,24 @@ run.cancelled
 
 
 ```typescript
-<span class="token keyword">async</span> <span class="token keyword">function</span> <span class="token function">enterConversation</span><span class="token punctuation">(</span>conversationId<span class="token operator">:</span> <span class="token builtin">string</span><span class="token punctuation">)</span> <span class="token punctuation">{<!-- --></span>
-<span class="token keyword">const</span> snapshot <span class="token operator">=</span> <span class="token keyword">await</span> conversationApi<span class="token punctuation">.</span><span class="token function">getConversation</span><span class="token punctuation">(</span>
-conversationId<span class="token punctuation">,</span>
-<span class="token punctuation">)</span><span class="token punctuation">;</span>
+async function enterConversation(conversationId: string) {
+const snapshot = await conversationApi.getConversation(
+conversationId,
+);
 
-conversationStore<span class="token punctuation">.</span><span class="token function">replaceSnapshot</span><span class="token punctuation">(</span>snapshot<span class="token punctuation">)</span><span class="token punctuation">;</span>
+conversationStore.replaceSnapshot(snapshot);
 
-<span class="token keyword">const</span> activeRun <span class="token operator">=</span> snapshot<span class="token punctuation">.</span>activeRun<span class="token punctuation">;</span>
+const activeRun = snapshot.activeRun;
 
-<span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token operator">!</span>activeRun<span class="token punctuation">)</span> <span class="token punctuation">{<!-- --></span>
-<span class="token keyword">return</span><span class="token punctuation">;</span>
-<span class="token punctuation">}</span>
+if (!activeRun) {
+return;
+}
 
-<span class="token function">subscribeRun</span><span class="token punctuation">(</span><span class="token punctuation">{<!-- --></span>
-runId<span class="token operator">:</span> activeRun<span class="token punctuation">.</span>id<span class="token punctuation">,</span>
-after<span class="token operator">:</span> activeRun<span class="token punctuation">.</span>lastEventId<span class="token punctuation">,</span>
-<span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
-<span class="token punctuation">}</span>
+subscribeRun({
+runId: activeRun.id,
+after: activeRun.lastEventId,
+});
+}
 ```
 
 
@@ -983,13 +989,13 @@ SSE 事件先到
 
 
 ```typescript
-source<span class="token punctuation">.</span><span class="token function">addEventListener</span><span class="token punctuation">(</span><span class="token string">"tool.started"</span><span class="token punctuation">,</span> <span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">{<!-- --></span>
-<span class="token comment">// 随意修改某个组件</span>
-<span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+source.addEventListener("tool.started", () => {
+// 随意修改某个组件
+});
 
-source<span class="token punctuation">.</span><span class="token function">addEventListener</span><span class="token punctuation">(</span><span class="token string">"assistant.delta"</span><span class="token punctuation">,</span> <span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">{<!-- --></span>
-<span class="token comment">// 再修改另一份状态</span>
-<span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+source.addEventListener("assistant.delta", () => {
+// 再修改另一份状态
+});
 ```
 
 
@@ -997,21 +1003,21 @@ source<span class="token punctuation">.</span><span class="token function">addEv
 
 
 ```typescript
-<span class="token keyword">function</span> <span class="token function">applyAgentEvent</span><span class="token punctuation">(</span>
-state<span class="token operator">:</span> ConversationState<span class="token punctuation">,</span>
-event<span class="token operator">:</span> AgentEvent<span class="token punctuation">,</span>
-<span class="token punctuation">)</span><span class="token operator">:</span> ConversationState <span class="token punctuation">{<!-- --></span>
-<span class="token keyword">if</span> <span class="token punctuation">(</span>state<span class="token punctuation">.</span>processedEventIds<span class="token punctuation">.</span><span class="token function">has</span><span class="token punctuation">(</span>event<span class="token punctuation">.</span>eventId<span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token punctuation">{<!-- --></span>
-<span class="token keyword">return</span> state<span class="token punctuation">;</span>
-<span class="token punctuation">}</span>
+function applyAgentEvent(
+state: ConversationState,
+event: AgentEvent,
+): ConversationState {
+if (state.processedEventIds.has(event.eventId)) {
+return state;
+}
 
-<span class="token keyword">const</span> nextState <span class="token operator">=</span> <span class="token function">reduceAgentEvent</span><span class="token punctuation">(</span>state<span class="token punctuation">,</span> event<span class="token punctuation">)</span><span class="token punctuation">;</span>
+const nextState = reduceAgentEvent(state, event);
 
-nextState<span class="token punctuation">.</span>processedEventIds<span class="token punctuation">.</span><span class="token function">add</span><span class="token punctuation">(</span>event<span class="token punctuation">.</span>eventId<span class="token punctuation">)</span><span class="token punctuation">;</span>
-nextState<span class="token punctuation">.</span>lastEventId <span class="token operator">=</span> event<span class="token punctuation">.</span>eventId<span class="token punctuation">;</span>
+nextState.processedEventIds.add(event.eventId);
+nextState.lastEventId = event.eventId;
 
-<span class="token keyword">return</span> nextState<span class="token punctuation">;</span>
-<span class="token punctuation">}</span>
+return nextState;
+}
 ```
 
 
@@ -1019,49 +1025,49 @@ nextState<span class="token punctuation">.</span>lastEventId <span class="token 
 
 
 ```typescript
-<span class="token keyword">function</span> <span class="token function">reduceAgentEvent</span><span class="token punctuation">(</span>
-state<span class="token operator">:</span> ConversationState<span class="token punctuation">,</span>
-event<span class="token operator">:</span> AgentEvent<span class="token punctuation">,</span>
-<span class="token punctuation">)</span><span class="token operator">:</span> ConversationState <span class="token punctuation">{<!-- --></span>
-<span class="token keyword">switch</span> <span class="token punctuation">(</span>event<span class="token punctuation">.</span>type<span class="token punctuation">)</span> <span class="token punctuation">{<!-- --></span>
-<span class="token keyword">case</span> <span class="token string">"assistant.delta"</span><span class="token operator">:</span>
-<span class="token keyword">return</span> <span class="token function">appendAssistantText</span><span class="token punctuation">(</span>
-state<span class="token punctuation">,</span>
-event<span class="token punctuation">.</span>blockId<span class="token punctuation">,</span>
-event<span class="token punctuation">.</span>payload<span class="token punctuation">.</span>text<span class="token punctuation">,</span>
-<span class="token punctuation">)</span><span class="token punctuation">;</span>
+function reduceAgentEvent(
+state: ConversationState,
+event: AgentEvent,
+): ConversationState {
+switch (event.type) {
+case "assistant.delta":
+return appendAssistantText(
+state,
+event.blockId,
+event.payload.text,
+);
 
-<span class="token keyword">case</span> <span class="token string">"tool.started"</span><span class="token operator">:</span>
-<span class="token keyword">return</span> <span class="token function">createToolBlock</span><span class="token punctuation">(</span>
-state<span class="token punctuation">,</span>
-event<span class="token punctuation">.</span>blockId<span class="token punctuation">,</span>
-event<span class="token punctuation">.</span>payload<span class="token punctuation">,</span>
-<span class="token punctuation">)</span><span class="token punctuation">;</span>
+case "tool.started":
+return createToolBlock(
+state,
+event.blockId,
+event.payload,
+);
 
-<span class="token keyword">case</span> <span class="token string">"tool.completed"</span><span class="token operator">:</span>
-<span class="token keyword">return</span> <span class="token function">completeToolBlock</span><span class="token punctuation">(</span>
-state<span class="token punctuation">,</span>
-event<span class="token punctuation">.</span>blockId<span class="token punctuation">,</span>
-event<span class="token punctuation">.</span>payload<span class="token punctuation">,</span>
-<span class="token punctuation">)</span><span class="token punctuation">;</span>
+case "tool.completed":
+return completeToolBlock(
+state,
+event.blockId,
+event.payload,
+);
 
-<span class="token keyword">case</span> <span class="token string">"run.completed"</span><span class="token operator">:</span>
-<span class="token keyword">return</span> <span class="token function">completeRun</span><span class="token punctuation">(</span>
-state<span class="token punctuation">,</span>
-event<span class="token punctuation">.</span>runId<span class="token punctuation">,</span>
-<span class="token punctuation">)</span><span class="token punctuation">;</span>
+case "run.completed":
+return completeRun(
+state,
+event.runId,
+);
 
-<span class="token keyword">case</span> <span class="token string">"run.failed"</span><span class="token operator">:</span>
-<span class="token keyword">return</span> <span class="token function">failRun</span><span class="token punctuation">(</span>
-state<span class="token punctuation">,</span>
-event<span class="token punctuation">.</span>runId<span class="token punctuation">,</span>
-event<span class="token punctuation">.</span>payload<span class="token punctuation">.</span>error<span class="token punctuation">,</span>
-<span class="token punctuation">)</span><span class="token punctuation">;</span>
+case "run.failed":
+return failRun(
+state,
+event.runId,
+event.payload.error,
+);
 
-<span class="token keyword">default</span><span class="token operator">:</span>
-<span class="token keyword">return</span> state<span class="token punctuation">;</span>
-<span class="token punctuation">}</span>
-<span class="token punctuation">}</span>
+default:
+return state;
+}
+}
 ```
 
 
@@ -1072,77 +1078,77 @@ event<span class="token punctuation">.</span>payload<span class="token punctuati
 
 
 ```typescript
-<span class="token keyword">let</span> currentEventSource<span class="token operator">:</span> EventSource <span class="token operator">|</span> <span class="token keyword">null</span> <span class="token operator">=</span> <span class="token keyword">null</span><span class="token punctuation">;</span>
+let currentEventSource: EventSource | null = null;
 
-<span class="token keyword">interface</span> <span class="token class-name">SubscribeRunOptions</span> <span class="token punctuation">{<!-- --></span>
-runId<span class="token operator">:</span> <span class="token builtin">string</span><span class="token punctuation">;</span>
-after<span class="token operator">?</span><span class="token operator">:</span> <span class="token builtin">string</span><span class="token punctuation">;</span>
-<span class="token punctuation">}</span>
+interface SubscribeRunOptions {
+runId: string;
+after?: string;
+}
 
-<span class="token keyword">function</span> <span class="token function">subscribeRun</span><span class="token punctuation">(</span><span class="token punctuation">{<!-- --></span>
-runId<span class="token punctuation">,</span>
-after<span class="token punctuation">,</span>
-<span class="token punctuation">}</span><span class="token operator">:</span> SubscribeRunOptions<span class="token punctuation">)</span><span class="token operator">:</span> <span class="token keyword">void</span> <span class="token punctuation">{<!-- --></span>
-currentEventSource<span class="token operator">?.</span><span class="token function">close</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+function subscribeRun({
+runId,
+after,
+}: SubscribeRunOptions): void {
+currentEventSource?.close();
 
-<span class="token keyword">const</span> params <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">URLSearchParams</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+const params = new URLSearchParams();
 
-<span class="token keyword">if</span> <span class="token punctuation">(</span>after<span class="token punctuation">)</span> <span class="token punctuation">{<!-- --></span>
-params<span class="token punctuation">.</span><span class="token function">set</span><span class="token punctuation">(</span><span class="token string">"after"</span><span class="token punctuation">,</span> after<span class="token punctuation">)</span><span class="token punctuation">;</span>
-<span class="token punctuation">}</span>
+if (after) {
+params.set("after", after);
+}
 
-<span class="token keyword">const</span> url <span class="token operator">=</span> <span class="token template-string"><span class="token template-punctuation string">`</span><span class="token string">/api/runs/</span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">${<!-- --></span>runId<span class="token interpolation-punctuation punctuation">}</span></span><span class="token string">/events?</span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">${<!-- --></span>params<span class="token punctuation">.</span><span class="token function">toString</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token interpolation-punctuation punctuation">}</span></span><span class="token template-punctuation string">`</span></span><span class="token punctuation">;</span>
+const url = `/api/runs/${runId}/events?${params.toString()}`;
 
-<span class="token keyword">const</span> source <span class="token operator">=</span> <span class="token keyword">new</span> <span class="token class-name">EventSource</span><span class="token punctuation">(</span>url<span class="token punctuation">,</span> <span class="token punctuation">{<!-- --></span>
-withCredentials<span class="token operator">:</span> <span class="token boolean">true</span><span class="token punctuation">,</span>
-<span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+const source = new EventSource(url, {
+withCredentials: true,
+});
 
-currentEventSource <span class="token operator">=</span> source<span class="token punctuation">;</span>
+currentEventSource = source;
 
-<span class="token keyword">const</span> eventTypes <span class="token operator">=</span> <span class="token punctuation">[</span>
-<span class="token string">"run.started"</span><span class="token punctuation">,</span>
-<span class="token string">"run.progress"</span><span class="token punctuation">,</span>
-<span class="token string">"assistant.delta"</span><span class="token punctuation">,</span>
-<span class="token string">"assistant.message.completed"</span><span class="token punctuation">,</span>
-<span class="token string">"tool.started"</span><span class="token punctuation">,</span>
-<span class="token string">"tool.completed"</span><span class="token punctuation">,</span>
-<span class="token string">"tool.failed"</span><span class="token punctuation">,</span>
-<span class="token string">"run.completed"</span><span class="token punctuation">,</span>
-<span class="token string">"run.failed"</span><span class="token punctuation">,</span>
-<span class="token string">"run.cancelled"</span><span class="token punctuation">,</span>
-<span class="token punctuation">]</span><span class="token punctuation">;</span>
+const eventTypes = [
+"run.started",
+"run.progress",
+"assistant.delta",
+"assistant.message.completed",
+"tool.started",
+"tool.completed",
+"tool.failed",
+"run.completed",
+"run.failed",
+"run.cancelled",
+];
 
-<span class="token keyword">for</span> <span class="token punctuation">(</span><span class="token keyword">const</span> eventType <span class="token keyword">of</span> eventTypes<span class="token punctuation">)</span> <span class="token punctuation">{<!-- --></span>
-source<span class="token punctuation">.</span><span class="token function">addEventListener</span><span class="token punctuation">(</span>eventType<span class="token punctuation">,</span> <span class="token punctuation">(</span>rawEvent<span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">{<!-- --></span>
-<span class="token keyword">const</span> messageEvent <span class="token operator">=</span> rawEvent <span class="token keyword">as</span> MessageEvent<span class="token punctuation">;</span>
+for (const eventType of eventTypes) {
+source.addEventListener(eventType, (rawEvent) => {
+const messageEvent = rawEvent as MessageEvent;
 
-<span class="token keyword">const</span> event <span class="token operator">=</span> <span class="token constant">JSON</span><span class="token punctuation">.</span><span class="token function">parse</span><span class="token punctuation">(</span>
-messageEvent<span class="token punctuation">.</span>data<span class="token punctuation">,</span>
-<span class="token punctuation">)</span> <span class="token keyword">as</span> AgentEvent<span class="token punctuation">;</span>
+const event = JSON.parse(
+messageEvent.data,
+) as AgentEvent;
 
-conversationStore<span class="token punctuation">.</span><span class="token function">applyEvent</span><span class="token punctuation">(</span>event<span class="token punctuation">)</span><span class="token punctuation">;</span>
+conversationStore.applyEvent(event);
 
-<span class="token keyword">if</span> <span class="token punctuation">(</span>messageEvent<span class="token punctuation">.</span>lastEventId<span class="token punctuation">)</span> <span class="token punctuation">{<!-- --></span>
-conversationStore<span class="token punctuation">.</span><span class="token function">setLastEventId</span><span class="token punctuation">(</span>
-runId<span class="token punctuation">,</span>
-messageEvent<span class="token punctuation">.</span>lastEventId<span class="token punctuation">,</span>
-<span class="token punctuation">)</span><span class="token punctuation">;</span>
-<span class="token punctuation">}</span>
+if (messageEvent.lastEventId) {
+conversationStore.setLastEventId(
+runId,
+messageEvent.lastEventId,
+);
+}
 
-<span class="token keyword">if</span> <span class="token punctuation">(</span>
-event<span class="token punctuation">.</span>type <span class="token operator">===</span> <span class="token string">"run.completed"</span> <span class="token operator">||</span>
-event<span class="token punctuation">.</span>type <span class="token operator">===</span> <span class="token string">"run.failed"</span> <span class="token operator">||</span>
-event<span class="token punctuation">.</span>type <span class="token operator">===</span> <span class="token string">"run.cancelled"</span>
-<span class="token punctuation">)</span> <span class="token punctuation">{<!-- --></span>
-source<span class="token punctuation">.</span><span class="token function">close</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
-<span class="token punctuation">}</span>
-<span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
-<span class="token punctuation">}</span>
+if (
+event.type === "run.completed" ||
+event.type === "run.failed" ||
+event.type === "run.cancelled"
+) {
+source.close();
+}
+});
+}
 
-source<span class="token punctuation">.</span><span class="token function-variable function">onerror</span> <span class="token operator">=</span> <span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token operator">=></span> <span class="token punctuation">{<!-- --></span>
-conversationStore<span class="token punctuation">.</span><span class="token function">markReconnecting</span><span class="token punctuation">(</span>runId<span class="token punctuation">)</span><span class="token punctuation">;</span>
-<span class="token punctuation">}</span><span class="token punctuation">;</span>
-<span class="token punctuation">}</span>
+source.onerror = () => {
+conversationStore.markReconnecting(runId);
+};
+}
 ```
 
 
@@ -1150,10 +1156,10 @@ conversationStore<span class="token punctuation">.</span><span class="token func
 
 
 ```typescript
-<span class="token keyword">function</span> <span class="token function">leaveConversation</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token operator">:</span> <span class="token keyword">void</span> <span class="token punctuation">{<!-- --></span>
-currentEventSource<span class="token operator">?.</span><span class="token function">close</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
-currentEventSource <span class="token operator">=</span> <span class="token keyword">null</span><span class="token punctuation">;</span>
-<span class="token punctuation">}</span>
+function leaveConversation(): void {
+currentEventSource?.close();
+currentEventSource = null;
+}
 ```
 
 
@@ -1189,9 +1195,9 @@ currentEventSource <span class="token operator">=</span> <span class="token keyw
 
 
 ```typescript
-<span class="token keyword">if</span> <span class="token punctuation">(</span>processedEventIds<span class="token punctuation">.</span><span class="token function">has</span><span class="token punctuation">(</span>event<span class="token punctuation">.</span>eventId<span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token punctuation">{<!-- --></span>
-<span class="token keyword">return</span><span class="token punctuation">;</span>
-<span class="token punctuation">}</span>
+if (processedEventIds.has(event.eventId)) {
+return;
+}
 ```
 
 
@@ -1263,10 +1269,10 @@ runId + sequence
 
 
 ```json
-<span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"eventId"</span><span class="token operator">:</span> <span class="token string">"1722768000000-0"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"sequence"</span><span class="token operator">:</span> <span class="token number">1054</span>
-<span class="token punctuation">}</span>
+{
+"eventId": "1722768000000-0",
+"sequence": 1054
+}
 ```
 
 
@@ -1326,13 +1332,13 @@ Snapshot 查询完成前，Agent 又产生两个事件
 
 
 ```json
-<span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"messages"</span><span class="token operator">:</span> <span class="token punctuation">[</span><span class="token punctuation">]</span><span class="token punctuation">,</span>
-<span class="token string-property property">"activeRun"</span><span class="token operator">:</span> <span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"id"</span><span class="token operator">:</span> <span class="token string">"run_9001"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"lastEventId"</span><span class="token operator">:</span> <span class="token string">"1058"</span>
-<span class="token punctuation">}</span>
-<span class="token punctuation">}</span>
+{
+"messages": [],
+"activeRun": {
+"id": "run_9001",
+"lastEventId": "1058"
+}
+}
 ```
 
 
@@ -1379,15 +1385,15 @@ run.cancelled
 
 
 ```json
-<span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"eventId"</span><span class="token operator">:</span> <span class="token string">"1100"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"type"</span><span class="token operator">:</span> <span class="token string">"run.completed"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"runId"</span><span class="token operator">:</span> <span class="token string">"run_9001"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"payload"</span><span class="token operator">:</span> <span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"outputMessageId"</span><span class="token operator">:</span> <span class="token string">"msg_assistant_1001"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"finishReason"</span><span class="token operator">:</span> <span class="token string">"stop"</span>
-<span class="token punctuation">}</span>
-<span class="token punctuation">}</span>
+{
+"eventId": "1100",
+"type": "run.completed",
+"runId": "run_9001",
+"payload": {
+"outputMessageId": "msg_assistant_1001",
+"finishReason": "stop"
+}
+}
 ```
 
 
@@ -1395,16 +1401,16 @@ run.cancelled
 
 
 ```json
-<span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"eventId"</span><span class="token operator">:</span> <span class="token string">"1100"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"type"</span><span class="token operator">:</span> <span class="token string">"run.failed"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"runId"</span><span class="token operator">:</span> <span class="token string">"run_9001"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"payload"</span><span class="token operator">:</span> <span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"errorCode"</span><span class="token operator">:</span> <span class="token string">"TOOL_TIMEOUT"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"errorMessage"</span><span class="token operator">:</span> <span class="token string">"代码分析工具执行超时"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"retryable"</span><span class="token operator">:</span> <span class="token boolean">true</span>
-<span class="token punctuation">}</span>
-<span class="token punctuation">}</span>
+{
+"eventId": "1100",
+"type": "run.failed",
+"runId": "run_9001",
+"payload": {
+"errorCode": "TOOL_TIMEOUT",
+"errorMessage": "代码分析工具执行超时",
+"retryable": true
+}
+}
 ```
 
 
@@ -1424,15 +1430,15 @@ run.cancelled
 
 
 ```typescript
-<span class="token keyword">const</span> response <span class="token operator">=</span> <span class="token keyword">await</span> <span class="token function">fetch</span><span class="token punctuation">(</span>url<span class="token punctuation">,</span> <span class="token punctuation">{<!-- --></span>
-method<span class="token operator">:</span> <span class="token string">"GET"</span><span class="token punctuation">,</span>
-headers<span class="token operator">:</span> <span class="token punctuation">{<!-- --></span>
-Authorization<span class="token operator">:</span> <span class="token template-string"><span class="token template-punctuation string">`</span><span class="token string">Bearer </span><span class="token interpolation"><span class="token interpolation-punctuation punctuation">${<!-- --></span>token<span class="token interpolation-punctuation punctuation">}</span></span><span class="token template-punctuation string">`</span></span><span class="token punctuation">,</span>
-<span class="token punctuation">}</span><span class="token punctuation">,</span>
-signal<span class="token operator">:</span> abortController<span class="token punctuation">.</span>signal<span class="token punctuation">,</span>
-<span class="token punctuation">}</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+const response = await fetch(url, {
+method: "GET",
+headers: {
+Authorization: `Bearer ${token}`,
+},
+signal: abortController.signal,
+});
 
-<span class="token keyword">const</span> reader <span class="token operator">=</span> response<span class="token punctuation">.</span>body<span class="token operator">?.</span><span class="token function">getReader</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+const reader = response.body?.getReader();
 ```
 
 
@@ -1493,7 +1499,7 @@ X-Accel-Buffering: no
 
 
 ```python
-run_queues<span class="token punctuation">:</span> <span class="token builtin">dict</span><span class="token punctuation">[</span><span class="token builtin">str</span><span class="token punctuation">,</span> asyncio<span class="token punctuation">.</span>Queue<span class="token punctuation">]</span> <span class="token operator">=</span> <span class="token punctuation">{<!-- --></span><span class="token punctuation">}</span>
+run_queues: dict[str, asyncio.Queue] = {}
 ```
 
 

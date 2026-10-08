@@ -3,16 +3,18 @@ title: AI Agent 全景
 description: 从工具调用、规划、记忆到评估监控的 Agent 学习单元。
 pageType: article
 module: agent
-updated: '2026-08-26'
-contentStatus: verified
+updated: '2026-10-08'
+contentStatus: needs-review
 tags:
   - agent
 level: advanced
 prerequisites:
   - /llms/prompt/
   - /llms/rag/
-reviewed: '2026-08-26'
-techVersion: 2026-08（Agent、工具调用、评估）
+reviewed: '2026-10-08'
+reviewScope: 工具调用、长任务状态与评测更新的导读和场景自测
+exampleStatus: not-run
+techVersion: 工具调用、长任务状态与评测原理核验 2026-10-08；子页示例验证范围单列
 ---
 
 # AI Agent 全景
@@ -80,6 +82,21 @@ final: 苏格拉底
 | 人机协同 | 在高风险、低置信度或不可逆动作前引入人工审批。 | 审批点太多会拖慢系统，太少会把风险外包给模型。 |
 | 评估与监控 | 用数据集、轨迹、grader 和线上指标持续发现退化。 | 只看最终成功率不够；还要看工具选择、步骤数、成本、延迟和安全事件。 |
 
+## 从最小闭环开始选型
+
+先把一个业务任务写成“输入、可用动作、成功证据、停止条件”。例如订单查询的成功证据是订单服务返回的状态和更新时间；退款任务的成功证据是可核验的退款记录，不能用模型一句“已退款”替代。
+
+| 任务表现 | 先尝试的结构 | 增加复杂度前的证据 |
+| --- | --- | --- |
+| 一次检索即可回答 | RAG + 引用校验 | 多轮检索确实改善遗漏问题 |
+| 步骤和分支稳定 | 提示链、规则路由 | 固定流程覆盖不了真实输入 |
+| 下一步依赖环境反馈 | 有预算的工具循环 | 工具结果可验证，失败可停止 |
+| 多个子任务互相独立 | 有界并行；必要时再拆 Agent | 端到端延迟或成功率有收益 |
+
+这是一套工程选型顺序，不是能力等级。工作流和动态 Agent 的边界可参考 [Anthropic 对两类系统的定义](https://www.anthropic.com/engineering/building-effective-agents)。先保留简单基线，才能判断规划、反思和多 Agent 是否值得。
+
+每次运行至少记录 `run_id`、任务状态、工具调用与结果标识、已用预算、最终产物和结束原因。把“等待用户”“预算耗尽”“执行失败”与“完成”分开，后续章节的规划、记忆和恢复才能围绕同一份状态协作。
+
 ## 推荐学习顺序
 
 1. 先读 [提示链](/llms/agent/prompt-chain)、[路由](/llms/agent/routing)、[并行化](/llms/agent/parallelization) 与 [反思](/llms/agent/reflection)，建立比单次 prompt 更可靠的工作流基础。
@@ -103,9 +120,38 @@ final: 苏格拉底
 
 如果要把练习落成代码，先写一个最小工具 schema，而不是直接接真实生产 API。比如 `search_docs(query, top_k)`、`create_ticket(summary, priority)` 和 `request_approval(action, reason)` 三个假工具已经足够覆盖“检索、写入、审批”三类动作。评估时故意让 `search_docs` 返回空结果、让 `create_ticket` 抛出权限错误、让 `request_approval` 返回拒绝，观察 Agent 是否停止、重试、改写问题或转人工。能处理这些朴素失败路径，再考虑接入真实数据库、浏览器、代码执行器或多 Agent 协作。
 
+## 从能运行到能恢复
+
+阅读主线时，增加三个验收问题：工具失败后能否识别真实副作用状态，跨上下文窗口后能否核对原始目标，多次独立运行是否保持约束。接口格式、可恢复状态和业务评估要一起设计；只提高模型能力不能替代它们。
+
+本轮资料入口：[Responses 函数调用](https://developers.openai.com/api/docs/guides/function-calling)、[长任务执行环境实践](https://www.anthropic.com/engineering/effective-harnesses-for-long-running-agents)、[Agent 评估指南](https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents)。具体实现分别见 [工具调用](/llms/agent/tool-calling)、[记忆系统](/llms/agent/memory)、[评估方法](/llms/agent/evaluation)。
+
+## 场景自测
+
+<details>
+<summary>工具 JSON 完全合法，但重复创建了一笔订单，应该先改 prompt 吗？</summary>
+
+先修执行器的幂等键、操作回执和未知状态恢复。Schema 只约束参数形状；模型 call_id 也不是订单的业务去重键。补一个“服务端已提交、响应丢失”的回归用例。参见 [工具调用](/llms/agent/tool-calling)。
+
+</details>
+
+<details>
+<summary>长任务压缩后说“全部完成”，怎样判断能否交付？</summary>
+
+按需求清单核对当前产物和对应验证结果，恢复未完成项及外部操作状态。摘要是上下文材料，不能替代验收记录；恢复后还需确认权限与环境没有变化。参见 [记忆系统](/llms/agent/memory)。
+
+</details>
+
+<details>
+<summary>三次尝试至少成功一次的分数很高，能宣称每次运行都可靠吗？</summary>
+
+不能。pass@k 描述候选中至少一个成功，pass^k 才描述 k 次均成功；还需报告单次成功率、尝试成本和环境隔离条件。生产不能自动挑选正确答案时，多候选优势未必可兑现。参见 [Agent 评估](/llms/agent/evaluation)。
+
+</details>
+
 ## 版本与边界
 
-截至 2026-08，Agent 工程的稳定核心是结构化工具调用、可回放轨迹、明确护栏和持续评估；具体平台、SDK 与评估产品仍在快速变化。OpenAI 的函数调用、Structured Outputs、Agents SDK 和 agent evals 文档可以作为当前接口参考，但系统设计最好保持厂商中立：把工具 schema、任务状态、评估数据集和审批规则沉淀在自己的应用层，而不是绑死在某个临时 API 形态上。
+2026-10-08 本轮核验覆盖工具调用、长任务恢复和重复评测；子页分别注明文档复核与代码运行的范围。Agent 工程的稳定核心是结构化工具调用、可回放轨迹、明确护栏和持续评估；具体平台、SDK 与评估产品仍在快速变化。OpenAI 的函数调用、Structured Outputs、Agents SDK 和 agent evals 文档可以作为当前接口参考，但系统设计最好保持厂商中立：把工具 schema、任务状态、评估数据集和审批规则沉淀在自己的应用层，而不是绑死在某个临时 API 形态上。
 
 Agent 的边界同样重要。它不应该默认拥有写权限，不应该在没有证据时伪造观察结果，不应该把长期记忆当成事实数据库，也不应该把“模型反思了一遍”当成安全证明。越靠近金融、医疗、法律、招聘、权限管理和生产运维，越需要最小权限、人类确认、审计日志和可回滚设计。一个好 Agent 的目标不是显得自主，而是在不确定环境里尽可能可靠地完成任务，并在不能可靠完成时及时停下来。
 

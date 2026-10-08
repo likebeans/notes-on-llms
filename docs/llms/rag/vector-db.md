@@ -3,7 +3,7 @@ title: 向量数据库详解
 description: 向量数据库原理、选型与高性能检索实现
 pageType: article
 module: rag
-updated: '2025-12-27'
+updated: '2026-10-08'
 contentStatus: needs-review
 tags:
   - rag
@@ -25,20 +25,20 @@ techVersion: 待复核（2026-08）
 **向量数据库**是专门用于存储、索引和检索高维向量数据的数据库系统，是RAG系统的核心基础设施。
 
 **传统数据库 vs 向量数据库**：
-```python
-# 传统数据库
-SELECT * FROM articles WHERE title LIKE '%RAG%'  # 精确匹配
+```sql
+-- 字符串模式匹配
+SELECT * FROM articles WHERE title LIKE '%RAG%'  -- 字符串模式匹配，并非完整的关键词检索
 
-# 向量数据库  
-SELECT * FROM embeddings ORDER BY cosine_distance(vector, query_vector) LIMIT 5  # 语义相似度
+-- 向量检索语法示意，具体函数由数据库提供
+SELECT * FROM embeddings ORDER BY cosine_distance(vector, query_vector) LIMIT 5; -- 按向量距离排序
 ```
 
 ### 为什么需要向量数据库？
 
 ::: tip 核心价值
 **高维检索**：支持数百到数千维向量的高效相似性搜索  
-**语义理解**：基于向量距离进行语义匹配，不再依赖关键词  
-**规模化处理**：支持百万到亿级向量的存储与毫秒级检索
+**近邻检索**：按给定向量与距离函数查找候选；语义能力来自编码模型，可与关键词召回结合
+**规模化管理**：提供索引、过滤和更新能力；容量与延迟取决于部署和数据分布
 :::
 
 ### 向量数据库在RAG中的关键作用
@@ -74,10 +74,10 @@ SELECT * FROM embeddings ORDER BY cosine_distance(vector, query_vector) LIMIT 5 
 
 | 算法类型 | 代表算法 | 时间复杂度 | 优势 | 劣势 |
 |----------|----------|------------|------|------|
-| **暴力搜索** | Linear Scan | O(n) | 精度100% | 速度慢 |
-| **树结构** | KD-Tree | O(log n) | 低维效果好 | 高维性能差 |
-| **哈希方法** | LSH | O(1) | 速度快 | 精度不稳定 |
-| **图方法** | **HNSW** | O(log n) | 高精度+高速度 | 内存占用大 |
+| **暴力搜索** | Linear Scan | O(nd)，d 为维数 | 度量下的精确近邻基线 | 大规模时成本高 |
+| **树结构** | KD-Tree | 依赖维数与分布，高维可退化 | 低维常有效 | 高维剪枝效果变差 |
+| **哈希方法** | LSH | 依赖哈希表数、探测与候选数 | 可控制近似权衡 | 多表增加存储开销 |
+| **图方法** | **HNSW** | 经验上高效，非所有数据的最坏保证 | 可调召回/延迟 | 图边增加内存开销 |
 
 ### HNSW算法深度解析
 
@@ -91,7 +91,7 @@ HNSW（Hierarchical Navigable Small World）结合了**跳表**和**小世界网
 
 #### 算法架构
 
-```python
+```text
 # HNSW的层次化结构
 Layer 2: [入口节点] ----长距离连接----> [节点A]
          ↓                               ↓
@@ -103,15 +103,13 @@ Layer 0: [所有节点] --短距离连接--> [目标区域]
 **搜索流程**：
 1. **顶层导航**：从入口点开始，快速定位大致区域
 2. **逐层下降**：在每层找到局部最优点，作为下层起点  
-3. **底层精搜**：在最密集的底层进行精确检索
+3. **底层搜索**：在最密集的底层扩展候选；仍是近似搜索，不能保证与全量扫描一致
 
 #### 性能表现
 
-::: info 实验数据（10,000条768维向量）
-**平均查询时间**：5.58毫秒  
-**检索精度**：接近100%（相比暴力搜索）  
-**内存开销**：约为原始数据的1.5-2倍
-:::
+[HNSW 原论文](https://arxiv.org/abs/1603.09320) 展示了层次图搜索的性能权衡，不提供跨硬件的固定毫秒承诺。基准应写明向量数/维数、距离函数、`M`、`ef_construction`、`ef_search`、过滤选择率、线程数和硬件。
+
+先用精确扫描得到 top-k，测 ANN Recall@K，再比较延迟与内存。这个 recall 衡量“近似索引找回精确近邻”的能力；业务 Recall@K 衡量“找回人工相关证据”，二者不同。近似搜索达到 100% 也不证明语义检索正确。
 
 ---
 
@@ -137,24 +135,21 @@ Layer 0: [所有节点] --短距离连接--> [目标区域]
 
 ### 选型指南
 
-::: details 按场景选择
-**🚀 快速原型**：Chroma - 5分钟上手，本地开发友好  
-**📈 中型项目**：Qdrant - 性能好，部署简单  
-**🏢 企业生产**：Milvus - 功能全面，支持集群  
-**☁️ 托管服务**：Pinecone - 免运维，按需付费
-:::
+原型可以先用本地精确索引或嵌入式数据库验证检索；已有 PostgreSQL/Elasticsearch 的团队也应评估现有系统的向量能力。选择独立向量库时，把可维护性、过滤、增量写入、备份恢复与容量成本放在一起比较。Chroma、Qdrant、Milvus 等均需在具体版本与负载下测试，不能按团队大小自动分档。
 
 ### 选型决策矩阵
 
-| 考量因素 | Chroma | Qdrant | Milvus | Pinecone |
-|----------|--------|--------|--------|----------|
-| **数据规模** | <100万 | <1000万 | 亿级 | 亿级 |
-| **部署复杂度** | ⭐ | ⭐⭐ | ⭐⭐⭐⭐ | ⭐ |
-| **运维成本** | 低 | 中 | 高 | 无（托管） |
-| **混合检索** | ❌ | ✅ | ✅ | ✅ |
-| **元数据过滤** | 基础 | 强大 | 强大 | 强大 |
-| **GPU加速** | ❌ | ✅ | ✅ | ✅ |
-| **价格** | 免费 | 免费/商业 | 免费/商业 | 按量付费 |
+不要用“某库只适合百万、某库自动支持亿级”的固定表代替容量测试。产品功能与计费变化较快，上面的家族列表只作生态入口，价格与版本能力以对应官方文档为准。
+
+| 决策维度 | 需要验证的条件 | 验收证据 |
+| --- | --- | --- |
+| 数据与索引 | 数量、维数、量化、图边及副本 | 峰值内存、磁盘与重建时长 |
+| 查询 | QPS、top-k、过滤选择率、混合检索 | 固定业务召回下的 p95/p99 |
+| 权限与更新 | ACL 过滤、删除、读写一致性 | 撤权与删除生效延迟 |
+| 运维 | 备份恢复、升级、回滚与导出 | 恢复演练与迁移成本 |
+| 采购 | 托管限额、数据驻留、计费项 | 真实月负载成本估算 |
+
+托管服务减少部分基础设施维护，仍需容量、权限、费用与恢复治理；自托管软件免费也不等于运维零成本。
 
 ### 与RAG评估体系的关联
 
@@ -177,15 +172,14 @@ Layer 0: [所有节点] --短距离连接--> [目标区域]
 
 ### Chroma 快速上手
 
+本地持久化使用 [Chroma PersistentClient](https://docs.trychroma.com/reference/python)。下面使用默认 embedding function 仅演示流程；业务系统应明确中文模型和距离函数，并固定包版本。重复运行时需处理集合/文档已存在情形。
+
 ```python
 import chromadb
 from chromadb.config import Settings
 
 # 1. 初始化客户端
-client = chromadb.Client(Settings(
-    persist_directory="./chroma_db",  # 数据持久化目录
-    anonymized_telemetry=False
-))
+client = chromadb.PersistentClient(path="./chroma_db")
 
 # 2. 创建集合
 collection = client.create_collection(
@@ -216,11 +210,13 @@ results = collection.query(
 
 print("检索结果:")
 for i, (doc, distance) in enumerate(zip(results['documents'][0], results['distances'][0])):
-    print(f"{i+1}. 相似度: {1-distance:.3f}")
+    print(f"{i+1}. 距离: {distance:.3f}")  # 越小越近；不要默认用 1-distance 当余弦
     print(f"   内容: {doc[:50]}...")
 ```
 
 ### Qdrant 高性能部署
+
+此例需运行 Qdrant 服务并安装对应客户端；查询使用 [Query points API](https://api.qdrant.tech/api-reference/search/query-points)。服务端/客户端版本需匹配，真实吞吐与延迟另做负载测试。
 
 ```python
 from qdrant_client import QdrantClient
@@ -258,7 +254,7 @@ def get_embeddings(texts):
 documents = [
     "RAG系统的核心是检索和生成的结合",
     "向量数据库支持高维向量的相似性搜索",
-    "HNSW算法在精度和速度间达到最佳平衡"
+    "HNSW算法可调整召回与搜索成本"
 ]
 
 embeddings = get_embeddings(documents)
@@ -286,23 +282,25 @@ client.upsert(
 query_text = "向量搜索算法"
 query_vector = get_embeddings([query_text])[0]
 
-search_results = client.search(
+search_results = client.query_points(
     collection_name=collection_name,
-    query_vector=query_vector,
+    query=query_vector,
     limit=5,
-    score_threshold=0.7,  # 相似度阈值
+    # 阈值先留空，后续用业务验证集校准
     with_payload=True,
     with_vectors=False
 )
 
 print("检索结果:")
-for result in search_results:
+for result in search_results.points:
     print(f"ID: {result.id}, 得分: {result.score:.3f}")
     print(f"内容: {result.payload['text']}")
     print("---")
 ```
 
 ### Milvus 企业级方案
+
+以下保留 ORM 接口教学示例，需匹配 pymilvus 与服务端版本；随机向量只验证插入、索引与过滤流程，不能测语义质量。示例拒绝覆盖已有集合。
 
 ```python
 from pymilvus import connections, Collection, FieldSchema, CollectionSchema, DataType, utility
@@ -331,7 +329,7 @@ schema = CollectionSchema(
 # 3. 创建集合
 collection_name = "rag_collection"
 if utility.has_collection(collection_name):
-    utility.drop_collection(collection_name)
+    raise RuntimeError("示例集合已存在，请另选测试集合名；不要自动删除数据")
 
 collection = Collection(name=collection_name, schema=schema)
 
@@ -366,7 +364,7 @@ def generate_test_data(n=1000):
     }
 
 data = generate_test_data(10000)
-collection.insert(data)
+collection.insert([data["text"], data["vector"], data["category"]])
 collection.flush()  # 确保数据写入
 
 # 6. 加载集合到内存
@@ -617,6 +615,8 @@ RAG系统的核心价值之一是接入**动态知识源**，但这给向量数�
 
 ### 增量更新策略
 
+以下是接口示意，`get_next_version`、`mark_old_versions` 等需按数据库实现。不能直接把“先失效旧版本、再插入新版本”当作原子事务：中途失败会造成不可见窗口。可靠流程是写入新版本并验证完整性，再通过事务、版本清单或别名切换可见版本；失败时保留旧版本，删除事件通过墓碑和回放日志追踪。
+
 ```python
 class IncrementalVectorUpdater:
     """增量向量更新管理"""
@@ -669,6 +669,12 @@ class IncrementalVectorUpdater:
 - **旧信息过滤率**：能否识别并过滤"已过时的旧信息"
 
 ---
+
+## 过滤与容量的实测方法
+
+预过滤限制可搜索集合，后过滤可能导致 top-k 不足；选择率很低时，两种路径的耗时与召回都需测试。ACL 标签由服务端产生，不能仅依赖客户端查询条件，日志与缓存同样需要隔离。
+
+原始 float32 向量大小可先估为 `条数 × 维数 × 4 字节`，这不含 ID、文本、元数据、图边、副本与构建峰值。量化降低向量存储但可能影响召回，必须和精确基线比较。删除、重建、压缩及备份恢复期间都要测负载，不能只测静态空闲索引。
 
 ## �🔗 相关阅读
 

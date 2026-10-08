@@ -3,7 +3,7 @@ title: "权威指南：企业级文档权限管理架构深度解析——从 AC
 description: "CSDN 原文全文镜像：摘要 本文系统探讨了企业文档权限管理的技术演进与核心机制。从基础权限三要素（主体、客体、操作）出发，深入剖析了ACL与RBAC两大模型的原理及实现：NTFS通过安全描述符和ACE实现精细控制但面临管理复杂性；Linux ACL创新引入掩……"
 pageType: article
 module: site
-updated: '2026-02-02'
+updated: '2026-10-08'
 contentStatus: needs-review
 tags:
   - "csdn-mirror"
@@ -21,10 +21,18 @@ author: likebeans
 ---
 
 ::: info CSDN 原文镜像
-本文为作者 CSDN 博客的全文镜像，原文发布于 2026-02-02。为适配本站结构，仅补充了站内元数据与来源说明，正文主体保持原文内容。
+本文为作者 CSDN 博客的全文镜像，原文发布于 2026-02-02。为适配本站结构，补充了站内导读、元数据与来源说明，并清理代码高亮标记；原文观点与主体内容保留。
 
 - 原文链接：[https://blog.csdn.net/m0_63309778/article/details/157654566](https://blog.csdn.net/m0_63309778/article/details/157654566)
 - 站内分区：工程实践 / 权限管理架构
+:::
+
+::: tip 站内导读：把权限模型映射到知识库访问
+阅读时写出主体、资源、动作三元组，再比较按文档授权与按角色授权的维护成本。本文保留原文观点，各种模型并非必须依次替换的升级路线。
+
+练习：同一文档由两个不同角色查询，再撤销其中一人的权限；检查检索、答案缓存、引用预览和原文下载是否一致。
+
+相关主线：[RAG 生产实践](/llms/rag/production) · [检查清单](/reference/checklists)。本导读不代表对原文全部代码与结论的重新核验。
 :::
 
 <p><img src="https://i-blog.csdnimg.cn/direct/13f50ce133834b0ca25ca7525a142794.png" alt="" /></p>
@@ -112,12 +120,12 @@ author: likebeans
 
 
 ```sql
-<span class="token keyword">SELECT</span> <span class="token function">COUNT</span><span class="token punctuation">(</span><span class="token number">1</span><span class="token punctuation">)</span>
-<span class="token keyword">FROM</span> User_Roles ur
-<span class="token keyword">JOIN</span> Role_Permissions rp <span class="token keyword">ON</span> ur<span class="token punctuation">.</span>role_id <span class="token operator">=</span> rp<span class="token punctuation">.</span>role_id
-<span class="token keyword">JOIN</span> Permissions p <span class="token keyword">ON</span> rp<span class="token punctuation">.</span>permission_id <span class="token operator">=</span> p<span class="token punctuation">.</span>id
-<span class="token keyword">WHERE</span> ur<span class="token punctuation">.</span>user_id <span class="token operator">=</span> <span class="token string">'Alice_ID'</span> 
-<span class="token operator">AND</span> p<span class="token punctuation">.</span>slug <span class="token operator">=</span> <span class="token string">'document:delete'</span><span class="token punctuation">;</span>
+SELECT COUNT(1)
+FROM User_Roles ur
+JOIN Role_Permissions rp ON ur.role_id = rp.role_id
+JOIN Permissions p ON rp.permission_id = p.id
+WHERE ur.user_id = 'Alice_ID'
+AND p.slug = 'document:delete';
 ```
 
 

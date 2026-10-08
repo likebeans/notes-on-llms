@@ -3,7 +3,7 @@ title: 记忆系统
 description: Agent 记忆与状态管理 - 短期/长期记忆机制
 pageType: article
 module: agent
-updated: '2025-12-27'
+updated: '2026-10-08'
 contentStatus: needs-review
 tags:
   - agent
@@ -11,8 +11,10 @@ level: advanced
 prerequisites:
   - /llms/prompt/
   - /llms/rag/
-reviewed: '2026-08-25'
-techVersion: 待复核（2026-08）
+reviewed: '2026-10-08'
+reviewScope: 长任务恢复、持久状态与摘要边界；未逐一验证 LangGraph/AutoGen 接口
+exampleStatus: not-run
+techVersion: 长任务状态原理复核 2026-10-08；LangGraph/AutoGen 片段未做当前版本集成测试
 ---
 
 # 记忆系统
@@ -24,7 +26,7 @@ techVersion: 待复核（2026-08）
 ### 为什么Agent需要记忆？
 
 ::: tip 核心问题
-LLM本身是**无状态**的——每次调用都是独立的。没有记忆系统，Agent无法：
+模型权重不会因一次普通对话自动更新。连续对话依赖应用或服务端保存并再次提供历史；检查点、数据库和会话 API 都属于系统状态，而不是模型自然“记住了”。没有这些机制，Agent难以：
 - 记住之前的对话内容
 - 跟踪任务执行进度
 - 学习用户偏好
@@ -35,20 +37,20 @@ LLM本身是**无状态**的——每次调用都是独立的。没有记忆系�
 
 | 类型 | 作用域 | 生命周期 | 典型用途 |
 |------|--------|----------|----------|
-| **短期记忆** | 单次对话 | 会话结束即失效 | 对话上下文、中间结果 |
+| **短期记忆** | 单次对话 | 可随线程持久化；保留期由系统定义 | 对话上下文、中间结果 |
 | **长期记忆** | 跨对话 | 持久化存储 | 用户偏好、历史知识 |
 | **工作记忆** | 单次任务 | 任务完成即清理 | 任务状态、执行计划 |
 | **情景记忆** | 特定场景 | 按需召回 | 过往对话摘要 |
 
 ---
 
-## � Agentic Design Patterns 视角
+## Agentic Design Patterns 视角
 
 > 来源：[Agentic Design Patterns - Memory Management](https://github.com/ginobefun/agentic-design-patterns-cn)
 
 ### 双组件记忆系统
 
-标准解决方案是实现区分**短期与长期存储**的双组件记忆系统：
+常见设计是区分**短期与长期存储**的双组件记忆系统：
 
 | 组件 | 存储位置 | 作用 |
 |------|----------|------|
@@ -62,7 +64,7 @@ LLM本身是**无状态**的——每次调用都是独立的。没有记忆系�
 | **Google ADK** | `Session` | 管理对话线程 |
 | **Google ADK** | `State` | 存储临时数据（`user:`/`app:`/`temp:`前缀） |
 | **Google ADK** | `MemoryService` | 与长期知识库交互 |
-| **LangChain** | `ConversationBufferMemory` | 自动注入对话历史 |
+| **LangChain / LangGraph** | 消息状态 + checkpointer | 保存线程级历史；旧版 Memory 类需按版本迁移 |
 | **LangGraph** | `Store` | 跨会话保存语义事实、情景经历 |
 
 ### 六大应用场景
@@ -85,37 +87,38 @@ LLM本身是**无状态**的——每次调用都是独立的。没有记忆系�
 
 ---
 
-## �📝 短期记忆（对话上下文）
+## 📝 短期记忆（对话上下文）
 
 ### 基本实现
 
+裁剪必须保留协议完整性：一次工具调用及其返回值通常应一起保留或一起移除。只按消息条数切片可能留下没有对应调用的工具结果。下面的示例适用于纯文本 user/assistant 消息，工具轨迹应改用按轮次或调用组裁剪。
+
 ```python
 class ConversationMemory:
-    """基础对话记忆"""
-    
-    def __init__(self, max_tokens: int = 4000):
+    def __init__(self, count_tokens, max_tokens=4000):
         self.messages = []
+        self.count_tokens = count_tokens
         self.max_tokens = max_tokens
-    
-    def add_message(self, role: str, content: str):
-        """添加消息"""
-        self.messages.append({"role": role, "content": content})
-        self._trim_if_needed()
-    
-    def _trim_if_needed(self):
-        """超出限制时裁剪早期消息"""
-        while self._count_tokens() > self.max_tokens:
-            # 保留系统消息，删除最早的用户/助手消息
-            for i, msg in enumerate(self.messages):
-                if msg["role"] != "system":
-                    self.messages.pop(i)
-                    break
-    
-    def get_messages(self) -> list:
-        return self.messages.copy()
+
+    def add_message(self, role, content):
+        candidate = self.messages + [{"role": role, "content": content}]
+        while self.count_tokens(candidate) > self.max_tokens:
+            index = next((i for i, msg in enumerate(candidate)
+                          if msg["role"] != "system"), None)
+            if index is None or index == len(candidate) - 1:
+                raise ValueError("固定上下文或最新消息超出预算，需缩短输入")
+            candidate.pop(index)
+        self.messages = candidate
+
+    def get_messages(self):
+        return [dict(message) for message in self.messages]
 ```
 
+`count_tokens(messages)` 需注入目标模型的计数器或服务端计数接口，并预留工具定义、输出及推理预算。只保留 system 消息仍超限时必须退出，不能陷入无限裁剪循环。
+
 ### 滑动窗口策略
+
+下例只适用于每轮恰好一条用户消息与一条助手消息的纯文本对话。真实工具会话可能一轮多条消息，不能照搬 `window_size * 2`。
 
 ```python
 class SlidingWindowMemory:
@@ -145,6 +148,8 @@ class SlidingWindowMemory:
 ```
 
 ### 摘要记忆
+
+以下为接口示意，`llm.generate` 与 `_format_messages` 需实现。摘要要保留原始消息 ID、用户约束、未完成动作和关键来源；摘要生成失败时保留原始历史。反复摘要可能累积遗漏，事实记录与任务状态应另存为结构化数据。
 
 ```python
 class SummaryMemory:
@@ -197,16 +202,16 @@ class SummaryMemory:
 
 ### LangGraph双轨制记忆
 
-LangGraph提供**短期记忆(Checkpointer)**和**长期记忆(Store)**两种机制：
+LangGraph 区分线程级检查点与跨线程 Store。下面的内存实现只适合进程内演示，进程退出会丢失；要实现重启恢复必须换用持久化后端。示例中的 `State`、节点和消息需按应用定义。[官方短期记忆文档](https://docs.langchain.com/oss/python/langchain/short-term-memory)
 
 ```python
-from langgraph.checkpoint.memory import MemorySaver
+from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.store.memory import InMemoryStore
 
 # 短期记忆：通过thread_id追踪单次对话
-checkpointer = MemorySaver()
+checkpointer = InMemorySaver()
 
-# 长期记忆：通过user_id和namespace存储持久化数据
+# 跨线程记忆接口：这里仍是内存存储，不具备磁盘持久性
 store = InMemoryStore()
 
 # 创建带记忆的图
@@ -234,19 +239,13 @@ store.put(
 
 > 来源：[LangGraph时间旅行深度解析](https://dd-ff.blog.csdn.net/article/details/151151727)
 
-```python
-# 获取对话历史的所有检查点
-checkpoints = list(app.get_state_history(config))
+“回到检查点”是从指定状态继续或创建分支，并不撤销检查点之后的外部动作。仅把旧 `values` 写入当前状态也不等价于精确恢复，因为 reducer 可能将旧列表追加到现有列表。
 
-# 回到之前的状态（时间旅行）
-previous_state = checkpoints[2]  # 第3个检查点
-app.update_state(config, previous_state.values)
-
-# 从该点继续对话
-result = app.invoke({"messages": [new_message]}, config)
-```
+应选择目标检查点对应的配置，按固定版本的恢复/分叉 API 操作，并重新核对外部世界。退款、发信、文件写入要通过幂等记录避免重复。需要了解检查点、线程和 replay 的边界时，参见 [LangGraph Persistence](https://docs.langchain.com/oss/python/langgraph/persistence)。
 
 ### 向量化长期记忆
+
+以下为历史 Chroma 集成风格，包导入与持久化选项需按固定版本核对。`user_id` 必须来自已认证会话，不能直接相信模型或用户填写的路径。检索分数可能表示距离而非相似度，阈值方向须按后端定义。
 
 ```python
 from langchain_community.vectorstores import Chroma
@@ -290,6 +289,8 @@ class VectorMemory:
 
 ### 智能体状态序列化
 
+以下为 AutoGen AgentChat 的接口片段，需提供兼容版本的 `model_client` 并在异步函数中运行；持久化文件需做访问控制与原子写入，恢复时应核对 Agent 名称、工具定义和状态版本。
+
 ```python
 from autogen_agentchat.agents import AssistantAgent
 
@@ -318,7 +319,10 @@ with open("agent_state.json", "w") as f:
 with open("agent_state.json", "r") as f:
     saved_state = json.load(f)
 
-new_agent = AssistantAgent(name="assistant", ...)
+new_agent = AssistantAgent(
+    name="assistant", model_client=model_client,
+    system_message="你是一个有帮助的助手"
+)
 await new_agent.load_state(saved_state)
 
 # 继续之前的对话
@@ -381,8 +385,8 @@ def load_user_context(state: State, config: dict, store: BaseStore) -> State:
     
     return {
         "user_context": {
-            "preferences": preferences,
-            "history": history_summary
+            "preferences": preferences.value if preferences else {},
+            "history": history_summary.value if history_summary else {}
         }
     }
 
@@ -392,12 +396,36 @@ def update_user_context(state: State, config: dict, store: BaseStore) -> State:
     
     # 更新对话摘要
     new_summary = summarize_conversation(state["messages"])
-    store.put(("users", user_id), "history_summary", new_summary)
+    store.put(("users", user_id), "history_summary", {"text": new_summary})
     
     return state
 ```
 
 ---
+
+## 记忆写入与遗忘同样重要
+
+不要把所有检索文本和模型结论自动存成用户事实。建议每条长期记忆保存内容、来源、主体、写入时间、有效期和状态；用户明确更新偏好时使旧值失效，矛盾证据未解决时保留冲突，避免最后一次模型猜测覆盖事实。
+
+记忆的访问过滤必须先于语义检索结果注入：租户、用户与资源权限由应用提供。删除一条记忆时，要同时处理结构化存储、向量索引、摘要和相关缓存，否则“已忘记”的事实仍可能被召回。
+
+验收使用跨用户同名资料、偏好更新、事实过期、摘要后继续任务、进程重启五组案例。分别测正确召回、错误召回和敏感信息跨租户泄漏；更长的历史和更多记忆并不自动提升回答质量。
+
+## 长任务恢复：摘要之外还要保存什么
+
+**核验范围：2026-10-08，长任务状态设计；下文框架示例未逐一做当前 SDK 集成测试。** 长上下文解决一次调用能读取多少信息，持久状态解决重启后系统知道什么已发生。Anthropic 的长任务实践用需求清单、进度文件和环境检查跨窗口续接，并将其定位为特定编码场景的工程方案，不能据此断言多 Agent 一定优于单 Agent。[原始工程实践](https://www.anthropic.com/engineering/effective-harnesses-for-long-running-agents)
+
+| 信息 | 应保存的证据 | 恢复时怎样处理 |
+| --- | --- | --- |
+| 用户目标与硬约束 | 原始请求引用、最新修订、范围 | 新指令覆盖旧摘要；冲突需显式解决 |
+| 已完成工作 | 产物路径/版本与验证结果 | 检查产物仍存在、验证对应当前版本 |
+| 未完成工作 | 下一个可执行步骤、阻塞依赖 | 从真实环境重新确认，不能只信“已完成”文字 |
+| 外部副作用 | 操作 ID、幂等键、最终回执 | 未知状态先查询，避免重复创建或发送 |
+| 授权与凭据 | 独立授权记录和到期时间 | 恢复时重新校验有效性，不把摘要当凭证 |
+
+一个有效的恢复测试是：在写入工具已成功、模型尚未收到结果时终止进程，然后重启。合格系统应关联已有操作并继续汇报；若只恢复聊天摘要，可能重复提交。另在摘要压缩前后各问一次“当前禁止做什么、哪项尚未验证”，检查否定约束和证据引用是否丢失。
+
+模型供应商的 compaction 可减少历史 token，但不取代这些应用记录；具体接口和返回项处理见 [上下文压缩](/llms/prompt/context#接口压缩与应用状态)。
 
 ## 📊 记忆策略选择
 

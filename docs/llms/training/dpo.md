@@ -3,15 +3,17 @@ title: DPO 直接偏好优化
 description: Direct Preference Optimization - 无需奖励模型的简化对齐
 pageType: article
 module: training
-updated: '2025-12-27'
+updated: '2026-10-08'
 contentStatus: needs-review
 tags:
   - training
 level: advanced
 prerequisites:
   - /guide/prerequisites
-reviewed: '2026-08-25'
-techVersion: 待复核（2026-08）
+reviewed: '2026-10-08'
+reviewScope: DPO 与 GRPO 的数据来源、训练信号及对照实验边界复核；训练未运行
+exampleStatus: not-run
+techVersion: 原理与示例复核于 2026-10；训练脚本未在 GPU 实测
 ---
 
 # DPO 直接偏好优化
@@ -36,7 +38,7 @@ techVersion: 待复核（2026-08）
 | **训练复杂度** | 高（强化学习） | 低（监督学习） |
 | **稳定性** | 需要精细调参 | 相对稳定 |
 | **计算成本** | 高 | 中等 |
-| **效果** | 最佳 | 接近RLHF |
+| **效果** | 取决于奖励与在线采样质量 | 取决于偏好对覆盖与训练设置 |
 
 ---
 
@@ -53,35 +55,48 @@ DPO的关键洞察：**RLHF 的优化目标存在显式解，可以将奖励函�
 
 ### 从 PPO 到 DPO 的数学推导
 
-**Step 1：PPO 的最优策略形式**
+**Step 1：KL 正则化奖励最大化的最优策略形式**
 
-在 KL 正则化约束下，PPO 的最优策略可以写为：
+对固定奖励、正则系数 β>0 和参考策略，在理想优化条件下，KL 正则化目标的最优策略可以写为（不是 PPO 裁剪算法本身的闭式解）：
 
-$$\pi^*(y|x) = \frac{1}{Z(x)} \pi_{ref}(y|x) \exp\left(\frac{1}{\beta} r(x,y)\right)$$
+```text
+π*(y|x) = π_ref(y|x) × exp(r(x,y) / β) / Z(x)
+```
 
-其中 $Z(x) = \sum_y \pi_{ref}(y|x) \exp\left(\frac{1}{\beta} r(x,y)\right)$ 是归一化的分区函数。
+其中 `Z(x) = Σ_y π_ref(y|x) × exp(r(x,y) / β)` 是归一化的分区函数。
 
 **Step 2：重参数化奖励函数**
 
 将上式对数化并重排，可以得到奖励函数的形式：
 
-$$r(x,y) = \beta \log \frac{\pi^*(y|x)}{\pi_{ref}(y|x)} + \beta \log Z(x)$$
+```text
+r(x,y) = β × log(π*(y|x) / π_ref(y|x)) + β × log Z(x)
+```
 
 **Step 3：代入 Bradley-Terry 偏好模型**
 
-偏好数据遵循 Bradley-Terry 模型，代入重参数化后的 $r(x,y)$ 并消去 $Z(x)$，得到：
+偏好数据遵循 Bradley-Terry 模型，代入重参数化后的 `r(x,y)` 并消去 `Z(x)`，得到：
 
-$$p(y_w \succ y_l | x) = \sigma \left( \beta \log \frac{\pi_\theta(y_w|x)}{\pi_{ref}(y_w|x)} - \beta \log \frac{\pi_\theta(y_l|x)}{\pi_{ref}(y_l|x)} \right)$$
+```text
+Δ_θ(x,y) = log(π_θ(y|x) / π_ref(y|x))
+
+p(y_w ≻ y_l | x) = σ(β × [Δ_θ(x,y_w) − Δ_θ(x,y_l)])
+```
 
 **Step 4：最终 DPO 损失函数**
 
-$$\mathcal{L}_{DPO}(\pi_\theta; \pi_{ref}) = -\mathbb{E}_{(x, y_w, y_l) \sim D}\left[\log \sigma \left(\beta \log \frac{\pi_\theta(y_w|x)}{\pi_{ref}(y_w|x)} - \beta \log \frac{\pi_\theta(y_l|x)}{\pi_{ref}(y_l|x)}\right)\right]$$
+```text
+L_DPO(π_θ; π_ref)
+  = − E_(x,y_w,y_l)~D [log σ(β × [Δ_θ(x,y_w) − Δ_θ(x,y_l)])]
+
+Δ_θ(x,y) = log(π_θ(y|x) / π_ref(y|x))
+```
 
 其中：
-- $y_w$: 偏好的（chosen）响应
-- $y_l$: 不偏好的（rejected）响应
-- $\beta$: 温度参数
-- $\sigma$: sigmoid函数
+- `y_w`: 偏好的（chosen）响应
+- `y_l`: 不偏好的（rejected）响应
+- `β`: 从 KL 正则化目标得到的系数；实际调参还会改变梯度尺度
+- `σ`: sigmoid函数
 
 **DPO 本质**：将 RLHF 巧妙转化为类似 SFT 的监督学习，隐式学习奖励函数。
 
@@ -90,8 +105,8 @@ $$\mathcal{L}_{DPO}(\pi_\theta; \pi_{ref}) = -\mathbb{E}_{(x, y_w, y_l) \sim D}\
 ```
 DPO目标：
   ┌─────────────────────────────────────┐
-  │  增加 chosen 响应的概率              │
-  │  降低 rejected 响应的概率            │
+  │  提高 chosen 相对 rejected 的优势   │
+  │  优化相对参考策略的对数概率比         │
   │  同时不要偏离参考模型太远             │
   └─────────────────────────────────────┘
 ```
@@ -100,73 +115,45 @@ DPO目标：
 
 ## ⚠️ DPO vs PPO 深度分析
 
-> 来源：[DPO vs PPO：深度解读谁是LLM Alignment的未来](https://zhuanlan.zhihu.com/p/11913305485)
-
-虽然 DPO 的推导看似与 PPO 等价，但实际存在几个关键差异：
+[DPO 论文](https://arxiv.org/abs/2305.18290)从 KL 正则化奖励目标与 Bradley–Terry 偏好模型出发得到分类损失。数学联系并不意味着有限数据、有限模型容量和不同采样方式下训练结果相同。
 
 ### 1. Distribution Shift（分布偏移）
 
-DPO 假设参考分布 $\pi_{ref}$ 能准确捕捉偏好数据分布，但实际中常存在偏移：
-
-| 问题 | DPO | PPO |
-|------|-----|-----|
-| **OOD 数据处理** | 可能错误提高 OOD 样本概率 | KL 正则化抑制偏移 |
-| **分布假设** | 依赖 $\pi_{ref}$ 准确性 | 显式约束偏离程度 |
-
-PPO 通过显式 KL 正则化限制 $\pi_\theta$ 偏离 $\pi_{ref}$ 的程度：
-
-$$\max_\pi \mathbb{E}_{x,y \sim \pi_\theta}\left[r(x,y) - \beta D_{KL}(\pi_\theta(y|x) || \pi_{ref}(y|x))\right]$$
+常规 DPO 在固定离线偏好对上训练；PPO 用当前策略采样，再由奖励模型评分。前者易受数据覆盖不足影响，后者需要更多 rollout 计算，且仍可能遇到奖励模型对新分布失准。两者都需要新问题和当前模型输出上的评估。
 
 ### 2. Reward Hacking 风险
 
-DPO 通过隐式建模奖励函数绕过显式奖励建模，但这可能引入额外的 Reward Hacking 问题：
-
-- DPO 的解集 $\Pi_{DPO}$ **包含** PPO 的解集 $\Pi_{PPO}$：$\Pi_{PPO} \subset \Pi_{DPO}$
-- DPO 可能找到符合偏好数据但在实际分布上无意义的解
-- PPO 的显式奖励函数和 KL 正则化可减少 Reward Hacking 风险
+PPO 可能利用显式奖励模型的漏洞；DPO 也可能学会偏好数据里的捷径，例如把“更长”误当作“更正确”。KL 正则只限制分布偏离，不会证明答案正确。不要用没有假设条件的“解集包含关系”推导哪个方法必然更安全。
 
 ### 3. 分区函数缺失
 
-DPO 在推导中省略了分区函数 $Z(x)$ 的显式影响：
-
-**PPO**：$Z(x)$ 的归一化确保 $\pi^*(y|x)$ 是合法概率分布
-
-**DPO**：直接消去 $Z(x)$，假设分布足够一致
-
-当参考分布 $\pi_{ref}(y|x)$ 不够准确时，这种省略可能导致对某些选项赋予不合理的高权重。
-
-::: tip 披萨店类比
-- **PPO** 像严格的朋友：分析每种选择的好坏，结合历史记录，计算综合评分（$Z(x)$ 归一化）
-- **DPO** 像随便的朋友：直接说"A 比 B 好"，但没考虑你对 B 的偏好可能基于伪数据
-:::
+这个标题对应一个常见误解：同一 prompt 下，奖励差中的 `β × log Z(x)` **精确抵消**，并非 DPO 漏掉归一化。策略本身仍由归一化的语言模型定义。工程问题是数据、偏好假设和有限优化的误差，不是分区函数被消去。
 
 ### 4. Length Bias（长度偏差）
 
-DPO 可能存在对较短序列的隐性偏好：
+序列 log probability 是有效回答 token 的求和，其尺度与长度有关，但不能近似为“chosen 长度减 rejected 长度”，也不能断言 DPO 总偏好更短回答。若给损失加上仅由固定数据长度决定的常数，梯度为零，不会纠偏。
 
-$$\log \frac{\pi_\theta(y_w|x)}{\pi_{ref}(y_w|x)} - \log \frac{\pi_\theta(y_l|x)}{\pi_{ref}(y_l|x)} \approx \text{Length}(y_w) - \text{Length}(y_l)$$
-
-**解决方案**：引入长度正则化项
-
-$$\mathcal{L}_{DPO}^{length} = \mathcal{L}_{DPO}(\pi_\theta) + \lambda \mathbb{E}_{(x, y_w, y_l) \sim D}\left[\text{Length}(y_w) - \text{Length}(y_l)\right]$$
+先按长度区间报告胜率、人工检查同内容不同长度的偏好对；再尝试平衡数据、长度受控评估或有明确论文定义的长度归一化目标。改变求和为平均会改变训练目标，不能只当作数值优化。
 
 ### 结论
 
-| 维度 | DPO | PPO |
-|------|-----|-----|
-| **简化程度** | ✅ 无需奖励模型 | ❌ 需要 4 个模型 |
-| **分布鲁棒性** | ❌ 依赖 $\pi_{ref}$ | ✅ KL 正则化 |
-| **Reward Hacking** | ❌ 风险较高 | ✅ 显式约束 |
-| **长度偏差** | ❌ 需额外处理 | ✅ 自然平衡 |
-| **工业应用** | 学术实验为主 | ChatGPT、Claude 等 |
-
-**结论**：DPO 不能完全取代 PPO，至少目前还不能。
+已有可靠离线偏好对、需要降低 rollout 复杂度时，可把 DPO 作为基线；有可校准的奖励信号、需要持续探索当前策略输出时，再比较在线 RL。选择依据是留出业务胜率、能力回退和预算，而不是“PPO 总最好”或“DPO 只适合学术”。
 
 ---
+
+### 偏好数据与在线奖励的选择边界
+
+**2026-10-08 复核**：固定 `chosen/rejected` 对适合先用 DPO 做受控对照；若目标是让当前策略持续尝试新的解题轨迹，且结果能可靠评分，才进一步比较[在线 RL / GRPO](/llms/training/rlhf)。[DPO 原论文](https://arxiv.org/abs/2305.18290)的离线偏好目标与 [DeepSeekMath 的 GRPO](https://arxiv.org/abs/2402.03300)处理的数据来源和优化流程不同。
+
+数据来自旧策略时，先看其回答是否仍代表当前部署错误。可以采集当前策略的新候选并重新标注，形成迭代偏好实验；不能仅因为换成“在线”就省略标注一致性、长度偏差和独立留出评估。比较两条路线时统一初始 checkpoint、评估生成预算和业务 rubric，再把偏好标注、rollout、verifier 成本分开报告。本文完成方法边界核验，未重跑两种训练。
+
+
 
 ## 🔧 DPO实现
 
 ### 使用TRL库
+
+示例依赖 Transformers、Datasets、TRL 和可加载的本地 `sft_model`。按复核时的 [DPOTrainer 文档](https://huggingface.co/docs/trl/dpo_trainer)使用 `processing_class`；未在 GPU 实测，需锁定版本并先用小数据验证一轮。冻结参考模型须与起始 SFT 策略及其模板对应。
 
 ```python
 from trl import DPOTrainer, DPOConfig
@@ -185,7 +172,7 @@ dataset = load_dataset("json", data_files="preference_data.json")
 # 3. DPO配置
 dpo_config = DPOConfig(
     output_dir="./dpo_output",
-    beta=0.1,                          # 温度参数
+    beta=0.1,                          # 初始实验值，结合学习率做扫描
     per_device_train_batch_size=4,
     gradient_accumulation_steps=4,
     learning_rate=5e-7,                # DPO通常用较低学习率
@@ -202,7 +189,7 @@ trainer = DPOTrainer(
     ref_model=ref_model,
     args=dpo_config,
     train_dataset=dataset["train"],
-    tokenizer=tokenizer,
+    processing_class=tokenizer,
 )
 
 # 5. 开始训练
@@ -222,29 +209,27 @@ trainer.train()
 ### 结合LoRA
 
 ```python
-from peft import LoraConfig, get_peft_model
+from peft import LoraConfig
 
-# LoRA配置
+# 此处 model 为重新加载的普通 SFT 基座，尚未包装 PeftModel
 lora_config = LoraConfig(
     r=16,
     lora_alpha=32,
     target_modules=["q_proj", "v_proj", "k_proj", "o_proj"],
     lora_dropout=0.05,
+    task_type="CAUSAL_LM",
 )
-
-# 应用LoRA
-model = get_peft_model(model, lora_config)
-
-# DPO训练（使用LoRA）
 trainer = DPOTrainer(
     model=model,
-    ref_model=None,  # 使用LoRA时可以不需要显式参考模型
+    ref_model=ref_model,  # 显式固定 SFT 参考便于审计；也可按版本配置共享/缓存策略
     args=dpo_config,
-    train_dataset=dataset,
-    tokenizer=tokenizer,
+    train_dataset=dataset["train"],
+    processing_class=tokenizer,
     peft_config=lora_config,
 )
 ```
+
+`ref_model=None` 不等于算法不需要参考策略；Trainer 可能保存初始策略、切换 adapter 或使用预计算参考 log probability。若 SFT 本身也是 adapter，务必确认参考路径没有退回未做 SFT 的基座。不要先 `get_peft_model` 再重复要求 Trainer 注入同一 adapter。
 
 ---
 
@@ -270,14 +255,16 @@ trainer = DPOTrainer(
 
 ## 📊 DPO变体
 
+以下方法有各自目标与假设，并非参数开关等价替换。TRL 的实验 Trainer 和接口会随版本调整，代码用于表达配置关系；运行前查看所固定版本的支持范围。
+
 ![Iterative-DPO流程](https://pic3.zhimg.com/v2-d5bf8d5dbb07200a39df63b5762b27f0_r.jpg)
 *Iterative-DPO 流程*
 
 ### Iterative-DPO（迭代式DPO）
 
-2024年 Meta 提出的改进版（[Iterative Reasoning Preference Optimization](https://arxiv.org/pdf/2404.19733)），介于 Online 和 Offline 之间：
+迭代式偏好优化是一类工作流；[Iterative Reasoning Preference Optimization](https://arxiv.org/abs/2404.19733)是面向推理的具体研究，不能与所有迭代 DPO 配方混同。通用设计可以是：
 
-1. 训练 Reward Model
+1. 确定候选的评价方式（人工、可验证结果或经校准的奖励模型）
 2. 将数据分成 m 份
 3. 对每份数据：用当前 LLM 采样 k 个回答 → RM 打分 → 选最高/最低构建 pair 对 → 训练一轮 DPO → 更新 LLM
 4. 重复直到所有数据训练完成
@@ -301,8 +288,8 @@ trainer = ORPOTrainer(
     model=model,
     # 注意：无需ref_model
     args=orpo_config,
-    train_dataset=dataset,
-    tokenizer=tokenizer,
+    train_dataset=dataset["train"],
+    processing_class=tokenizer,
 )
 ```
 
@@ -318,12 +305,14 @@ dpo_config = DPOConfig(
 
 ### 方法对比
 
+KTO 不要求 chosen/rejected 配对，不代表不使用参考策略；见 [KTO 原论文](https://arxiv.org/abs/2402.01306)。表中其他效果形容不作为排名，应以同数据预算实验为准。
+
 | 方法 | 需要参考模型 | 复杂度 | 效果 |
 |------|-------------|--------|------|
 | **DPO** | ✅ 是 | 中 | 很好 |
 | **ORPO** | ❌ 否 | 低 | 良好 |
 | **IPO** | ✅ 是 | 中 | 很好 |
-| **KTO** | ❌ 否 | 低 | 良好 |
+| **KTO** | ✅ 通常使用参考策略 | 无需成对偏好，但有参考项 | 需实测 |
 
 ---
 
@@ -333,23 +322,18 @@ dpo_config = DPOConfig(
 
 ```python
 def validate_preference_data(sample):
-    """验证偏好数据质量"""
-    # 1. chosen和rejected不能相同
-    if sample["chosen"] == sample["rejected"]:
-        return False
-    
-    # 2. 响应不能过短
-    if len(sample["chosen"]) < 50 or len(sample["rejected"]) < 20:
-        return False
-    
-    # 3. 响应需要有实质差异
-    from difflib import SequenceMatcher
-    similarity = SequenceMatcher(None, sample["chosen"], sample["rejected"]).ratio()
-    if similarity > 0.9:
-        return False
-    
-    return True
+    # 仅检查结构；“差异是否有价值”由标注规范与抽样审查判断
+    return (
+        isinstance(sample.get("prompt"), str)
+        and isinstance(sample.get("chosen"), str)
+        and isinstance(sample.get("rejected"), str)
+        and bool(sample["chosen"].strip())
+        and bool(sample["rejected"].strip())
+        and sample["chosen"] != sample["rejected"]
+    )
 ```
+
+不要按最小字符数或 0.9 文本相似度直接丢弃样本：只有一个数字、否定词或工具参数不同的回答，可能恰是重要偏好对。逐项检查同一上下文、标签理由、长度偏差、截断后两答是否仍不同；按 prompt 来源/任务分组切分，避免同题变体跨越训练与测试。
 
 ### 训练监控
 
@@ -357,12 +341,21 @@ def validate_preference_data(sample):
 # 关注的关键指标
 # 1. rewards/chosen - chosen响应的隐式奖励
 # 2. rewards/rejected - rejected响应的隐式奖励
-# 3. rewards/margins - 两者差距（应该增加）
+# 3. rewards/margins - 训练差距增大不等于留出质量改善
 # 4. logps/chosen - chosen的对数概率
 # 5. logps/rejected - rejected的对数概率
 ```
 
 ---
+
+### 从短跑到验收
+
+1. 固定 SFT 基线和参考策略，抽样核对两条回答的有效 loss mask 与终止 token。
+2. 在小子集比较 β 和学习率，监控 chosen/rejected log probability、margin、回答长度与重复率。
+3. 用未参与训练的 prompt 生成新回答，盲评且交换展示顺序；分事实性、任务成功、风格与安全统计。
+4. 若 margin 上升而胜率下降，优先检查标签捷径、分布覆盖和过拟合；若两答 log probability 同降，单看差值无法判断质量。
+
+验收使用相对 SFT 基线的留出胜率与置信区间，并单列能力回退。算法日志中的隐式 reward 不能替代独立评价。
 
 ## 🔗 相关阅读
 

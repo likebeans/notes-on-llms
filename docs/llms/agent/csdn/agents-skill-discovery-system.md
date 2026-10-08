@@ -3,7 +3,7 @@ title: "构建下一代语境感知型 AI Agent：AGENTS.md 与 SKILL.md 发现�
 description: "CSDN 原文全文镜像：摘要： Agent技术正从对话式转向自主行动能力，其效能核心在于项目语境获取。行业通过标准化协议解决\"语境孤岛\"问题：AGENTS.md定义治理规则（宪法），SKILL.md封装可执行能力（技能包）。报告详细解析了构建此类Agent的完……"
 pageType: article
 module: agent
-updated: '2026-02-03'
+updated: '2026-10-08'
 contentStatus: needs-review
 tags:
   - "csdn-mirror"
@@ -20,10 +20,16 @@ author: likebeans
 ---
 
 ::: info CSDN 原文镜像
-本文为作者 CSDN 博客的全文镜像，原文发布于 2026-02-03。为适配本站结构，仅补充了站内元数据与来源说明，正文主体保持原文内容。
+本文为作者 CSDN 博客的全文镜像，原文发布于 2026-02-03。本站补充导读与相关主线链接，并修复代码展示；原文观点、来源与发布时间保留。
 
 - 原文链接：[https://blog.csdn.net/m0_63309778/article/details/157685083](https://blog.csdn.net/m0_63309778/article/details/157685083)
 - 站内分区：Agent / AGENTS 与 SKILL 发现
+:::
+
+::: tip 站内导读与实践边界
+本文可以作为发现与加载系统的架构草图阅读，文件命名、搜索层级、优先级和触发规则应按具体宿主核对，不能假定所有 Agent 都相同。加载到的技能文本不会自行获得工具权限；需防止不可信仓库内容扩大执行范围，并测试冲突、重复发现和缓存失效。
+
+继续阅读：[安全与沙箱](/llms/agent/safety)、[工具调用](/llms/agent/tool-calling)。
 :::
 
 <div class="csdn-mirror-content">

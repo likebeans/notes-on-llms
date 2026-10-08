@@ -12,7 +12,8 @@
     "test:watch": "vitest",
     "content:check": "tsx scripts/check-content.ts",
     "site:check": "tsx scripts/check-built-site.ts",
-    "quality": "pnpm test && pnpm content:check && pnpm docs:build && pnpm site:check"
+    "examples:test": "python3 -m unittest discover -s examples/knowledge-assistant/tests -v",
+    "quality": "pnpm test && pnpm examples:test && pnpm content:check && pnpm docs:build && pnpm site:check"
   },
   "keywords": [
     "llm",
@@ -25,6 +26,7 @@
   "license": "MIT",
   "devDependencies": {
     "gray-matter": "4.0.3",
+    "markdown-it": "15.0.2",
     "mermaid": "^11.12.2",
     "tsx": "4.20.5",
     "vitepress": "^1.5.0",

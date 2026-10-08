@@ -3,7 +3,7 @@ title: "GEO 到底怎么做？从 Prompt 研究到 AI Citation 的完整落地�
 description: "CSDN 原文全文镜像：用户真正会问什么？↓AI 现在怎么回答？↓AI 为什么引用这些 Source？↓为什么竞争对手有，我没有？↓↓修改之后重新跑 Dataset↓Research↓Measure↓Analyze↓Optimize↓Evaluate↓Lear……"
 pageType: article
 module: prompt
-updated: '2026-08-24'
+updated: '2026-10-08'
 contentStatus: needs-review
 tags:
   - "csdn-mirror"
@@ -18,10 +18,16 @@ author: likebeans
 ---
 
 ::: info CSDN 原文镜像
-本文为作者 CSDN 博客的全文镜像，原文发布于 2026-08-24。为适配本站结构，仅补充了站内元数据与来源说明，正文主体保持原文内容。
+本文为作者 CSDN 博客的全文镜像，原文发布于 2026-08-24。本站保留原文主体与发布时间，补充主题导读，并修复代码块中残留的语法高亮标签；技术结论仍需结合原文时点与当前文档判断。
 
 - 原文链接：[https://blog.csdn.net/m0_63309778/article/details/164029172](https://blog.csdn.net/m0_63309778/article/details/164029172)
 - 站内分区：Prompt / GEO 与 AI Citation
+:::
+
+::: tip 站内阅读提示
+本文的价值在于把 GEO 拆成问题集、回答、提及、引用和复测记录。实践需固定引擎/模型、地区、日期及采样次数，区分站点内容修改与引擎变化；没有引用不代表内容错误，有引用也不证明结论正确。工具功能与商业产品比较保留原文时点，不作为当前采购建议。
+
+主线关联：[SEO 到 GEO 的内容组织](/llms/prompt/csdn/seo-to-geo-content-optimization) · [评估口径](/llms/rag/evaluation)
 :::
 
 <p><img src="https://i-blog.csdnimg.cn/direct/ed6f3d7ecdd54355b66d82d6edaf482b.png" alt="在这里插入图片描述" /></p>

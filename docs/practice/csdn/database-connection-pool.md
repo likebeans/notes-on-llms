@@ -3,7 +3,7 @@ title: "数据库连接池详解：从连接复用、参数配置到生产故障
 description: "CSDN 原文全文镜像：应用程序想要访问 MySQL、PostgreSQL 等数据库，首先需要建立一条数据库连接。创建 TCP 连接；完成数据库协议握手；进行用户名和密码认证；初始化会话状态；设置字符集、时区、事务隔离级别等参数；等待应用发送 SQL；执行 S……"
 pageType: article
 module: site
-updated: '2026-07-28'
+updated: '2026-10-08'
 contentStatus: needs-review
 tags:
   - "csdn-mirror"
@@ -18,10 +18,18 @@ author: likebeans
 ---
 
 ::: info CSDN 原文镜像
-本文为作者 CSDN 博客的全文镜像，原文发布于 2026-07-28。为适配本站结构，仅补充了站内元数据与来源说明，正文主体保持原文内容。
+本文为作者 CSDN 博客的全文镜像，原文发布于 2026-07-28。为适配本站结构，补充了站内导读、元数据与来源说明，并清理代码高亮标记；原文观点与主体内容保留。
 
 - 原文链接：[https://blog.csdn.net/m0_63309778/article/details/163277365](https://blog.csdn.net/m0_63309778/article/details/163277365)
 - 站内分区：工程实践 / 数据库连接池
+:::
+
+::: tip 站内导读：从连接复用读到排队诊断
+先区分连接池等待时间、数据库执行时间和整个工具调用时间。Agent 并行调用增加时，连接池通常是需要一起评估的共享资源。
+
+练习：固定查询与数据库容量，逐步提高并发，记录等待、超时与数据库活跃连接；不要只提高池大小后观察平均延迟。
+
+相关主线：[并行化](/llms/agent/parallelization) · [资源优化](/llms/agent/resource-optimization)。本导读不代表对原文全部代码与结论的重新核验。
 :::
 
 <p><img src="https://i-blog.csdnimg.cn/direct/74fbeaa81ac24eedbf8d814d100a4abc.png" alt="在这里插入图片描述" /></p>
@@ -43,7 +51,7 @@ author: likebeans
 
 
 ```python
-connection <span class="token operator">=</span> create_connection<span class="token punctuation">(</span><span class="token punctuation">)</span>
+connection = create_connection()
 ```
 
 
@@ -420,7 +428,7 @@ maxLifetime = 1800000ms
 
 
 ```java
-connection<span class="token punctuation">.</span><span class="token function">isValid</span><span class="token punctuation">(</span>timeout<span class="token punctuation">)</span>
+connection.isValid(timeout)
 ```
 
 
@@ -431,7 +439,7 @@ connection<span class="token punctuation">.</span><span class="token function">i
 
 
 ```sql
-<span class="token keyword">SELECT</span> <span class="token number">1</span><span class="token punctuation">;</span>
+SELECT 1;
 ```
 
 
@@ -442,7 +450,7 @@ connection<span class="token punctuation">.</span><span class="token function">i
 
 
 ```sql
-<span class="token keyword">SELECT</span> <span class="token number">1</span><span class="token punctuation">;</span>
+SELECT 1;
 ```
 
 
@@ -470,16 +478,16 @@ connection<span class="token punctuation">.</span><span class="token function">i
 
 
 ```python
-connection <span class="token operator">=</span> pool<span class="token punctuation">.</span>get_connection<span class="token punctuation">(</span><span class="token punctuation">)</span>
+connection = pool.get_connection()
 
-cursor <span class="token operator">=</span> connection<span class="token punctuation">.</span>cursor<span class="token punctuation">(</span><span class="token punctuation">)</span>
-cursor<span class="token punctuation">.</span>execute<span class="token punctuation">(</span>sql<span class="token punctuation">)</span>
+cursor = connection.cursor()
+cursor.execute(sql)
 
-<span class="token comment"># 中间发生异常</span>
-<span class="token keyword">raise</span> RuntimeError<span class="token punctuation">(</span><span class="token string">"业务异常"</span><span class="token punctuation">)</span>
+# 中间发生异常
+raise RuntimeError("业务异常")
 
-<span class="token comment"># 没有执行到归还连接</span>
-connection<span class="token punctuation">.</span>close<span class="token punctuation">(</span><span class="token punctuation">)</span>
+# 没有执行到归还连接
+connection.close()
 ```
 
 
@@ -506,7 +514,7 @@ leakDetectionThreshold = 60000ms
 
 
 ```java
-connection<span class="token punctuation">.</span><span class="token function">close</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+connection.close();
 ```
 
 
@@ -528,7 +536,7 @@ connection<span class="token punctuation">.</span><span class="token function">c
 
 
 ```java
-connection<span class="token punctuation">.</span><span class="token function">close</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+connection.close();
 ```
 
 
@@ -564,7 +572,7 @@ connection<span class="token punctuation">.</span><span class="token function">c
 
 
 ```sql
-<span class="token keyword">SET</span> <span class="token keyword">TRANSACTION</span> <span class="token keyword">ISOLATION</span> <span class="token keyword">LEVEL</span> <span class="token keyword">SERIALIZABLE</span><span class="token punctuation">;</span>
+SET TRANSACTION ISOLATION LEVEL SERIALIZABLE;
 ```
 
 
@@ -591,17 +599,17 @@ rollback 未提交事务
 
 
 ```sql
-<span class="token keyword">BEGIN</span><span class="token punctuation">;</span>
+BEGIN;
 
-<span class="token keyword">UPDATE</span> account
-<span class="token keyword">SET</span> balance <span class="token operator">=</span> balance <span class="token operator">-</span> <span class="token number">100</span>
-<span class="token keyword">WHERE</span> id <span class="token operator">=</span> <span class="token number">1</span><span class="token punctuation">;</span>
+UPDATE account
+SET balance = balance - 100
+WHERE id = 1;
 
-<span class="token keyword">UPDATE</span> account
-<span class="token keyword">SET</span> balance <span class="token operator">=</span> balance <span class="token operator">+</span> <span class="token number">100</span>
-<span class="token keyword">WHERE</span> id <span class="token operator">=</span> <span class="token number">2</span><span class="token punctuation">;</span>
+UPDATE account
+SET balance = balance + 100
+WHERE id = 2;
 
-<span class="token keyword">COMMIT</span><span class="token punctuation">;</span>
+COMMIT;
 ```
 
 
@@ -912,8 +920,8 @@ read timeout
 
 
 ```python
-<span class="token keyword">async</span> <span class="token keyword">with</span> pool<span class="token punctuation">.</span>acquire<span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token keyword">as</span> connection<span class="token punctuation">:</span>
-<span class="token keyword">await</span> connection<span class="token punctuation">.</span>execute<span class="token punctuation">(</span><span class="token punctuation">.</span><span class="token punctuation">.</span><span class="token punctuation">.</span><span class="token punctuation">)</span>
+async with pool.acquire() as connection:
+await connection.execute(...)
 ```
 
 
@@ -966,18 +974,18 @@ Web 工作线程：200
 
 
 ```yaml
-<span class="token key atrule">spring</span><span class="token punctuation">:</span>
-<span class="token key atrule">datasource</span><span class="token punctuation">:</span>
-<span class="token key atrule">url</span><span class="token punctuation">:</span> jdbc<span class="token punctuation">:</span>mysql<span class="token punctuation">:</span>//localhost<span class="token punctuation">:</span>3306/example
-<span class="token key atrule">username</span><span class="token punctuation">:</span> app_user
-<span class="token key atrule">password</span><span class="token punctuation">:</span> app_password
+spring:
+datasource:
+url: jdbc:mysql://localhost:3306/example
+username: app_user
+password: app_password
 
-<span class="token key atrule">hikari</span><span class="token punctuation">:</span>
-<span class="token key atrule">maximum-pool-size</span><span class="token punctuation">:</span> <span class="token number">20</span>
-<span class="token key atrule">minimum-idle</span><span class="token punctuation">:</span> <span class="token number">5</span>
-<span class="token key atrule">connection-timeout</span><span class="token punctuation">:</span> <span class="token number">3000</span>
-<span class="token key atrule">idle-timeout</span><span class="token punctuation">:</span> <span class="token number">600000</span>
-<span class="token key atrule">max-lifetime</span><span class="token punctuation">:</span> <span class="token number">1800000</span>
+hikari:
+maximum-pool-size: 20
+minimum-idle: 5
+connection-timeout: 3000
+idle-timeout: 600000
+max-lifetime: 1800000
 ```
 
 
@@ -998,11 +1006,11 @@ max-lifetime：连接最大生命周期
 
 
 ```java
-<span class="token annotation punctuation">@Transactional</span>
-<span class="token keyword">public</span> <span class="token keyword">void</span> <span class="token function">transfer</span><span class="token punctuation">(</span><span class="token class-name">Long</span> fromId<span class="token punctuation">,</span> <span class="token class-name">Long</span> toId<span class="token punctuation">,</span> <span class="token class-name">BigDecimal</span> amount<span class="token punctuation">)</span> <span class="token punctuation">{<!-- --></span>
-accountRepository<span class="token punctuation">.</span><span class="token function">decreaseBalance</span><span class="token punctuation">(</span>fromId<span class="token punctuation">,</span> amount<span class="token punctuation">)</span><span class="token punctuation">;</span>
-accountRepository<span class="token punctuation">.</span><span class="token function">increaseBalance</span><span class="token punctuation">(</span>toId<span class="token punctuation">,</span> amount<span class="token punctuation">)</span><span class="token punctuation">;</span>
-<span class="token punctuation">}</span>
+@Transactional
+public void transfer(Long fromId, Long toId, BigDecimal amount) {<!-- -->
+accountRepository.decreaseBalance(fromId, amount);
+accountRepository.increaseBalance(toId, amount);
+}
 ```
 
 
@@ -1016,16 +1024,16 @@ accountRepository<span class="token punctuation">.</span><span class="token func
 
 
 ```python
-<span class="token keyword">from</span> sqlalchemy <span class="token keyword">import</span> create_engine
+from sqlalchemy import create_engine
 
-engine <span class="token operator">=</span> create_engine<span class="token punctuation">(</span>
-<span class="token string">"postgresql+psycopg://user:password@localhost/example"</span><span class="token punctuation">,</span>
-pool_size<span class="token operator">=</span><span class="token number">10</span><span class="token punctuation">,</span>
-max_overflow<span class="token operator">=</span><span class="token number">5</span><span class="token punctuation">,</span>
-pool_timeout<span class="token operator">=</span><span class="token number">3</span><span class="token punctuation">,</span>
-pool_recycle<span class="token operator">=</span><span class="token number">1800</span><span class="token punctuation">,</span>
-pool_pre_ping<span class="token operator">=</span><span class="token boolean">True</span><span class="token punctuation">,</span>
-<span class="token punctuation">)</span>
+engine = create_engine(
+"postgresql+psycopg://user:password@localhost/example",
+pool_size=10,
+max_overflow=5,
+pool_timeout=3,
+pool_recycle=1800,
+pool_pre_ping=True,
+)
 ```
 
 
@@ -1062,15 +1070,15 @@ max_overflow = 5
 
 
 ```python
-<span class="token keyword">from</span> sqlalchemy <span class="token keyword">import</span> text
+from sqlalchemy import text
 
-<span class="token keyword">with</span> engine<span class="token punctuation">.</span>connect<span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token keyword">as</span> connection<span class="token punctuation">:</span>
-result <span class="token operator">=</span> connection<span class="token punctuation">.</span>execute<span class="token punctuation">(</span>
-text<span class="token punctuation">(</span><span class="token string">"SELECT * FROM users WHERE id = :id"</span><span class="token punctuation">)</span><span class="token punctuation">,</span>
-<span class="token punctuation">{<!-- --></span><span class="token string">"id"</span><span class="token punctuation">:</span> <span class="token number">1</span><span class="token punctuation">}</span><span class="token punctuation">,</span>
-<span class="token punctuation">)</span>
+with engine.connect() as connection:
+result = connection.execute(
+text("SELECT * FROM users WHERE id = :id"),
+{<!-- -->"id": 1},
+)
 
-user <span class="token operator">=</span> result<span class="token punctuation">.</span>fetchone<span class="token punctuation">(</span><span class="token punctuation">)</span>
+user = result.fetchone()
 ```
 
 
@@ -1078,28 +1086,28 @@ user <span class="token operator">=</span> result<span class="token punctuation"
 
 
 ```python
-<span class="token keyword">with</span> engine<span class="token punctuation">.</span>begin<span class="token punctuation">(</span><span class="token punctuation">)</span> <span class="token keyword">as</span> connection<span class="token punctuation">:</span>
-connection<span class="token punctuation">.</span>execute<span class="token punctuation">(</span>
-text<span class="token punctuation">(</span>
-<span class="token triple-quoted-string string">"""
+with engine.begin() as connection:
+connection.execute(
+text(
+"""
 UPDATE account
 SET balance = balance - :amount
 WHERE id = :id
-"""</span>
-<span class="token punctuation">)</span><span class="token punctuation">,</span>
-<span class="token punctuation">{<!-- --></span><span class="token string">"amount"</span><span class="token punctuation">:</span> <span class="token number">100</span><span class="token punctuation">,</span> <span class="token string">"id"</span><span class="token punctuation">:</span> <span class="token number">1</span><span class="token punctuation">}</span><span class="token punctuation">,</span>
-<span class="token punctuation">)</span>
+"""
+),
+{<!-- -->"amount": 100, "id": 1},
+)
 
-connection<span class="token punctuation">.</span>execute<span class="token punctuation">(</span>
-text<span class="token punctuation">(</span>
-<span class="token triple-quoted-string string">"""
+connection.execute(
+text(
+"""
 UPDATE account
 SET balance = balance + :amount
 WHERE id = :id
-"""</span>
-<span class="token punctuation">)</span><span class="token punctuation">,</span>
-<span class="token punctuation">{<!-- --></span><span class="token string">"amount"</span><span class="token punctuation">:</span> <span class="token number">100</span><span class="token punctuation">,</span> <span class="token string">"id"</span><span class="token punctuation">:</span> <span class="token number">2</span><span class="token punctuation">}</span><span class="token punctuation">,</span>
-<span class="token punctuation">)</span>
+"""
+),
+{<!-- -->"amount": 100, "id": 2},
+)
 ```
 
 

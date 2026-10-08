@@ -3,15 +3,15 @@ title: 模态连接器
 description: LLaVA 线性投影与 BLIP-2 Q-Former 架构详解
 pageType: article
 module: multimodal
-updated: '2025-12-29'
+updated: '2026-10-08'
 contentStatus: needs-review
 tags:
   - multimodal
 level: advanced
 prerequisites:
   - /guide/prerequisites
-reviewed: '2026-08-25'
-techVersion: 待复核（2026-08）
+reviewed: '2026-10-08'
+techVersion: 架构原理复核于 2026-10；示例不代表最新性能排名
 ---
 
 # 模态连接器：LLM 与视觉的桥梁
@@ -45,11 +45,11 @@ flowchart LR
 
 ## 主流方案对比
 
-| 特性 | LLaVA (Linear) | BLIP-2 (Q-Former) | Flamingo (Perceiver) |
+| 特性 | LLaVA 系列 (Projector) | BLIP-2 (Q-Former) | Flamingo (Perceiver) |
 | :--- | :--- | :--- | :--- |
-| **核心机制** | 两层 MLP | Transformer 查询器 | Cross-Attention |
+| **核心机制** | 初代线性投影，1.5 常用两层 MLP | Transformer 查询器 | Cross-Attention |
 | **输出 Token 数** | 取决于 Patch 数 | 固定（如 32） | 固定（如 64） |
-| **信息保留** | 完整视觉细节 | 压缩提取关键特征 | 选择性压缩 |
+| **信息保留** | 保留每个编码后 patch 的位置；不等于保留原像素全部信息 | 压缩提取关键特征 | 选择性压缩 |
 | **训练复杂度** | 低 | 高（两阶段） | 中 |
 | **LLM 是否冻结** | 可选 | 通常冻结 | 冻结 |
 | **优势场景** | OCR、细粒度 | 高效推理 | 多图交织 |
@@ -58,7 +58,7 @@ flowchart LR
 
 ## LLaVA 线性投影
 
-LLaVA 采用极简设计哲学：**简单但有效**。
+初代 LLaVA 用线性投影；下图与代码示意 [LLaVA-1.5](https://arxiv.org/abs/2310.03744)的两层 MLP。576 个 patch 对应 336×336 输入与 14×14 patch，不是所有 LLaVA 的固定配置。
 
 ### 架构设计
 
@@ -73,6 +73,8 @@ flowchart LR
 ### 实现细节
 
 ```python
+import torch.nn as nn
+
 class LLaVAProjector(nn.Module):
     def __init__(self, vision_dim=1024, llm_dim=4096):
         super().__init__()
@@ -92,10 +94,10 @@ class LLaVAProjector(nn.Module):
 
 | 优势 | 代价 |
 | :--- | :--- |
-| ✅ 保留完整视觉信息 | ❌ Token 数量多（576 个） |
+| ✅ 不在连接器处减少 patch 数 | ❌ Token 数量多（576 个） |
 | ✅ 训练简单快速 | ❌ 推理成本高 |
 | ✅ OCR/细节任务表现好 | ❌ 显存占用大 |
-| ✅ 参数量极少 | ❌ 长文本上下文受限 |
+| ✅ 相对 LLM 主干参数较少 | ❌ 长文本上下文受限 |
 
 ### LLaVA 训练策略
 
@@ -140,29 +142,16 @@ prompt = f"""
 }
 ```
 
-**数据规模**：
-
-- **Stage 1**：约 558K CC3M 图文对（简短 Caption）
-- **Stage 2**：约 665K 多模态指令数据
-  - 158K GPT-4 生成的对话
-  - 507K 其他任务数据
+**数据规模**：初代视觉指令合成与 LLaVA-1.5 的混合训练不是同一配方。LLaVA-1.5 常见配置使用约 558K 对齐数据和 665K 指令混合数据；样本构成、学习率和训练时长须随具体 release 核对，不能把它们标成所有版本的固定 recipe。
 
 ### 两阶段预训练
 
-| 阶段 | 数据 | 冻结模块 | 训练模块 | Epoch | 学习率 | Batch Size |
-| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| **Stage 1** | 558K CC3M | ViT + LLM | Projector | 1 | 1e-3 | 256 |
-| **Stage 2** | 665K指令 | ViT | Projector + LLM | 3 | 2e-5 | 128 |
+| 阶段 | 训练部分 | 目的 | 排障信号 |
+| --- | --- | --- | --- |
+| 特征对齐 | 冻结 ViT/LLM，训练 projector | 把视觉特征接入语言空间 | projector 梯度与简单图像描述是否改善 |
+| 指令微调 | 常见做法更新 projector + LLM，ViT 冻结 | 按指令使用视觉信息 | 新问题、视觉对照和纯文本回归 |
 
-**训练时间**：
-
-- Stage 1：约 5 小时（8×A100 80G）
-- Stage 2：约 20 小时（8×A100 80G）
-
-| 阶段 | 数据 | 训练模块 | 目的 |
-| :--- | :--- | :--- | :--- |
-| **Stage 1** | 558K 图文对 | 仅 Projector | 特征对齐 |
-| **Stage 2** | 665K 指令数据 | Projector + LLM | 指令微调 |
+这张表是常见路线，不是强制配置。冻结 LLM 参数仍须保留经过 LLM 到 projector 的梯度；冻结参数与关闭整个前向的 autograd 是两回事。
 
 ---
 
@@ -224,16 +213,18 @@ flowchart LR
 **Stage 2**：
 
 - 将 Q-Former 输出作为 LLM 的软提示（Soft Prompt）
-- 仅训练 Q-Former，LLM 完全冻结
+- 训练 Q-Former 与到 LLM 的投影层，LLM 参数冻结
 
 ### 信息压缩分析
 
-| 输入 | 输出 | 压缩率 |
+| 输入 | 输出 | token 数缩减（不是无损信息压缩率） |
 | :--- | :--- | :--- |
 | ViT-L: 257×1024 | 32×768 | **~8×** |
 | ViT-G: 577×1408 | 32×768 | **~18×** |
 
 ### Q-Former 训练详细流程
+
+下列是原理伪代码，`encode_image`、`match`、loss 函数均为抽象接口；需按 [BLIP-2 官方实现](https://github.com/salesforce/LAVIS/tree/main/lavis/models/blip2_models)接入正确 attention mask、负例标签和语言标签。不是可直接运行的训练脚本。
 
 #### Stage 1：三合一损失函数
 
@@ -248,14 +239,14 @@ def stage1_training(image, text, qformer, vision_encoder):
     with torch.no_grad():
         image_features = vision_encoder(image)  # 冻结ViT
     
-    # Q-Former 编码（仅 Self-Attention，不用 Cross-Attention）
+    # 图像 queries 仍通过 Cross-Attention 读取视觉；unimodal mask 隔离 query 与文本流
     image_embeds = qformer.encode_image(image_features, mode='unimodal')
     text_embeds = qformer.encode_text(text, mode='unimodal')
     
     # 对比损失
     loss_itc = contrastive_loss(image_embeds, text_embeds)
     
-- **ITM (Image-Text Matching)**：二分类匹配
+    # 2. ITM (Image-Text Matching)：二分类匹配
     # 难负样本挖掘：从对比学习中选相似但不匹配的样本
     with torch.no_grad():
         neg_indices = select_hard_negatives(image_embeds, text_embeds)
@@ -301,8 +292,10 @@ def stage2_training(image, text, qformer, vision_encoder, llm):
     # 前置于文本 token 之前
     inputs_embeds = torch.cat([soft_prompts, llm.embed_tokens(text)], dim=1)
     
-    with torch.no_grad():
-        outputs = llm(inputs_embeds=inputs_embeds)  # 冻结LLM
+    # 参数不更新，但保留从 loss 经 LLM 到 soft_prompts 的计算图
+    for parameter in llm.parameters():
+        parameter.requires_grad_(False)
+    outputs = llm(inputs_embeds=inputs_embeds)
     
     # 语言建模损失（仅在文本部分）
     loss = language_modeling_loss(outputs, text)
@@ -311,9 +304,9 @@ def stage2_training(image, text, qformer, vision_encoder, llm):
 
 **关键设计**：
 
-- 将 Q-Former 输出作为 **软提示**，不计算其梯度
+- 将 Q-Former 输出作为**可导软提示**，必须计算其梯度才能训练 Q-Former
 - LLM 完全冻结，仅训练 Q-Former 和投影层
-- 保护 LLM 的语言能力不被破坏
+- 基座参数保持不变；端到端输出质量仍需验证
 
 ---
 
@@ -337,12 +330,12 @@ flowchart TB
 **核心思想**：
 
 - 使用固定数量的可学习 Latent 向量
-- 通过 Cross-Attention 从任意数量图像中提取特征
-- 输出 Token 数量恒定，与输入图像数量无关
+- 对每张图像或一段视频的视觉特征重采样
+- 每个视觉输入输出固定数量 latent；多个图像的总视觉表示预算仍会增长
 
 ### Gated Cross-Attention
 
-Flamingo 在 LLM 每层插入 Gated Cross-Attention：
+Flamingo 按配置在 LLM 层之间插入 Gated Cross-Attention，插入频率并非所有规模都相同：
 
 ```python
 # Flamingo Gated Cross-Attention
@@ -362,12 +355,12 @@ y = x + tanh(gate) * CrossAttention(x, vision_features)
 | :--- | :--- | :--- |
 | **OCR/文档理解** | LLaVA Linear | 需要完整视觉细节 |
 | **资源受限/高并发** | Q-Former | Token 数量少 |
-| **多图交织对话** | Perceiver | 固定输出长度 |
+| **多图交织对话** | Perceiver + 图像关联 mask | 每个视觉输入重采样，显式关联图文 |
 | **快速迭代/研究** | LLaVA Linear | 训练简单 |
 
 ### Token 数量对推理的影响
 
-假设 LLM 上下文窗口为 4096 Token：
+以下仅估算直接拼接视觉 token 的上下文预算，设窗口为 4096；还需扣除系统提示、特殊标记和预留输出。Flamingo 的外部 cross-attention 表示不能直接套用此减法：
 
 | 方案 | 视觉 Token | 剩余文本 Token | 推理成本 |
 | :--- | :--- | :--- | :--- |
@@ -399,7 +392,7 @@ flowchart TB
 
 - 全局视图：576 Token
 - 每个子图：576 Token
-- 2×2 配置总计：576 + 4×576 = 2880 Token
+- 2×2 配置简单计数：576 + 4×576 = 2880 Token；实际 processor 可能去 padding、添加换行或合并 token，最终以模型输入为准
 
 ### Token 压缩技术
 
@@ -410,6 +403,15 @@ flowchart TB
 | **Resampler** | Perceiver 架构 | 可变 |
 
 ---
+
+## 连接器实验怎么验收
+
+固定视觉编码器、语言基座、数据和分辨率，比较 projector 与不同 query 数的重采样器。至少报告细粒度 OCR、计数、空间关系、文本回归、视觉 token 与端到端延迟；token 少不等于总耗时一定少。
+
+- 对同一 batch 检查 projector/Q-Former 有梯度，冻结参数没有梯度；再检查一次 optimizer step 后只有预期参数变化。
+- 换图或遮挡证据区域后，答案应随证据变化。若答案始终相同，排查图像索引、占位符、mask 和语言捷径。
+- 低 query 数只丢小字/计数而粗分类正常时，优先增大视觉信息预算；所有任务都坏时先检查 dtype、特征层与预处理。
+- 记录训练模块清单、实际张量形状、输入预算与留出结果，使“冻结”“压缩”“对齐”都有可检查的证据。
 
 ## 参考资源
 

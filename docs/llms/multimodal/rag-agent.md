@@ -3,15 +3,17 @@ title: RAG 与智能体
 description: ColPali 视觉 RAG、RT-2 具身智能与多模态 Agent
 pageType: article
 module: multimodal
-updated: '2025-12-29'
+updated: '2026-10-08'
 contentStatus: needs-review
 tags:
   - multimodal
 level: advanced
 prerequisites:
   - /guide/prerequisites
-reviewed: '2026-08-25'
-techVersion: 待复核（2026-08）
+reviewed: '2026-10-08'
+reviewScope: ColPali 页级检索与证据粒度、融合验收边界对照；索引与视觉模型未运行
+exampleStatus: not-run
+techVersion: 原理复核于 2026-10；部署示例需按模型和框架版本验证
 ---
 
 # 多模态 RAG 与智能体
@@ -46,7 +48,7 @@ flowchart LR
 
 ## 文档预处理：多模态 RAG 的基础
 
-> 传统 RAG 的痛点：`pdf_to_text()` 丢失了排版、表格、公式等 **90%** 的关键信息！
+> 纯文本抽取可能丢失表格单元格关联、阅读顺序与图表视觉线索，具体损失取决于 PDF 与解析器；没有通用的“丢失 90%”比例。先把解析错、检索错和回答错分开测。
 
 ### 文档布局分析（DLA）
 
@@ -90,7 +92,7 @@ graph TD
 
 - **节点**：文本块、图片、表格、标注
 - **边**：空间关系（相邻、包含、层级）
-- **优势**：对倾斜、手写文档鲁棒性强
+- **边界**：图结构可表达空间关系，但倾斜/手写鲁棒性仍依赖检测、OCR 与训练覆盖
 
 ### 复杂表格识别
 
@@ -117,7 +119,7 @@ flowchart TB
 | :--- | :--- | :--- |
 | `img2table` | OpenCV检测 + 多OCR后端 | 灵活性强 |
 | `Camelot` | PDF原生解析 | 专注PDF |
-| `DeepDeSRT` | Transformer 端到端 | 深度学习 |
+| `DeepDeSRT` | 深度学习表格检测与结构识别研究 | 历史研究，不作为当前接口建议 |
 
 ### 数学与化学公式识别
 
@@ -135,15 +137,16 @@ flowchart LR
 
 | 模型 | 技术 | 特点 |
 | :--- | :--- | :--- |
-| **Pix2Tex** | Transformer + CTC | 开源 |
-| **LaTeX-OCR** | ViT Encoder + Decoder | 高准确率 |
+| **pix2tex / LaTeX-OCR** | 视觉编码与序列解码 | 同一开源项目，不是两个独立方案 |
 | **Mathpix** | 商用方案 | 产业级 |
 
-**输出格式**：LaTeX、MathML、ASCII Math
+**输出格式**依工具而定；[pix2tex / LaTeX-OCR](https://github.com/lukas-blecher/LaTeX-OCR)主要输出 LaTeX。数学公式识别也不能直接替代化学结构图识别。
 
 ### 图像与图表分析
 
 **VLM 描述 + RAG 增强**
+
+下面是历史 BLIP-2 调用示意，依赖 Transformers、模型权重和 `chart_image`，未执行推理。描述可用于召回候选，但数值、轴单位和图例必须回到原图/表格验证；后接 RAG 不能把错误 caption 自动变成正确证据。
 
 ```python
 # 使用BLIP-2描述图表
@@ -184,7 +187,7 @@ detailed_desc = llm.generate(f"{caption}\n\nContext: {context}")
 
 ## ColPali：端到端视觉 RAG
 
-传统 PDF 检索需要 OCR，丢失排版、图表等视觉信息。ColPali 直接用 VLM 编码文档页面。
+文本 PDF 可直接抽取，扫描件通常需要 OCR；视觉布局丰富的文档可比较 [ColPali](https://arxiv.org/abs/2407.01449)的页面多向量检索。它解决检索表示问题，不单独完成 RAG 答案生成与证据核验。
 
 ### 架构设计
 
@@ -218,6 +221,7 @@ score = dot(query_emb, doc_emb)
 
 ```python
 def maxsim(query_tokens, doc_patches):
+    # 仅有效 token；padding 必须先移除或用 mask 排除
     # query_tokens: [M, D]
     # doc_patches: [N, D]
     scores = query_tokens @ doc_patches.T  # [M, N]
@@ -225,32 +229,46 @@ def maxsim(query_tokens, doc_patches):
     return max_scores.sum()
 ```
 
-$$S(q, d) = \sum_{i \in q} \max_{j \in d} (q_i \cdot d_j)$$
+```text
+S(q,d) = Σ_(i ∈ q) max_(j ∈ d) (q_i · d_j)
+```
 
 ### 优势分析
 
 <div class="compare-box">
   <div class="compare-item">
     <div class="compare-title">OCR + Dense</div>
-    <p class="compare-desc">- 丢失排版信息，图表无法检索<br/>- OCR 错误传播，多阶段流水线</p>
+    <p class="compare-desc">- 纯文本路径可能遗漏布局，需要额外图表表示<br/>- OCR 错误传播，多阶段流水线</p>
   </div>
   <div class="compare-vs">VS</div>
   <div class="compare-item highlight">
     <div class="compare-title">ColPali</div>
-    <p class="compare-desc">- 保留视觉布局，图表精准定位，端到端训练<br/>- 所见即所得</p>
+    <p class="compare-desc">- 利用页面视觉线索做检索；精确证据区域还需定位与核验<br/>- 页面级召回，仍可能召回错误或近似页面</p>
   </div>
 </div>
 
 ### 应用场景
 
+多向量索引需要存储页面的多个 patch 向量，MaxSim 的成本高于单向量点积。大库可先召回候选再做精确重排，比较压缩/池化对小字检索的损失。每页至少保存文档 ID、页码、图像哈希、原始尺寸、权限与版本；答案引用时将证据映射回原页坐标。
+
 | 场景 | 传统方法问题 | ColPali 优势 |
 | :--- | :--- | :--- |
 | **表格检索** | OCR 丢失结构 | 直接编码表格图像 |
-| **图表问答** | 无法处理 | 图表内容可检索 |
+| **图表问答** | 需把图表转成可检索表示 | 页面视觉内容可参与检索 |
 | **多栏文档** | 栏序混乱 | 视觉布局保留 |
 | **手写文档** | OCR 错误率高 | VLM 直接理解 |
 
 ---
+
+## 从页面检索到答案：保留两套证据粒度
+
+**2026-10-08 复核 [ColPali 论文](https://arxiv.org/abs/2407.01449)**：其核心是页面图像的多向量检索，ViDoRe 主要测页级相关性。命中一页不能证明模型已读对该页的每个单元格，也不能证明联合多页结论完整。
+
+实际索引同时保留 `document_id + revision + page_id`，解析出的文字/表格与原页建立坐标映射。文字检索与视觉检索先映射为同一页 ID，再去重与融合；不能把两种相似度直接相加。答案阶段按证据需求传原页、局部裁剪或表格，引用最终绑定到可复查的原文位置。
+
+最小验收包含四组：仅靠文字可答、必须看图、跨页联合、文档无答案。分别报告页 Recall@K、完整证据覆盖、数值/单位正确率和引用支持；对同一页替换图表或遮挡关键区域，检查答案是否随证据改变。这个流程是基于论文能力边界的工程建议，本文未运行页面索引或视觉模型。
+
+
 
 ## RT-2：具身智能
 
@@ -267,6 +285,8 @@ flowchart LR
 ```
 
 ### 动作 Token 空间
+
+下例数值仅示意动作表示，不是可发给机器人的控制命令。量化范围、单位、坐标系和控制频率必须与机器人训练接口一致；[RT-2](https://arxiv.org/abs/2307.15818)的实验能力不能直接移植到不同硬件。
 
 **核心思想**：将连续动作离散化为语言 Token
 
@@ -305,7 +325,7 @@ flowchart TB
 
 ### 涌现能力
 
-**训练数据中未见过的指令也能执行**
+**论文展示了部分语义泛化案例，并不保证任意未见动作可执行**
 
 | 指令 | 所需能力 | 来源 |
 | :--- | :--- | :--- |
@@ -405,6 +425,8 @@ def reflect(action_history, current_result, goal):
 
 ### 主流框架对比
 
+下表保留历史方案供理解“规划—专家模型—结果整合”的分工，不是当前支持矩阵。落地前核查具体版本是否支持媒体传递、工具 schema、状态恢复与权限审计。
+
 | 框架 | 特点 | 多模态支持 |
 | :--- | :--- | :--- |
 | **LangChain** | 生态丰富 | 通过扩展支持 |
@@ -431,7 +453,7 @@ flowchart TB
 
 | 风险类型 | 描述 | 缓解措施 |
 | :--- | :--- | :--- |
-| **越狱攻击** | 图像中隐藏恶意指令 | 输入过滤 |
+| **越狱攻击** | 图像中隐藏恶意指令 | 将 OCR/图片文字视为不可信数据，工具权限独立校验 |
 | **工具滥用** | 调用危险 API | 权限控制 |
 | **信息泄露** | 暴露敏感数据 | 输出审查 |
 | **失控行为** | 机器人意外动作 | 安全边界 |
@@ -447,6 +469,19 @@ flowchart TB
 :::
 
 ---
+
+## 从检索到执行的验收链
+
+以一份带图表的 PDF 为练习：标注问题、正确页码、证据区域、答案和“文档无答案”样本。建立文本解析检索、页面视觉检索与混合方案三条基线。
+
+| 阶段 | 指标/证据 | 失败时先查 |
+| --- | --- | --- |
+| 解析/索引 | 页面完整率、坐标回映、表格结构准确率 | 缩放、旋转、OCR 与页面版本 |
+| 检索 | Recall@K、nDCG、权限过滤后召回 | 查询表示、长尾概念、索引压缩 |
+| 回答 | 引用正确页/区域、数字与单位准确率 | 图像预算、证据可读性、引用绑定 |
+| 工具执行 | 成功率、重试/取消、重复副作用 | 参数校验、幂等键、事务状态 |
+
+只把 caption 送给生成器会丢失原图细节，精确数字任务应同时提供原图裁剪或解析表格。Agent 识别产品型号不确定时应保留候选，不能立刻据此执行购买/删除等动作。超过工具次数或耗时预算时输出已验证结果与未完成部分；“自我反思”不是无限重试机制。
 
 ## 参考资源
 

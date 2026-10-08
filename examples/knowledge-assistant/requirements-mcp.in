@@ -1,0 +1,2 @@
+# Optional historical teaching adapter; the standard-library core does not install this.
+fastmcp==2.12.5

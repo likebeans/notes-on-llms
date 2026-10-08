@@ -3,7 +3,7 @@ title: LLMs 技术专区
 description: 大模型核心技术学习专区，按 Prompt、RAG、Agent、MCP、训练微调和多模态组织。
 pageType: landing
 module: site
-updated: '2026-08-26'
+updated: '2026-10-08'
 contentStatus: needs-review
 tags:
   - llm
@@ -73,3 +73,16 @@ flowchart LR
 | `historical` | 保留历史背景，不代表当前最佳实践 |
 
 如果你是第一次来，建议先走 [学习路径](/guide/)；如果你已经有项目，可以直接到 [实践项目](/practice/) 反向选择模块。
+
+## 用失败现象决定先读哪一章
+
+| 现象 | 先核对的原因 | 入口 |
+| --- | --- | --- |
+| 输出不是合法结构 | 任务歧义、schema、解析与拒答路径 | [Prompt 基础](/llms/prompt/basics) |
+| 回答流畅但没有证据 | 文档接入、召回、上下文与引用 | [RAG 评估](/llms/rag/evaluation) |
+| 工具显示失败却产生了两次写入 | 结果未知与重复重试 | [异常恢复](/llms/agent/exception-handling) |
+| 服务启动了但客户端看不到工具 | 初始化、能力发现、传输或环境 | [MCP 入门](/llms/mcp/quickstart) |
+| 训练 loss 下降而业务指标下降 | 评估污染、过拟合、模板与目标错配 | [训练评估](/llms/training/eval) |
+| 图片能识别但表格数字错 | 分辨率、布局、局部证据与读取顺序 | [多模态部署评测](/llms/multimodal/deployment) |
+
+先定位最早出错的一层，再读相应主题。一个问题可能横跨多个模块，但第一步应能落实成一次可比较的实验。

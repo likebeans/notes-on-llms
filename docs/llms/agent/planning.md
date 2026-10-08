@@ -3,7 +3,7 @@ title: 规划与推理
 description: Agent 规划与推理机制 - ReAct、Plan-and-Execute
 pageType: article
 module: agent
-updated: '2025-12-27'
+updated: '2026-10-08'
 contentStatus: needs-review
 tags:
   - agent
@@ -17,7 +17,7 @@ techVersion: 待复核（2026-08）
 
 # 规划与推理
 
-> 让AI像人类一样思考、规划、行动
+> 把目标转换成有依赖、有反馈、有停止条件的行动
 
 ## 🎯 核心概念
 
@@ -91,7 +91,7 @@ techVersion: 待复核（2026-08）
 
 ### 实际案例：Deep Research
 
-Google/OpenAI的Deep Research是规划型智能体的典型应用：
+研究型助手可以采用下列工作流。这是概念示例，不代表所有厂商产品都会要求用户审阅计划，也不承诺搜索来源数量：
 
 ```
 用户输入："研究AI在医疗领域的应用"
@@ -105,7 +105,7 @@ Google/OpenAI的Deep Research是规划型智能体的典型应用：
     ▼
 ③ 执行迭代搜索与分析循环
    - 动态调整查询
-   - 分析数百个来源
+   - 核对相关来源和证据
    - 主动发现知识盲点
     │
     ▼
@@ -132,7 +132,7 @@ Google/OpenAI的Deep Research是规划型智能体的典型应用：
 
 ### 核心理念
 
-**ReAct（Reasoning and Acting）** 由Google Research提出，核心思想是模仿人类解决问题的方式，将**推理(Reasoning)**和**行动(Acting)**显式地结合起来。
+**ReAct（Reasoning and Acting）** 在生成过程里交替组织推理与行动，并使用环境观测调整下一步。原始研究强调二者配合，不意味着自然语言解释就是真实内部计算的完整记录。[ReAct 原论文](https://arxiv.org/abs/2210.03629)
 
 ### ReAct循环
 
@@ -148,6 +148,8 @@ Google/OpenAI的Deep Research是规划型智能体的典型应用：
 ```
 
 ### 完整示例
+
+下列注释为人工构造的流程示意，`Search` 和 `Observation` 不是本页实际执行的检索记录。
 
 ```python
 # 问题："《星际穿越》的导演是谁？他执导的另一部电影的主演又是谁？"
@@ -174,6 +176,8 @@ Google/OpenAI的Deep Research是规划型智能体的典型应用：
 ```
 
 ### ReAct实现
+
+这是控制结构伪代码：`llm.generate`、工具 `.run` 和 `_parse_response` 需自行实现。生产系统使用结构化调用与独立校验，不依赖解析自由文本 Thought，也不要求存储模型私有思考。
 
 ```python
 from typing import List, Dict, Any
@@ -237,9 +241,9 @@ class ReActAgent:
 
 | 优点 | 缺点 |
 |------|------|
-| ✅ 推理过程透明可见 | ❌ 多轮交互，延迟高 |
+| ✅ 动作和观测可追踪 | ❌ 多轮交互，延迟高 |
 | ✅ 适合复杂多步任务 | ❌ Token消耗大 |
-| ✅ 纠错能力强 | ❌ 实现相对复杂 |
+| ✅ 能根据新观测修订动作 | ❌ 实现相对复杂 |
 | ✅ 便于调试和信任建立 | ❌ 可能陷入循环 |
 
 ---
@@ -276,78 +280,32 @@ class ReActAgent:
 
 ### 实现示例
 
+重规划必须替换待执行队列。对正在 `for step in plan` 遍历的变量重新赋值，并不会让已有迭代器转向新列表。下面使用显式队列避免这个问题。
+
 ```python
-from typing import List
+from collections import deque
 
-class PlanAndExecuteAgent:
-    """Plan-and-Execute Agent"""
-    
-    def __init__(self, planner_llm, executor_llm, tools):
-        self.planner = planner_llm
-        self.executor = executor_llm
-        self.tools = tools
-    
-    def run(self, task: str) -> str:
-        # 1. 生成计划
-        plan = self.create_plan(task)
-        print(f"📋 计划: {plan}")
-        
-        results = []
-        for i, step in enumerate(plan):
-            print(f"\n🔄 执行步骤 {i+1}: {step}")
-            
-            # 2. 执行单个步骤
-            result = self.execute_step(step, results)
-            results.append({"step": step, "result": result})
-            
-            # 3. 检查是否需要重规划
-            if self.needs_replan(step, result):
-                remaining_steps = plan[i+1:]
-                plan = self.replan(task, results, remaining_steps)
-                print(f"🔄 重规划: {plan}")
-        
-        # 4. 综合结果
-        return self.synthesize(task, results)
-    
-    def create_plan(self, task: str) -> List[str]:
-        """生成执行计划"""
-        prompt = f"""为以下任务创建执行计划，返回步骤列表：
 
-任务: {task}
-
-可用工具: {[t.name for t in self.tools]}
-
-要求：
-1. 每个步骤应该是具体可执行的
-2. 步骤之间有清晰的逻辑顺序
-3. 步骤数量控制在5个以内
-
-输出格式（JSON数组）：
-["步骤1", "步骤2", ...]
-"""
-        response = self.planner.generate(prompt)
-        return json.loads(response)
-    
-    def execute_step(self, step: str, previous_results: List) -> str:
-        """执行单个步骤"""
-        context = "\n".join([
-            f"步骤: {r['step']}\n结果: {r['result']}" 
-            for r in previous_results
-        ])
-        
-        prompt = f"""执行以下步骤：
-
-当前步骤: {step}
-
-之前的执行结果:
-{context}
-
-可用工具: {[t.name for t in self.tools]}
-
-请选择合适的工具并执行。
-"""
-        return self.executor.generate(prompt)
+def plan_and_execute(task, make_plan, execute_step, replan, verify, max_steps=10):
+    pending = deque(make_plan(task))
+    history = []
+    for _ in range(max_steps):
+        if not pending:
+            return {"status": "completed" if verify(task, history) else "incomplete",
+                    "history": history}
+        step = pending.popleft()
+        result = execute_step(step, history)
+        history.append({"step": step, "result": result})
+        if result["status"] != "succeeded":
+            pending = deque(replan(task, history, list(pending)))
+    completed = not pending and verify(task, history)
+    return {"status": "completed" if completed else "budget_exhausted",
+            "history": history, "remaining": list(pending)}
 ```
+
+这是可复用的循环骨架，不包含模型和工具实现。约定 `make_plan` 与 `replan` 返回步骤列表，`execute_step` 真正执行受控工具并返回含 `status` 的结果，`verify` 检查最终业务目标。仅让 LLM 写出“请选择工具并执行”不会发生真实执行。工具超时、权限和结果未知应由执行器明确处理，再决定是否允许重规划。
+
+每个步骤还应有稳定 ID、前置条件、成功证据和幂等键。已经完成的步骤不能因为重规划而再次退款或发信。计划清空仅表示没有待执行项，只有最终证据通过才表示任务完成。
 
 ### Plan-and-Execute vs ReAct
 
@@ -394,6 +352,8 @@ prompt = """计算 23 × 17 的结果。
 | **Tree of Thoughts** | 探索多条推理路径 | 创造性任务 |
 
 ### LangGraph中的规划
+
+以下仅展示图与状态的连接方式，`llm`、`execute_task` 等业务适配器需补齐；进入生产前应加入检查点、失败路由和上述完成条件。
 
 > 来源：[LangGraph深度解析（一）](https://dd-ff.blog.csdn.net/article/details/151024355)
 
@@ -453,6 +413,12 @@ app = graph.compile()
 ```
 
 ---
+
+## 规划失败如何验收
+
+至少准备四类任务：一步可完成、需要依赖顺序、执行中出现新信息、永远无法完成。检查简单任务是否过度规划，后继步骤是否只在前置证据满足后启动，以及无法完成时是否在预算内返回原因。对同一失败动作重复调用，应触发停机或升级，而不是无限“再试一下”。
+
+把状态持久化和副作用恢复交给[记忆系统](/llms/agent/memory)与[异常处理](/llms/agent/exception-handling)，把候选推理方法放在[推理技术](/llms/agent/reasoning)比较，避免规划器同时承担所有职责。
 
 ## 🔗 相关阅读
 

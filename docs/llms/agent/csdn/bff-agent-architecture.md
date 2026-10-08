@@ -3,7 +3,7 @@ title: "什么是 BFF？从前后端解耦到微服务与 Agent 架构中的实�
 description: "CSDN 原文全文镜像：BFF 并不是什么复杂的新技术。前端需要的数据，与后端提供的业务能力之间存在天然差异。Frontend↓BackendFrontend↓十几个 Microservices服务发现接口聚合数据转换异常处理权限拼装业务编排系统边界会越来越混……"
 pageType: article
 module: agent
-updated: '2026-08-26'
+updated: '2026-10-08'
 contentStatus: needs-review
 tags:
   - "csdn-mirror"
@@ -21,10 +21,16 @@ author: likebeans
 ---
 
 ::: info CSDN 原文镜像
-本文为作者 CSDN 博客的全文镜像，原文发布于 2026-08-26。为适配本站结构，仅补充了站内元数据与来源说明，正文主体保持原文内容。
+本文为作者 CSDN 博客的全文镜像，原文发布于 2026-08-26。本站补充导读与相关主线链接，并修复代码展示；原文观点、来源与发布时间保留。
 
 - 原文链接：[https://blog.csdn.net/m0_63309778/article/details/164094876](https://blog.csdn.net/m0_63309778/article/details/164094876)
 - 站内分区：Agent / BFF 与 Agent 架构
+:::
+
+::: tip 站内导读与实践边界
+本文适合在前后端协作边界变复杂时阅读：BFF 聚合与转换前端所需的数据，Runtime 管理任务执行与持久状态。是否需要独立 BFF 取决于客户端差异和部署约束；避免把同一业务规则复制到两层，并保持 run 标识、错误语义和权限校验连续。
+
+继续阅读：[工具调用](/llms/agent/tool-calling)、[评估与监控](/llms/agent/evaluation-monitoring)。
 :::
 
 <p><img src="https://i-blog.csdnimg.cn/direct/7b93bb8dbc6c41e7a2308922b1fc0da1.png" alt="在这里插入图片描述" /></p>
@@ -243,15 +249,15 @@ GET /bff/agents/123/detail
 
 
 ```json
-<span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"agent"</span><span class="token operator">:</span> <span class="token punctuation">{<!-- --></span><span class="token punctuation">}</span><span class="token punctuation">,</span>
-<span class="token string-property property">"model"</span><span class="token operator">:</span> <span class="token punctuation">{<!-- --></span><span class="token punctuation">}</span><span class="token punctuation">,</span>
-<span class="token string-property property">"knowledgeBases"</span><span class="token operator">:</span> <span class="token punctuation">[</span><span class="token punctuation">]</span><span class="token punctuation">,</span>
-<span class="token string-property property">"tools"</span><span class="token operator">:</span> <span class="token punctuation">[</span><span class="token punctuation">]</span><span class="token punctuation">,</span>
-<span class="token string-property property">"recentRuns"</span><span class="token operator">:</span> <span class="token punctuation">[</span><span class="token punctuation">]</span><span class="token punctuation">,</span>
-<span class="token string-property property">"metrics"</span><span class="token operator">:</span> <span class="token punctuation">{<!-- --></span><span class="token punctuation">}</span><span class="token punctuation">,</span>
-<span class="token string-property property">"permissions"</span><span class="token operator">:</span> <span class="token punctuation">{<!-- --></span><span class="token punctuation">}</span>
-<span class="token punctuation">}</span>
+{
+"agent": {},
+"model": {},
+"knowledgeBases": [],
+"tools": [],
+"recentRuns": [],
+"metrics": {},
+"permissions": {}
+}
 ```
 
 
@@ -507,12 +513,12 @@ Runs
 
 
 ```json
-<span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"id"</span><span class="token operator">:</span> <span class="token number">123</span><span class="token punctuation">,</span>
-<span class="token string-property property">"status"</span><span class="token operator">:</span> <span class="token number">2</span><span class="token punctuation">,</span>
-<span class="token string-property property">"owner_id"</span><span class="token operator">:</span> <span class="token number">98</span><span class="token punctuation">,</span>
-<span class="token string-property property">"created_at"</span><span class="token operator">:</span> <span class="token string">"2026-08-26T10:00:00Z"</span>
-<span class="token punctuation">}</span>
+{
+"id": 123,
+"status": 2,
+"owner_id": 98,
+"created_at": "2026-08-26T10:00:00Z"
+}
 ```
 
 
@@ -520,18 +526,18 @@ Runs
 
 
 ```json
-<span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"id"</span><span class="token operator">:</span> <span class="token string">"123"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"status"</span><span class="token operator">:</span> <span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"code"</span><span class="token operator">:</span> <span class="token number">2</span><span class="token punctuation">,</span>
-<span class="token string-property property">"label"</span><span class="token operator">:</span> <span class="token string">"运行中"</span>
-<span class="token punctuation">}</span><span class="token punctuation">,</span>
-<span class="token string-property property">"owner"</span><span class="token operator">:</span> <span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"id"</span><span class="token operator">:</span> <span class="token number">98</span><span class="token punctuation">,</span>
-<span class="token string-property property">"name"</span><span class="token operator">:</span> <span class="token string">"张三"</span>
-<span class="token punctuation">}</span><span class="token punctuation">,</span>
-<span class="token string-property property">"createdAt"</span><span class="token operator">:</span> <span class="token string">"2026-08-26 18:00"</span>
-<span class="token punctuation">}</span>
+{
+"id": "123",
+"status": {
+"code": 2,
+"label": "运行中"
+},
+"owner": {
+"id": 98,
+"name": "张三"
+},
+"createdAt": "2026-08-26 18:00"
+}
 ```
 
 

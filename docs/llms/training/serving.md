@@ -3,15 +3,17 @@ title: 部署与推理优化
 description: 模型压缩、量化与高效推理
 pageType: article
 module: training
-updated: '2025-12-27'
+updated: '2026-10-08'
 contentStatus: needs-review
 tags:
   - training
 level: advanced
 prerequisites:
   - /guide/prerequisites
-reviewed: '2026-08-25'
-techVersion: 待复核（2026-08）
+reviewed: '2026-10-08'
+reviewScope: vLLM 前缀缓存官方文档与 prefill/decode 压测边界对照；服务未运行
+exampleStatus: not-run
+techVersion: 原理与示例复核于 2026-10；依赖接口需锁定版本
 ---
 
 # 部署与推理优化
@@ -26,16 +28,18 @@ techVersion: 待复核（2026-08）
 
 | 挑战 | 问题 | 解决方案 |
 |------|------|----------|
-| **显存占用** | 7B模型需14GB+ | 量化压缩 |
+| **显存占用** | 7B BF16 权重约 14 GB，另需 KV/激活/工作区 | 量化、上下文预算与并发控制 |
 | **推理速度** | 自回归生成慢 | KV Cache、批处理 |
 | **成本** | GPU昂贵 | CPU推理、边缘部署 |
-| **延迟** | 首Token时间长 | 推测解码 |
+| **延迟** | 排队、prefill 或 decode 各自占时 | 分阶段测量；推测解码主要针对生成阶段 |
 
 ---
 
 ## 🗜️ 模型量化
 
 ### 量化类型
+
+下表比例仅按理想权重位宽相对 FP32 计算，不是进程显存降幅；还要计入 scales、零点、未量化层、KV 与内核工作区。质量损失必须按任务测试。
 
 | 类型 | 精度 | 显存节省 | 精度损失 |
 |------|------|----------|----------|
@@ -53,11 +57,12 @@ techVersion: 待复核（2026-08）
 | **QAT（量化感知训练）** | 训练时模拟量化 | 追求精度 |
 | **GPTQ** | 基于Hessian的逐层量化 | 4-bit高精度 |
 | **AWQ** | 激活感知量化 | 保护重要权重 |
-| **GGUF** | llama.cpp格式 | CPU推理 |
+| **GGUF** | 存储格式，可容纳多种量化类型 | llama.cpp 等运行时，支持情况依设备 |
 
 ### BitsAndBytes量化
 
 ```python
+import torch
 from transformers import AutoModelForCausalLM, BitsAndBytesConfig
 
 # 8-bit量化
@@ -111,7 +116,7 @@ model = AutoModelForCausalLM.from_pretrained(
 ![FlashAttention原理](https://pic2.zhimg.com/v2-4078b99c76f608b79da281d597e2f149_r.jpg)
 *FlashAttention 分块计算原理*
 
-FlashAttention 是一种 IO 感知的注意力计算方法，已广泛应用于 GPT-3/4、Llama2、Falcon2 等 LLM。
+[FlashAttention](https://arxiv.org/abs/2205.14135)是 IO 感知的精确注意力算法，通过分块和在线 softmax 减少 HBM 访问。公开实现广泛使用该思想，但不据此推断未公开模型的内部实现。
 
 **核心技术**：
 
@@ -123,8 +128,8 @@ FlashAttention 是一种 IO 感知的注意力计算方法，已广泛应用于 
 | **Online Softmax** | 分块计算 Softmax，无需完整注意力矩阵 |
 
 **效果**：
-- HBM 读写量从 $O(N^2)$ 降到 $O(N)$
-- 训练/推理速度提升 **2-4×**
+- 避免把完整 N×N 注意力矩阵写入 HBM，辅助存储可降为线性规模；精确稠密 attention 的算术量仍是二次的。
+- IO 复杂度还取决于 head 维度与 SRAM 容量；加速比例需结合 GPU、序列长度、batch 和内核版本测量。
 
 ### vLLM高性能推理
 
@@ -163,24 +168,25 @@ for output in outputs:
 
 | 技术 | 说明 |
 |------|------|
-| **PagedAttention** | 类似虚拟内存管理KV Cache，显存浪费 < 4% |
+| **PagedAttention** | 分块管理 KV Cache，减少预留与碎片浪费；不能等同于 GPU 总显存利用率 |
 | **Continuous Batching** | 动态批处理，提升吞吐 |
 | **Tensor Parallelism** | 多GPU并行 |
 | **Prefix Caching** | 缓存共享前缀 |
 | **Copy-on-Write** | 并行采样共享 Prompt KV Cache |
 
-**性能对比**：
-
-| 对比 | 吞吐量提升 |
-|------|----------|
-| vs HuggingFace Transformers | **14-24×** |
-| vs HuggingFace TGI | **2.2-3.5×** |
-
-**实际部署数据**（LMSYS）：
-- 日均处理 **3万+** 请求，峰值 **6万**
-- GPU 使用量减少 **50%**
+**如何解读性能证据**：vLLM 早期论文与博客的吞吐提升对应当时硬件、请求长度、采样和基线实现。比较新版本时，固定模型、输入/输出长度分布、并发与延迟约束，用满足 SLO 的完成请求数或输出 token/s 衡量有效吞吐；不直接复用历史倍数。
 
 ---
+
+### 长上下文服务：前缀缓存解决哪一段耗时
+
+**2026-10-08 官方文档核验。** [vLLM Automatic Prefix Caching](https://docs.vllm.ai/en/latest/features/automatic_prefix_caching/)复用共享前缀的 KV，减少重复 prefill；它不直接加速生成新 token 的 decode。因此“长文档反复提问”和“短输入、长答案”应分开压测，不能用前者的缓存收益承诺后者的吞吐。
+
+工程上先把稳定且允许复用的上下文放在前面，动态问题放在后面，保持实际 token 前缀一致；语义相同但序列不同不代表可命中。模型、适配器、模板或媒体处理变化时，按引擎规则隔离缓存。
+
+最小对照是同一负载下的冷缓存、重复前缀热缓存和独立前缀三组：同时记录缓存命中/复用 token、P95 TTFT、TPOT、排队和显存。只有 TTFT 降而 TPOT 不变属于预期结果；命中高但总耗时没降时，检查解码、排队或媒体阶段是否占主导。此处未部署 vLLM，`latest` 文档是核验日快照，项目应锁定实际 release。
+
+
 
 ## 💻 本地部署
 
@@ -188,20 +194,23 @@ for output in outputs:
 
 ### llama.cpp部署
 
+下面按 [官方构建文档](https://github.com/ggml-org/llama.cpp/blob/master/docs/build.md)使用 CMake，需 Git、编译器、CMake 和转换脚本的 Python 依赖。先固定 commit；GPU 后端需按设备增加选项。未在本机下载模型或构建运行。
+
 ```bash
 # 1. 克隆并编译
-git clone https://github.com/ggerganov/llama.cpp
+git clone https://github.com/ggml-org/llama.cpp
 cd llama.cpp
-make
+cmake -B build
+cmake --build build --config Release -j 4
 
 # 2. 转换模型为GGUF格式
 python convert_hf_to_gguf.py /path/to/model --outfile model.gguf
 
 # 3. 量化
-./llama-quantize model.gguf model-q4_k_m.gguf Q4_K_M
+./build/bin/llama-quantize model.gguf model-q4_k_m.gguf Q4_K_M
 
 # 4. 运行推理
-./llama-cli -m model-q4_k_m.gguf -p "你好" -n 128
+./build/bin/llama-cli -m model-q4_k_m.gguf -p "你好" -n 128
 ```
 
 ### GGUF量化级别
@@ -211,13 +220,12 @@ python convert_hf_to_gguf.py /path/to/model --outfile model.gguf
 | **Q2_K** | ~2.5GB | 较差 | 极限压缩 |
 | **Q4_K_M** | ~4GB | 良好 | ✅ 推荐 |
 | **Q5_K_M** | ~5GB | 很好 | 精度优先 |
-| **Q8_0** | ~7GB | 最佳 | 不追求压缩 |
+| **Q8_0** | ~7GB | 相对低位宽通常更接近原模型，仍需实测 | 有较多内存预算 |
 
 ### Ollama快速部署
 
 ```bash
-# 安装Ollama
-curl -fsSL https://ollama.com/install.sh | sh
+# 按操作系统从 https://ollama.com/download 安装 Ollama
 
 # 运行模型
 ollama run llama2
@@ -233,7 +241,10 @@ ollama run mymodel
 
 ### 结构化剪枝
 
+结构化剪枝移除整行、通道、head 或层，并改变计算形状。下面保留的是**非结构化**置零示例：`l1_unstructured` 不会自动缩小稠密矩阵，普通内核未必加速。部署收益需要稀疏内核支持或改成实际结构裁剪，并复测质量。
+
 ```python
+import torch
 import torch.nn.utils.prune as prune
 
 def prune_model(model, amount=0.3):
@@ -247,8 +258,10 @@ def prune_model(model, amount=0.3):
 
 ### 知识蒸馏
 
+下面仅展示温度缩放的分布匹配；要求师生词表/位置对齐，teacher 应冻结并停止梯度。实际序列训练还需屏蔽 padding，按有效 token 归一化，通常组合监督损失；不同 tokenizer 不能直接逐词表 KL。
+
 ```python
-from transformers import DistilBertForSequenceClassification
+import torch.nn.functional as F
 
 # 教师模型（大模型）
 teacher = AutoModelForCausalLM.from_pretrained("large_model")
@@ -260,7 +273,7 @@ student = AutoModelForCausalLM.from_pretrained("small_model")
 def distillation_loss(student_logits, teacher_logits, temperature=2.0):
     soft_targets = F.softmax(teacher_logits / temperature, dim=-1)
     soft_predictions = F.log_softmax(student_logits / temperature, dim=-1)
-    return F.kl_div(soft_predictions, soft_targets, reduction='batchmean')
+    return F.kl_div(soft_predictions, soft_targets, reduction='batchmean') * temperature**2
 ```
 
 ---
@@ -276,6 +289,21 @@ def distillation_loss(student_logits, teacher_logits, temperature=2.0):
 | **TensorRT-LLM** | NVIDIA优化 | 追求极致性能 |
 
 ---
+
+## 容量预算与故障定位
+
+先拆时间：端到端延迟 = 排队 + 输入处理 + prefill + decode + 输出传输。TTFT 包含哪些阶段要在报告里写清；高 QPS、低 TTFT 和长输出并不总能同时满足。
+
+对普通 Transformer，KV 大小可粗算为 `2 × 层数 × KV头数 × head维度 × 每元素字节 × 缓存token总数`，再加分页/对齐等开销。GQA 的 KV 头数不能用 query 头数替代。
+
+| 现象 | 检查方向 | 实验 |
+| --- | --- | --- |
+| 并发升高、TTFT 急涨 | 排队与 prefill 争用 | 固定长度分布逐级加压，报 P50/P95/P99 |
+| 长上下文才 OOM | KV、最大 batch token、临时工作区 | 压测最大上下文与输出上限组合 |
+| 量化后慢了 | 内核支持、反量化、batch 太小 | 与同设备 BF16 基线比较质量和延迟 |
+| tokens/s 高但用户等得久 | 聚合吞吐掩盖单请求速度 | 分开报系统吞吐、每请求 TPOT 与失败率 |
+
+验收报告同时包含模型质量回归、输入/输出长度分布、流量模式、冷/热缓存、超时/拒绝率和峰值显存。对服务端设置队列、每请求 token 限额、超时与取消，并验证取消后释放 KV。示例代码未做性能实测，不作为容量承诺。
 
 ## 🔗 相关阅读
 

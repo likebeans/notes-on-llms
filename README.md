@@ -61,7 +61,7 @@ LLM 相关资料很多，但常见问题也很明显：
 
 ## CSDN 全文镜像
 
-站内已同步作者 CSDN 博客最新 30 篇公开文章，并按本站知识体系重新归类：
+站内已同步作者 CSDN 博客截至 2026-08-27 收录的 30 篇公开文章，并按本站知识体系重新归类：
 
 - Agent：运行时、长任务、SSE 状态恢复、Agent UI、多智能体、评估体系、工具调用适配等；
 - Prompt：GEO、结构化输出稳定性、Prompt 到工程治理；
@@ -75,7 +75,7 @@ LLM 相关资料很多，但常见问题也很明显：
 
 👉 [CSDN 全文镜像](https://likebeans.github.io/notes-on-llms/resources/csdn)
 
-每篇镜像文章都保留原文链接和发布时间。正文主体保持原文内容，站内只补充元数据、来源说明和主题分类，方便在学习手册里连续阅读。
+每篇镜像文章都保留原文链接和发布时间。正文主体保持原文内容，站内补充元数据、来源说明、主题导读和分类，并清理代码高亮标记，方便在学习手册里连续阅读。
 
 ## 推荐学习顺序
 
@@ -112,7 +112,7 @@ docs/
 
 ## 本地开发
 
-本项目使用 VitePress 与 pnpm。
+本项目使用 VitePress 与 pnpm。完整质量检查还需要 Python 3.10+；CI 使用 Python 3.12，离线案例无需额外安装 Python 包。
 
 ```bash
 git clone https://github.com/likebeans/notes-on-llms.git
@@ -127,11 +127,12 @@ pnpm docs:dev
 | 命令 | 说明 |
 | --- | --- |
 | `pnpm docs:dev` | 启动本地开发服务器 |
-| `pnpm test` | 运行单元测试 |
+| `pnpm test` | 运行站点单元测试 |
+| `pnpm examples:test` | 运行离线案例与 CLI 测试（需要 Python 3.10+） |
 | `pnpm content:check` | 检查公开 Markdown 元数据、占位符和基础链接规则 |
 | `pnpm docs:build` | 构建生产站点 |
-| `pnpm site:check` | 检查构建后的 HTML 输出 |
-| `pnpm quality` | 依次运行测试、内容检查、构建和站点检查 |
+| `pnpm site:check` | 检查构建后的页面元信息、站内链接、章节锚点和本地图片引用 |
+| `pnpm quality` | 依次运行站点与案例测试、内容检查、构建和站点检查 |
 
 > 提示：由于站内包含 CSDN 全文镜像，生产构建会比普通文档站更慢，并可能出现 Rollup chunk 体积提示。只要 `pnpm quality` 最终通过即可。
 
@@ -158,3 +159,13 @@ pnpm docs:dev
 ## License
 
 本项目采用 [MIT License](./LICENSE)。
+
+
+## 可运行案例与学习工具
+
+- 教程：`docs/practice/knowledge-assistant.md`；实现和固定样本：`examples/knowledge-assistant/`。
+- 运行离线演示：`python3 examples/knowledge-assistant/main.py demo`（无需 API Key）。
+- 运行案例测试：`python3 -m unittest discover -s examples/knowledge-assistant/tests -v`。
+- 站内 `/guide/library` 支持文章筛选、已读和收藏；记录仅保存在当前浏览器。
+- `/guide/problems` 提供问题诊断路线，`/resources/updates` 记录技术核验与一手来源。
+- 来源计数统计正文去重后的外部资料链接，不把代码样例或独立图片地址算作来源；资料复核与示例实跑分别说明。

@@ -3,7 +3,7 @@ title: "RAG 优化实践：别让分块毁掉你的知识库"
 description: "CSDN 原文全文镜像：RAG优化实践：保护Markdown文档结构的三个关键点 本文针对RAG系统中Markdown文档处理面临的三大问题提出解决方案： 表格截断问题：提出\"原子语义块\"概念，建议小表格整体保留，大表格按行分组并重复表头，同时生成语义摘要辅助……"
 pageType: article
 module: rag
-updated: '2026-06-10'
+updated: '2026-10-08'
 contentStatus: needs-review
 tags:
   - "csdn-mirror"
@@ -21,10 +21,16 @@ author: likebeans
 ---
 
 ::: info CSDN 原文镜像
-本文为作者 CSDN 博客的全文镜像，原文发布于 2026-06-10。为适配本站结构，仅补充了站内元数据与来源说明，正文主体保持原文内容。
+本文为作者 CSDN 博客的全文镜像，原文发布于 2026-06-10。本站保留原文主体与发布时间，补充主题导读，并修复代码块中残留的语法高亮标签；技术结论仍需结合原文时点与当前文档判断。
 
 - 原文链接：[https://blog.csdn.net/m0_63309778/article/details/161868156](https://blog.csdn.net/m0_63309778/article/details/161868156)
 - 站内分区：RAG / RAG 文档分块
+:::
+
+::: tip 站内阅读提示
+这篇文章适合在完成切分基线后阅读，重点看表格表头、代码块与图片描述如何保留证据结构。实践时先标原文证据区间，再比较切分前后证据完整率与引用定位；图片生成描述需保留与原图的对应关系，不能直接当事实。
+
+主线关联：[文档切分](/llms/rag/chunking) · [RAG 评估](/llms/rag/evaluation)
 :::
 
 <p><img src="https://i-blog.csdnimg.cn/direct/ccb442a6b66e4e0f90429df36238f5e3.png" alt="在这里插入图片描述" /></p>
@@ -204,9 +210,9 @@ author: likebeans
 
 
 ```python
-<span class="token keyword">def</span> <span class="token function">chunk_markdown</span><span class="token punctuation">(</span>text<span class="token punctuation">)</span><span class="token punctuation">:</span>
-blocks <span class="token operator">=</span> parse_markdown_blocks<span class="token punctuation">(</span>text<span class="token punctuation">)</span>
-<span class="token keyword">return</span> merge_blocks<span class="token punctuation">(</span>blocks<span class="token punctuation">)</span>
+def chunk_markdown(text):
+blocks = parse_markdown_blocks(text)
+return merge_blocks(blocks)
 ```
 
 
@@ -243,14 +249,14 @@ blocks <span class="token operator">=</span> parse_markdown_blocks<span class="t
 
 
 ```json
-<span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"type"</span><span class="token operator">:</span> <span class="token string">"image"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"raw_url"</span><span class="token operator">:</span> <span class="token string">"https://xxx.oss-cn-shanghai.aliyuncs.com/arch.png"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"alt_text"</span><span class="token operator">:</span> <span class="token string">"系统架构图"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"caption"</span><span class="token operator">:</span> <span class="token string">"图 3-1 智能审计系统总体架构"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"surrounding_text"</span><span class="token operator">:</span> <span class="token string">"本系统采用前后端分离架构……"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"image_summary"</span><span class="token operator">:</span> <span class="token string">"该图展示了智能审计系统总体架构，包括用户层、应用层、AI 能力层、数据层和基础设施层。"</span>
-<span class="token punctuation">}</span>
+{<!-- -->
+"type": "image",
+"raw_url": "https://xxx.oss-cn-shanghai.aliyuncs.com/arch.png",
+"alt_text": "系统架构图",
+"caption": "图 3-1 智能审计系统总体架构",
+"surrounding_text": "本系统采用前后端分离架构……",
+"image_summary": "该图展示了智能审计系统总体架构，包括用户层、应用层、AI 能力层、数据层和基础设施层。"
+}
 ```
 
 
@@ -289,25 +295,25 @@ blocks <span class="token operator">=</span> parse_markdown_blocks<span class="t
 
 
 ```json
-<span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"block_id"</span><span class="token operator">:</span> <span class="token string">"doc_001_table_003"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"type"</span><span class="token operator">:</span> <span class="token string">"table"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"parent_title"</span><span class="token operator">:</span> <span class="token string">"三、经营数据分析"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"raw_content"</span><span class="token operator">:</span> <span class="token string">"原始 Markdown 表格"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"summary"</span><span class="token operator">:</span> <span class="token string">"该表展示了公司近三年营收、毛利率和成本变化趋势……"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"keywords"</span><span class="token operator">:</span> <span class="token punctuation">[</span><span class="token string">"营收"</span><span class="token punctuation">,</span> <span class="token string">"毛利率"</span><span class="token punctuation">,</span> <span class="token string">"经营指标"</span><span class="token punctuation">,</span> <span class="token string">"增长趋势"</span><span class="token punctuation">]</span><span class="token punctuation">,</span>
-<span class="token string-property property">"hypothetical_questions"</span><span class="token operator">:</span> <span class="token punctuation">[</span>
-<span class="token string">"公司近三年的营收变化如何？"</span><span class="token punctuation">,</span>
-<span class="token string">"毛利率是否有提升？"</span><span class="token punctuation">,</span>
-<span class="token string">"经营数据反映了什么趋势？"</span>
-<span class="token punctuation">]</span><span class="token punctuation">,</span>
-<span class="token string-property property">"metadata"</span><span class="token operator">:</span> <span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"source"</span><span class="token operator">:</span> <span class="token string">"xxx.md"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"page"</span><span class="token operator">:</span> <span class="token number">12</span><span class="token punctuation">,</span>
-<span class="token string-property property">"section_path"</span><span class="token operator">:</span> <span class="token string">"经营分析/财务指标"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"oss_urls"</span><span class="token operator">:</span> <span class="token punctuation">[</span><span class="token punctuation">]</span>
-<span class="token punctuation">}</span>
-<span class="token punctuation">}</span>
+{<!-- -->
+"block_id": "doc_001_table_003",
+"type": "table",
+"parent_title": "三、经营数据分析",
+"raw_content": "原始 Markdown 表格",
+"summary": "该表展示了公司近三年营收、毛利率和成本变化趋势……",
+"keywords": ["营收", "毛利率", "经营指标", "增长趋势"],
+"hypothetical_questions": [
+"公司近三年的营收变化如何？",
+"毛利率是否有提升？",
+"经营数据反映了什么趋势？"
+],
+"metadata": {<!-- -->
+"source": "xxx.md",
+"page": 12,
+"section_path": "经营分析/财务指标",
+"oss_urls": []
+}
+}
 ```
 
 

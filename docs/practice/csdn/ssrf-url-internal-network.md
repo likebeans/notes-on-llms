@@ -3,7 +3,7 @@ title: "一个 URL 参数，为什么可能打穿你的内网？"
 description: "CSDN 原文全文镜像：SSRF，全称是 Server-Side Request Forgery，中文通常叫“服务端请求伪造”。它的核心问题是：攻击者无法直接访问某个目标资源，但可以诱导服务端替他访问。用户输入 URL↓服务端请求该 URL↓服务端把内容返回给……"
 pageType: article
 module: site
-updated: '2026-06-10'
+updated: '2026-10-08'
 contentStatus: needs-review
 tags:
   - "csdn-mirror"
@@ -21,10 +21,18 @@ author: likebeans
 ---
 
 ::: info CSDN 原文镜像
-本文为作者 CSDN 博客的全文镜像，原文发布于 2026-06-10。为适配本站结构，仅补充了站内元数据与来源说明，正文主体保持原文内容。
+本文为作者 CSDN 博客的全文镜像，原文发布于 2026-06-10。为适配本站结构，补充了站内导读、元数据与来源说明，并清理代码高亮标记；原文观点与主体内容保留。
 
 - 原文链接：[https://blog.csdn.net/m0_63309778/article/details/161862209](https://blog.csdn.net/m0_63309778/article/details/161862209)
 - 站内分区：工程实践 / SSRF 安全
+:::
+
+::: tip 站内导读：从 URL 输入追踪到真实网络请求
+阅读重点是用户可控 URL 如何经过解析、DNS、重定向与连接，最终到达目标。对带抓取工具的 RAG/Agent，输入校验与执行时的出站边界需要一起考虑。
+
+练习限于受控环境：覆盖重定向、不同地址表示和解析结果变化，检查允许列表和实际连接目标是否一致；不要只用字符串包含判断可信域名。
+
+相关主线：[Agent 安全](/llms/agent/safety) · [MCP 高级功能](/llms/mcp/advanced)。本导读不代表对原文全部代码与结论的重新核验。
 :::
 
 <p><img src="https://i-blog.csdnimg.cn/direct/0eaf1dc8f4ac4e17a68666794c4d1ab4.png" alt="在这里插入图片描述" /></p>
@@ -143,7 +151,7 @@ http://169.254.169.254/latest/meta-data/
 
 
 ```html
-<span class="token tag"><span class="token tag"><span class="token punctuation"><</span>img</span> <span class="token attr-name">src</span><span class="token attr-value"><span class="token punctuation attr-equals">=</span><span class="token punctuation">"</span>http://127.0.0.1:8080/internal<span class="token punctuation">"</span></span><span class="token punctuation">></span></span>
+<img src="http://127.0.0.1:8080/internal">
 ```
 
 
@@ -245,8 +253,8 @@ DNS 解析结果校验
 
 
 ```java
-<span class="token class-name">String</span> url <span class="token operator">=</span> request<span class="token punctuation">.</span><span class="token function">getParameter</span><span class="token punctuation">(</span><span class="token string">"url"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
-<span class="token class-name">String</span> result <span class="token operator">=</span> restTemplate<span class="token punctuation">.</span><span class="token function">getForObject</span><span class="token punctuation">(</span>url<span class="token punctuation">,</span> <span class="token class-name">String</span><span class="token punctuation">.</span><span class="token keyword">class</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+String url = request.getParameter("url");
+String result = restTemplate.getForObject(url, String.class);
 ```
 
 
@@ -300,11 +308,11 @@ Egress Proxy / 网络出口控制
 
 
 ```yaml
-<span class="token key atrule">ssrf</span><span class="token punctuation">:</span>
-<span class="token key atrule">allowedDomains</span><span class="token punctuation">:</span>
-<span class="token punctuation">-</span> example.com
-<span class="token punctuation">-</span> api.example.com
-<span class="token punctuation">-</span> static.example<span class="token punctuation">-</span>cdn.com
+ssrf:
+allowedDomains:
+- example.com
+- api.example.com
+- static.example-cdn.com
 ```
 
 
@@ -385,12 +393,12 @@ mailto:
 
 
 ```java
-<span class="token class-name">URI</span> uri <span class="token operator">=</span> <span class="token constant">URI</span><span class="token punctuation">.</span><span class="token function">create</span><span class="token punctuation">(</span>rawUrl<span class="token punctuation">)</span><span class="token punctuation">;</span>
-<span class="token class-name">String</span> scheme <span class="token operator">=</span> uri<span class="token punctuation">.</span><span class="token function">getScheme</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+URI uri = URI.create(rawUrl);
+String scheme = uri.getScheme();
 
-<span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token operator">!</span><span class="token string">"http"</span><span class="token punctuation">.</span><span class="token function">equalsIgnoreCase</span><span class="token punctuation">(</span>scheme<span class="token punctuation">)</span> <span class="token operator">&&</span> <span class="token operator">!</span><span class="token string">"https"</span><span class="token punctuation">.</span><span class="token function">equalsIgnoreCase</span><span class="token punctuation">(</span>scheme<span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token punctuation">{<!-- --></span>
-<span class="token keyword">throw</span> <span class="token keyword">new</span> <span class="token class-name">IllegalArgumentException</span><span class="token punctuation">(</span><span class="token string">"Unsupported URL scheme"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
-<span class="token punctuation">}</span>
+if (!"http".equalsIgnoreCase(scheme) && !"https".equalsIgnoreCase(scheme)) {<!-- -->
+throw new IllegalArgumentException("Unsupported URL scheme");
+}
 ```
 
 
@@ -398,9 +406,9 @@ mailto:
 
 
 ```java
-<span class="token keyword">if</span> <span class="token punctuation">(</span>url<span class="token punctuation">.</span><span class="token function">startsWith</span><span class="token punctuation">(</span><span class="token string">"http"</span><span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token punctuation">{<!-- --></span>
-<span class="token comment">// allow</span>
-<span class="token punctuation">}</span>
+if (url.startsWith("http")) {<!-- -->
+// allow
+}
 ```
 
 
@@ -438,10 +446,10 @@ mailto:
 
 
 ```yaml
-<span class="token key atrule">ssrf</span><span class="token punctuation">:</span>
-<span class="token key atrule">allowedPorts</span><span class="token punctuation">:</span>
-<span class="token punctuation">-</span> <span class="token number">80</span>
-<span class="token punctuation">-</span> <span class="token number">443</span>
+ssrf:
+allowedPorts:
+- 80
+- 443
 ```
 
 
@@ -458,15 +466,15 @@ https 默认端口是 443
 
 
 ```java
-<span class="token keyword">int</span> port <span class="token operator">=</span> uri<span class="token punctuation">.</span><span class="token function">getPort</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+int port = uri.getPort();
 
-<span class="token keyword">if</span> <span class="token punctuation">(</span>port <span class="token operator">==</span> <span class="token operator">-</span><span class="token number">1</span><span class="token punctuation">)</span> <span class="token punctuation">{<!-- --></span>
-port <span class="token operator">=</span> <span class="token string">"https"</span><span class="token punctuation">.</span><span class="token function">equalsIgnoreCase</span><span class="token punctuation">(</span>uri<span class="token punctuation">.</span><span class="token function">getScheme</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token operator">?</span> <span class="token number">443</span> <span class="token operator">:</span> <span class="token number">80</span><span class="token punctuation">;</span>
-<span class="token punctuation">}</span>
+if (port == -1) {<!-- -->
+port = "https".equalsIgnoreCase(uri.getScheme()) ? 443 : 80;
+}
 
-<span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token operator">!</span>allowedPorts<span class="token punctuation">.</span><span class="token function">contains</span><span class="token punctuation">(</span>port<span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token punctuation">{<!-- --></span>
-<span class="token keyword">throw</span> <span class="token keyword">new</span> <span class="token class-name">IllegalArgumentException</span><span class="token punctuation">(</span><span class="token string">"Port not allowed"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
-<span class="token punctuation">}</span>
+if (!allowedPorts.contains(port)) {<!-- -->
+throw new IllegalArgumentException("Port not allowed");
+}
 ```
 
 
@@ -546,13 +554,13 @@ http://safe-looking-domain.com
 
 
 ```java
-<span class="token class-name">InetAddress</span><span class="token punctuation">[</span><span class="token punctuation">]</span> addresses <span class="token operator">=</span> <span class="token class-name">InetAddress</span><span class="token punctuation">.</span><span class="token function">getAllByName</span><span class="token punctuation">(</span>host<span class="token punctuation">)</span><span class="token punctuation">;</span>
+InetAddress[] addresses = InetAddress.getAllByName(host);
 
-<span class="token keyword">for</span> <span class="token punctuation">(</span><span class="token class-name">InetAddress</span> address <span class="token operator">:</span> addresses<span class="token punctuation">)</span> <span class="token punctuation">{<!-- --></span>
-<span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token function">isBlockedAddress</span><span class="token punctuation">(</span>address<span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token punctuation">{<!-- --></span>
-<span class="token keyword">throw</span> <span class="token keyword">new</span> <span class="token class-name">IllegalArgumentException</span><span class="token punctuation">(</span><span class="token string">"Blocked target address"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
-<span class="token punctuation">}</span>
-<span class="token punctuation">}</span>
+for (InetAddress address : addresses) {<!-- -->
+if (isBlockedAddress(address)) {<!-- -->
+throw new IllegalArgumentException("Blocked target address");
+}
+}
 ```
 
 
@@ -661,11 +669,11 @@ Location: http://127.0.0.1:8080/admin
 
 
 ```yaml
-<span class="token key atrule">httpClient</span><span class="token punctuation">:</span>
-<span class="token key atrule">connectTimeoutMs</span><span class="token punctuation">:</span> <span class="token number">3000</span>
-<span class="token key atrule">readTimeoutMs</span><span class="token punctuation">:</span> <span class="token number">10000</span>
-<span class="token key atrule">maxResponseSizeMb</span><span class="token punctuation">:</span> <span class="token number">10</span>
-<span class="token key atrule">maxRedirects</span><span class="token punctuation">:</span> <span class="token number">0</span>
+httpClient:
+connectTimeoutMs: 3000
+readTimeoutMs: 10000
+maxResponseSizeMb: 10
+maxRedirects: 0
 ```
 
 
@@ -766,64 +774,64 @@ DNS 解析
 
 
 ```java
-<span class="token keyword">import</span> <span class="token import"><span class="token namespace">java<span class="token punctuation">.</span>net<span class="token punctuation">.</span></span><span class="token operator">*</span></span><span class="token punctuation">;</span>
-<span class="token keyword">import</span> <span class="token import"><span class="token namespace">java<span class="token punctuation">.</span>util<span class="token punctuation">.</span></span><span class="token class-name">Set</span></span><span class="token punctuation">;</span>
+import java.net.*;
+import java.util.Set;
 
-<span class="token keyword">public</span> <span class="token keyword">class</span> <span class="token class-name">SafeUrlValidator</span> <span class="token punctuation">{<!-- --></span>
+public class SafeUrlValidator {<!-- -->
 
-<span class="token keyword">private</span> <span class="token keyword">static</span> <span class="token keyword">final</span> <span class="token class-name">Set</span><span class="token generics"><span class="token punctuation"><</span><span class="token class-name">String</span><span class="token punctuation">></span></span> <span class="token constant">ALLOWED_SCHEMES</span> <span class="token operator">=</span> <span class="token class-name">Set</span><span class="token punctuation">.</span><span class="token function">of</span><span class="token punctuation">(</span><span class="token string">"http"</span><span class="token punctuation">,</span> <span class="token string">"https"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
-<span class="token keyword">private</span> <span class="token keyword">static</span> <span class="token keyword">final</span> <span class="token class-name">Set</span><span class="token generics"><span class="token punctuation"><</span><span class="token class-name">Integer</span><span class="token punctuation">></span></span> <span class="token constant">ALLOWED_PORTS</span> <span class="token operator">=</span> <span class="token class-name">Set</span><span class="token punctuation">.</span><span class="token function">of</span><span class="token punctuation">(</span><span class="token number">80</span><span class="token punctuation">,</span> <span class="token number">443</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
+private static final Set<String> ALLOWED_SCHEMES = Set.of("http", "https");
+private static final Set<Integer> ALLOWED_PORTS = Set.of(80, 443);
 
-<span class="token keyword">public</span> <span class="token keyword">void</span> <span class="token function">validate</span><span class="token punctuation">(</span><span class="token class-name">String</span> rawUrl<span class="token punctuation">)</span> <span class="token punctuation">{<!-- --></span>
-<span class="token class-name">URI</span> uri<span class="token punctuation">;</span>
+public void validate(String rawUrl) {<!-- -->
+URI uri;
 
-<span class="token keyword">try</span> <span class="token punctuation">{<!-- --></span>
-uri <span class="token operator">=</span> <span class="token constant">URI</span><span class="token punctuation">.</span><span class="token function">create</span><span class="token punctuation">(</span>rawUrl<span class="token punctuation">)</span><span class="token punctuation">.</span><span class="token function">normalize</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
-<span class="token punctuation">}</span> <span class="token keyword">catch</span> <span class="token punctuation">(</span><span class="token class-name">Exception</span> e<span class="token punctuation">)</span> <span class="token punctuation">{<!-- --></span>
-<span class="token keyword">throw</span> <span class="token keyword">new</span> <span class="token class-name">IllegalArgumentException</span><span class="token punctuation">(</span><span class="token string">"Invalid URL"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
-<span class="token punctuation">}</span>
+try {<!-- -->
+uri = URI.create(rawUrl).normalize();
+} catch (Exception e) {<!-- -->
+throw new IllegalArgumentException("Invalid URL");
+}
 
-<span class="token class-name">String</span> scheme <span class="token operator">=</span> uri<span class="token punctuation">.</span><span class="token function">getScheme</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
-<span class="token keyword">if</span> <span class="token punctuation">(</span>scheme <span class="token operator">==</span> <span class="token keyword">null</span> <span class="token operator">||</span> <span class="token operator">!</span><span class="token constant">ALLOWED_SCHEMES</span><span class="token punctuation">.</span><span class="token function">contains</span><span class="token punctuation">(</span>scheme<span class="token punctuation">.</span><span class="token function">toLowerCase</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token punctuation">{<!-- --></span>
-<span class="token keyword">throw</span> <span class="token keyword">new</span> <span class="token class-name">IllegalArgumentException</span><span class="token punctuation">(</span><span class="token string">"Unsupported URL scheme"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
-<span class="token punctuation">}</span>
+String scheme = uri.getScheme();
+if (scheme == null || !ALLOWED_SCHEMES.contains(scheme.toLowerCase())) {<!-- -->
+throw new IllegalArgumentException("Unsupported URL scheme");
+}
 
-<span class="token class-name">String</span> host <span class="token operator">=</span> uri<span class="token punctuation">.</span><span class="token function">getHost</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
-<span class="token keyword">if</span> <span class="token punctuation">(</span>host <span class="token operator">==</span> <span class="token keyword">null</span> <span class="token operator">||</span> host<span class="token punctuation">.</span><span class="token function">isBlank</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token punctuation">{<!-- --></span>
-<span class="token keyword">throw</span> <span class="token keyword">new</span> <span class="token class-name">IllegalArgumentException</span><span class="token punctuation">(</span><span class="token string">"Invalid host"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
-<span class="token punctuation">}</span>
+String host = uri.getHost();
+if (host == null || host.isBlank()) {<!-- -->
+throw new IllegalArgumentException("Invalid host");
+}
 
-<span class="token keyword">int</span> port <span class="token operator">=</span> uri<span class="token punctuation">.</span><span class="token function">getPort</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
-<span class="token keyword">if</span> <span class="token punctuation">(</span>port <span class="token operator">==</span> <span class="token operator">-</span><span class="token number">1</span><span class="token punctuation">)</span> <span class="token punctuation">{<!-- --></span>
-port <span class="token operator">=</span> <span class="token string">"https"</span><span class="token punctuation">.</span><span class="token function">equalsIgnoreCase</span><span class="token punctuation">(</span>scheme<span class="token punctuation">)</span> <span class="token operator">?</span> <span class="token number">443</span> <span class="token operator">:</span> <span class="token number">80</span><span class="token punctuation">;</span>
-<span class="token punctuation">}</span>
+int port = uri.getPort();
+if (port == -1) {<!-- -->
+port = "https".equalsIgnoreCase(scheme) ? 443 : 80;
+}
 
-<span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token operator">!</span><span class="token constant">ALLOWED_PORTS</span><span class="token punctuation">.</span><span class="token function">contains</span><span class="token punctuation">(</span>port<span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token punctuation">{<!-- --></span>
-<span class="token keyword">throw</span> <span class="token keyword">new</span> <span class="token class-name">IllegalArgumentException</span><span class="token punctuation">(</span><span class="token string">"Port not allowed"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
-<span class="token punctuation">}</span>
+if (!ALLOWED_PORTS.contains(port)) {<!-- -->
+throw new IllegalArgumentException("Port not allowed");
+}
 
-<span class="token class-name">InetAddress</span><span class="token punctuation">[</span><span class="token punctuation">]</span> addresses<span class="token punctuation">;</span>
-<span class="token keyword">try</span> <span class="token punctuation">{<!-- --></span>
-addresses <span class="token operator">=</span> <span class="token class-name">InetAddress</span><span class="token punctuation">.</span><span class="token function">getAllByName</span><span class="token punctuation">(</span>host<span class="token punctuation">)</span><span class="token punctuation">;</span>
-<span class="token punctuation">}</span> <span class="token keyword">catch</span> <span class="token punctuation">(</span><span class="token class-name">UnknownHostException</span> e<span class="token punctuation">)</span> <span class="token punctuation">{<!-- --></span>
-<span class="token keyword">throw</span> <span class="token keyword">new</span> <span class="token class-name">IllegalArgumentException</span><span class="token punctuation">(</span><span class="token string">"Cannot resolve host"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
-<span class="token punctuation">}</span>
+InetAddress[] addresses;
+try {<!-- -->
+addresses = InetAddress.getAllByName(host);
+} catch (UnknownHostException e) {<!-- -->
+throw new IllegalArgumentException("Cannot resolve host");
+}
 
-<span class="token keyword">for</span> <span class="token punctuation">(</span><span class="token class-name">InetAddress</span> address <span class="token operator">:</span> addresses<span class="token punctuation">)</span> <span class="token punctuation">{<!-- --></span>
-<span class="token keyword">if</span> <span class="token punctuation">(</span><span class="token function">isBlockedAddress</span><span class="token punctuation">(</span>address<span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token punctuation">{<!-- --></span>
-<span class="token keyword">throw</span> <span class="token keyword">new</span> <span class="token class-name">IllegalArgumentException</span><span class="token punctuation">(</span><span class="token string">"Blocked target address"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
-<span class="token punctuation">}</span>
-<span class="token punctuation">}</span>
-<span class="token punctuation">}</span>
+for (InetAddress address : addresses) {<!-- -->
+if (isBlockedAddress(address)) {<!-- -->
+throw new IllegalArgumentException("Blocked target address");
+}
+}
+}
 
-<span class="token keyword">private</span> <span class="token keyword">boolean</span> <span class="token function">isBlockedAddress</span><span class="token punctuation">(</span><span class="token class-name">InetAddress</span> address<span class="token punctuation">)</span> <span class="token punctuation">{<!-- --></span>
-<span class="token keyword">return</span> address<span class="token punctuation">.</span><span class="token function">isAnyLocalAddress</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
-<span class="token operator">||</span> address<span class="token punctuation">.</span><span class="token function">isLoopbackAddress</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
-<span class="token operator">||</span> address<span class="token punctuation">.</span><span class="token function">isLinkLocalAddress</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
-<span class="token operator">||</span> address<span class="token punctuation">.</span><span class="token function">isMulticastAddress</span><span class="token punctuation">(</span><span class="token punctuation">)</span>
-<span class="token operator">||</span> address<span class="token punctuation">.</span><span class="token function">isSiteLocalAddress</span><span class="token punctuation">(</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
-<span class="token punctuation">}</span>
-<span class="token punctuation">}</span>
+private boolean isBlockedAddress(InetAddress address) {<!-- -->
+return address.isAnyLocalAddress()
+|| address.isLoopbackAddress()
+|| address.isLinkLocalAddress()
+|| address.isMulticastAddress()
+|| address.isSiteLocalAddress();
+}
+}
 ```
 
 
@@ -899,9 +907,9 @@ SafeHttpClient
 
 
 ```java
-<span class="token keyword">if</span> <span class="token punctuation">(</span>url<span class="token punctuation">.</span><span class="token function">contains</span><span class="token punctuation">(</span><span class="token string">"127.0.0.1"</span><span class="token punctuation">)</span> <span class="token operator">||</span> url<span class="token punctuation">.</span><span class="token function">contains</span><span class="token punctuation">(</span><span class="token string">"localhost"</span><span class="token punctuation">)</span><span class="token punctuation">)</span> <span class="token punctuation">{<!-- --></span>
-<span class="token keyword">throw</span> <span class="token keyword">new</span> <span class="token class-name">RuntimeException</span><span class="token punctuation">(</span><span class="token string">"blocked"</span><span class="token punctuation">)</span><span class="token punctuation">;</span>
-<span class="token punctuation">}</span>
+if (url.contains("127.0.0.1") || url.contains("localhost")) {<!-- -->
+throw new RuntimeException("blocked");
+}
 ```
 
 
@@ -1048,37 +1056,37 @@ Egress Proxy
 
 
 ```yaml
-<span class="token key atrule">ssrf</span><span class="token punctuation">:</span>
-<span class="token key atrule">allowedSchemes</span><span class="token punctuation">:</span>
-<span class="token punctuation">-</span> http
-<span class="token punctuation">-</span> https
+ssrf:
+allowedSchemes:
+- http
+- https
 
-<span class="token key atrule">allowedPorts</span><span class="token punctuation">:</span>
-<span class="token punctuation">-</span> <span class="token number">80</span>
-<span class="token punctuation">-</span> <span class="token number">443</span>
+allowedPorts:
+- 80
+- 443
 
-<span class="token key atrule">blockedCidrs</span><span class="token punctuation">:</span>
-<span class="token punctuation">-</span> 127.0.0.0/8
-<span class="token punctuation">-</span> 10.0.0.0/8
-<span class="token punctuation">-</span> 172.16.0.0/12
-<span class="token punctuation">-</span> 192.168.0.0/16
-<span class="token punctuation">-</span> 169.254.0.0/16
-<span class="token punctuation">-</span> 0.0.0.0/8
-<span class="token punctuation">-</span> 100.64.0.0/10
-<span class="token punctuation">-</span> 224.0.0.0/4
-<span class="token punctuation">-</span> 240.0.0.0/4
-<span class="token punctuation">-</span> <span class="token punctuation">:</span><span class="token punctuation">:</span>1/128
-<span class="token punctuation">-</span> fc00<span class="token punctuation">:</span><span class="token punctuation">:</span>/7
-<span class="token punctuation">-</span> fe80<span class="token punctuation">:</span><span class="token punctuation">:</span>/10
+blockedCidrs:
+- 127.0.0.0/8
+- 10.0.0.0/8
+- 172.16.0.0/12
+- 192.168.0.0/16
+- 169.254.0.0/16
+- 0.0.0.0/8
+- 100.64.0.0/10
+- 224.0.0.0/4
+- 240.0.0.0/4
+- ::1/128
+- fc00::/7
+- fe80::/10
 
-<span class="token key atrule">redirect</span><span class="token punctuation">:</span>
-<span class="token key atrule">enabled</span><span class="token punctuation">:</span> <span class="token boolean important">false</span>
-<span class="token key atrule">maxHops</span><span class="token punctuation">:</span> <span class="token number">0</span>
+redirect:
+enabled: false
+maxHops: 0
 
-<span class="token key atrule">response</span><span class="token punctuation">:</span>
-<span class="token key atrule">maxBodySizeMb</span><span class="token punctuation">:</span> <span class="token number">10</span>
-<span class="token key atrule">connectTimeoutMs</span><span class="token punctuation">:</span> <span class="token number">3000</span>
-<span class="token key atrule">readTimeoutMs</span><span class="token punctuation">:</span> <span class="token number">10000</span>
+response:
+maxBodySizeMb: 10
+connectTimeoutMs: 3000
+readTimeoutMs: 10000
 ```
 
 
@@ -1086,10 +1094,10 @@ Egress Proxy
 
 
 ```yaml
-<span class="token key atrule">redirect</span><span class="token punctuation">:</span>
-<span class="token key atrule">enabled</span><span class="token punctuation">:</span> <span class="token boolean important">true</span>
-<span class="token key atrule">maxHops</span><span class="token punctuation">:</span> <span class="token number">3</span>
-<span class="token key atrule">validateEachHop</span><span class="token punctuation">:</span> <span class="token boolean important">true</span>
+redirect:
+enabled: true
+maxHops: 3
+validateEachHop: true
 ```
 
 

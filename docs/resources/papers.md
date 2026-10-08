@@ -3,7 +3,7 @@ title: 论文
 description: LLM、RAG、Agent、微调和多模态方向的原始论文索引。
 pageType: landing
 module: site
-updated: '2026-08-26'
+updated: '2026-10-08'
 contentStatus: needs-review
 tags:
   - resources
@@ -35,3 +35,16 @@ tags:
 3. 它的对照实验是否足够说明问题？
 4. 它的局限是什么？在生产系统里会怎么暴露？
 5. 它和本手册哪一页相关：Prompt、RAG、Agent、训练还是多模态？
+
+## 让论文与章节互相对应
+
+| 阅读目标 | 起步论文 | 回到本站验证 |
+| --- | --- | --- |
+| 理解注意力与表示 | Attention Is All You Need | [前置知识](/guide/prerequisites)：写出张量形状与数据流 |
+| 理解外部证据怎样参与生成 | RAG 原始论文 | [RAG 范式](/llms/rag/paradigms)：区分论文架构与通用工程管道 |
+| 理解模型如何选择行动 | ReAct | [规划](/llms/agent/planning)：记录行动、观察与停止条件 |
+| 理解低秩适配 | LoRA | [LoRA](/llms/training/lora)：计算参数量并观察实际显存 |
+| 理解偏好学习 | DPO | [DPO](/llms/training/dpo)：解释偏好对、参考策略与训练目标 |
+| 理解视觉与语言连接 | Visual Instruction Tuning | [连接器](/llms/multimodal/connector)：追踪图像特征的形状 |
+
+读实验表格时同时记录数据集、基座模型、训练/推理预算和指标。论文中的收益只在其设定下成立；迁移到自己的任务后，需要重新建立基线与对照。经典论文用于理解方法，不用作当前模型排行榜。

@@ -1,0 +1,53 @@
+{
+  "run_date": "2026-10-08",
+  "scope": "Development regression set; deterministic extractive workflow; no LLM",
+  "config": {
+    "algorithm": "lexical-bigram-extractive-v1",
+    "top_k": 3,
+    "min_coverage": 0.6,
+    "chunk_max_chars": 180,
+    "corpus_sha256": "46242291a1d574515cd2665f63b28f8e4cf4b321e0253809c4e7b37955b1b151"
+  },
+  "summary": {
+    "count": 20,
+    "answerable_count": 16,
+    "unanswerable_count": 4,
+    "recall_at_3": 1.0,
+    "mrr_at_3": 1.0,
+    "ndcg_at_3": 1.0,
+    "evidence_recall": 0.875,
+    "citation_precision": 1.0,
+    "citation_scored_count": 14,
+    "answerable_success_rate": 0.875,
+    "refusal_accuracy": 1.0,
+    "task_success_rate": 0.9
+  },
+  "failures": [
+    {
+      "id": "q11",
+      "question": "无障碍入口在哪里？",
+      "failure": "coverage_gate_refused",
+      "gold_evidence": [
+        "accessibility#p001s001"
+      ],
+      "retrieved_ids": [
+        "accessibility#p001s001"
+      ],
+      "cited_ids": [],
+      "coverage": 0.5714285714285714
+    },
+    {
+      "id": "q14",
+      "question": "周一能去看书吗？",
+      "failure": "coverage_gate_refused",
+      "gold_evidence": [
+        "hours#p002s001"
+      ],
+      "retrieved_ids": [
+        "hours#p002s001"
+      ],
+      "cited_ids": [],
+      "coverage": 0.16666666666666666
+    }
+  ]
+}

@@ -3,14 +3,16 @@ title: 高级提示技术
 description: ReAct、思维树、自我反思等高级技术
 pageType: article
 module: prompt
-updated: '2025-12-27'
+updated: '2026-10-08'
 contentStatus: needs-review
 tags:
   - prompt
 level: beginner
 prerequisites: []
-reviewed: '2026-08-25'
-techVersion: 待复核（2026-08）
+reviewed: '2026-10-08'
+reviewScope: Responses 结构化输出字段与拒答分支；本地类型校验与网络调用分别标注
+exampleStatus: not-run
+techVersion: Responses 结构化输出文档核验 2026-10-08；网络示例未实跑；Pydantic 2 本地校验
 ---
 
 # 高级提示技术
@@ -19,17 +21,16 @@ techVersion: 待复核（2026-08）
 
 ## ⚠️ 重要提示：推理模型的范式转变
 
-在学习高级提示技术前，需要理解**AI模型的"大分流"**：
+高级提示需要额外模型调用、搜索或验证。先确认现有错误来自任务分解或证据获取，再选择相应策略；如果问题只是字段不合法，优先用结构化输出与验证器。
 
-| 模型类型 | 代表 | CoT等技巧 | 最佳策略 |
-|----------|------|-----------|----------|
-| **系统1模型** | GPT-4o | ✅ 有效 | 使用CoT、ReAct等技巧引导推理 |
-| **系统2模型** | o1/o3 | ❌ 反而有害 | 简洁直接的指令，信任原生推理 |
+| 需求 | 候选方法 | 必须支付的成本 |
+| --- | --- | --- |
+| 需要外部观察才能继续 | ReAct / 工具循环 | 工具延迟、失败恢复和权限治理 |
+| 存在多个可验证候选路径 | ToT / 有界搜索 | 分支数量与评估器成本 |
+| 已有答案能被独立检查 | 反思 + 外部验证 | 检查器覆盖与误判风险 |
+| 接口需要固定字段 | Schema 约束 | Schema 设计、失败分支与业务验证 |
 
-::: warning 关键区别
-对于GPT-4o等传统模型，CoT等技术是**模拟**"系统2"思考。  
-对于o1等推理模型，推理是**原生**能力，外部CoT提示会**干扰**其内部更优的推理过程。
-:::
+推理模型通常不需要追加“展示全部思维链”。[OpenAI 官方建议](https://developers.openai.com/api/docs/guides/reasoning-best-practices) 优先清晰目标、约束和输出要求，而不是断言所有 CoT 写法都会干扰推理。对用户提供可验证步骤或简要理由即可。
 
 ---
 
@@ -40,21 +41,23 @@ techVersion: 待复核（2026-08）
 结合推理（Reasoning）和行动（Acting），让模型在思考和执行之间交替。
 
 ```
-问题：苹果公司CEO是谁？他出生在哪一年？
+历史演示问题：某份资料记载苹果公司 CEO 为 Tim Cook，他出生在哪一年？
 
 Thought 1: 我需要先查找苹果公司的CEO
-Action 1: Search("Apple Inc. current CEO")
-Observation 1: Tim Cook is the CEO of Apple Inc.
+Action 1: Search("Apple Inc. Tim Cook biography")
+Observation 1: 示例资料记载 CEO 为 Tim Cook；实际使用应核对资料日期。
 
 Thought 2: 现在我知道CEO是Tim Cook，需要查找他的出生年份
 Action 2: Search("Tim Cook birth year")
 Observation 2: Tim Cook was born on November 1, 1960.
 
 Thought 3: 我已获得所有信息
-Final Answer: 苹果公司CEO是Tim Cook，他出生于1960年。
+Final Answer: 根据示例资料，人物为 Tim Cook，出生于1960年；实际答案需带来源日期。
 ```
 
 ### ReAct实现
+
+下例保留论文风格的文本循环，是伪代码；`llm`、解析器与执行器由应用注入。生产工具调用使用明确 schema 和允许列表，先校验参数与授权，再执行；工具 Observation 视作数据，不因其中出现指令而扩大权限。需要最大步数、超时、错误状态与幂等键。[ReAct 原论文](https://arxiv.org/abs/2210.03629) 讨论推理与行动交替，不提供这些业务保障。
 
 ```python
 REACT_PROMPT = """
@@ -96,7 +99,7 @@ def react_loop(question: str, max_steps: int = 5):
 
 ### 概念
 
-探索多个推理路径，选择最优解。
+显式维护多个候选状态，生成下一步后评估、剪枝或回溯。模型评分只是搜索启发，不保证最优解；适合能定义状态、合法动作和终止验证的任务。
 
 ```
 问题：24点游戏 - 用 1, 2, 3, 4 组成24
@@ -111,6 +114,8 @@ def react_loop(question: str, max_steps: int = 5):
 ```
 
 ### ToT实现
+
+下例为宽度未限制的 BFS 示意，`llm` 与 `is_solution` 需实现；深度 d、分支 b 的节点数可按 b 的幂增长。工程上增加 beam 宽度、去重、预算和可验证终止条件。24 点应由算术检查器确认数值、运算与数字使用次数，不能仅凭模型打分通过。[ToT 原论文](https://arxiv.org/abs/2305.10601)
 
 ```python
 def tree_of_thoughts(problem: str, branching: int = 3, depth: int = 3):
@@ -169,7 +174,7 @@ def tree_of_thoughts(problem: str, branching: int = 3, depth: int = 3):
 
 ### 概念
 
-让模型批评和改进自己的输出。
+让模型根据明确 rubric 检查草稿，最好结合测试、检索或规则提供外部反馈。同一模型可能保留原错误，也可能把正确答案改错，因此每轮都应记录验证结果并保留最好版本；“回答完整”等文本不能作为可靠停止信号。
 
 ```
 第一次回答：
@@ -188,6 +193,8 @@ Python是一种高级、解释型编程语言，以简洁易读著称。
 ```
 
 ### 实现
+
+以下展示提示交互的伪代码，`llm.generate` 不是通用 SDK；实际停止条件应由独立验证器和最大迭代预算共同决定。
 
 ```python
 def self_reflect(question: str, max_iterations: int = 3) -> str:
@@ -229,51 +236,76 @@ def self_reflect(question: str, max_iterations: int = 3) -> str:
 
 ### JSON输出
 
+自然语言“请输出 JSON”、JSON mode、Schema 约束是三种不同强度的接口。JSON mode 主要约束语法，Structured Outputs 可在支持的模型与 Schema 子集上约束字段结构；均需处理拒答、截断和服务错误。见 [OpenAI Structured Outputs 官方文档](https://developers.openai.com/api/docs/guides/structured-outputs)。
+
+业务流程应为：响应完成状态检查 → 拒答分支 → JSON/Schema 解析 → 业务规则验证 → 执行后续动作。不能把半截 JSON 自动补全后当真实答案，也不能在重试结构修复时重复执行已经产生副作用的动作。
+
+### Responses 与 Chat Completions 的字段不要混用
+
+**2026-10-08 文档核验；以下网络调用未实跑。** Responses 使用 `text.format`，Chat Completions 使用 `response_format`；调用外部动作则用函数工具的参数 schema。三者不是改个方法名即可迁移。严格结构保证适用 schema 的形状，拒答、未完成响应和业务真实性仍要分别处理。[Structured Outputs 官方接口](https://developers.openai.com/api/docs/guides/structured-outputs)
+
+以下是 Responses 的最小抽取示例。运行需要兼容的 `openai` SDK、`OPENAI_API_KEY` 和支持该接口的 `OPENAI_MODEL`；姓名允许为空，避免缺资料时被迫捏造：
+
 ```python
-STRUCTURED_PROMPT = """
-请分析以下文本的情感，返回JSON格式：
+import json
+import os
+from openai import OpenAI
 
-文本：{text}
-
-返回格式：
-{{
-  "sentiment": "positive/negative/neutral",
-  "confidence": 0.0-1.0,
-  "keywords": ["关键词1", "关键词2"],
-  "summary": "一句话总结"
-}}
-"""
-
-# 使用OpenAI的JSON模式
-response = openai.chat.completions.create(
-    model="gpt-4-turbo",
-    messages=[{"role": "user", "content": prompt}],
-    response_format={"type": "json_object"}
+client = OpenAI()
+response = client.responses.create(
+    model=os.environ["OPENAI_MODEL"],
+    input="从这段资料抽取姓名；没有姓名就填 null。资料：一位匿名读者留言。",
+    text={"format": {
+        "type": "json_schema", "name": "person", "strict": True,
+        "schema": {
+            "type": "object",
+            "properties": {"name": {"type": ["string", "null"]}},
+            "required": ["name"], "additionalProperties": False,
+        },
+    }},
 )
+if response.status != "completed":
+    raise RuntimeError(f"响应未完成：{response.status}")
+refusals = [part.refusal for item in response.output
+            if item.type == "message" for part in item.content
+            if part.type == "refusal"]
+if refusals:
+    raise RuntimeError("模型拒答：" + "; ".join(refusals))
+if not response.output_text:
+    raise RuntimeError("没有可解析的结构化结果")
+person = json.loads(response.output_text)
+print(person)  # 仍需结合原文做语义验收；这里不会执行外部写操作。
 ```
+
+本地 Pydantic 校验器可以表达跨字段业务规则，但这些 Python 函数不会自动成为模型的 schema 约束。即便 SDK 根据类型生成 JSON Schema，下游仍必须运行本地校验。
 
 ### Pydantic结构化
 
+下面是可本地执行的 Pydantic 2 校验示例，不依赖 API。实际接入支持 Schema 的模型时可复用类型，但要检查供应商支持的 Schema 子集。删去未经校准的 `confidence` 自报数值，以证据字段和明确失败状态表达边界。
+
 ```python
-from pydantic import BaseModel
-from openai import OpenAI
+from typing import Literal
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 class SentimentResult(BaseModel):
-    sentiment: str
-    confidence: float
-    keywords: list[str]
+    model_config = ConfigDict(extra="forbid")
+    status: Literal["ok", "insufficient_input"]
+    sentiment: Literal["positive", "negative", "neutral"] | None
+    keywords: list[str] = Field(max_length=10)
     summary: str
 
-client = OpenAI()
+    @model_validator(mode="after")
+    def check_status(self):
+        if (self.status == "ok") != (self.sentiment is not None):
+            raise ValueError("ok 需要情感标签；资料不足时标签必须为空")
+        return self
 
-response = client.beta.chat.completions.parse(
-    model="gpt-4o",
-    messages=[{"role": "user", "content": prompt}],
-    response_format=SentimentResult
-)
-
-result: SentimentResult = response.choices[0].message.parsed
+raw = '{"status":"ok","sentiment":"positive","keywords":["好吃"],"summary":"用户满意"}'
+result = SentimentResult.model_validate_json(raw)
+print(result.model_dump())
 ```
+
+结构验证不检查“用户是否真的满意”。分类边界、原文依据和资料不足的判断还需语义评估。拒答不是缺字段的成功响应，必须保留独立状态。
 
 ---
 
@@ -281,7 +313,7 @@ result: SentimentResult = response.choices[0].message.parsed
 
 ### 概念
 
-模拟多个角色讨论，获得更全面的观点。
+模拟多个角色可以检查不同标准，但同一模型的三个角色不是三个独立专家，也不能通过投票消除共同偏差。让每个角色引用证据、提出可检验反例，再由规则或人工作最终判断。
 
 ```python
 MULTI_ROLE_PROMPT = """
@@ -309,6 +341,8 @@ MULTI_ROLE_PROMPT = """
 
 ### 何时使用推理模型
 
+以下型号为历史示例，体现“复杂推理预算与交互延迟”的取舍，不是实时推荐表。比较成功率、p95、token 及工具调用总成本后再选择。
+
 | 场景 | 推荐模型 | 原因 |
 |------|----------|------|
 | **数学推理** | o1/o3 | 原生强推理能力 |
@@ -321,7 +355,7 @@ MULTI_ROLE_PROMPT = """
 ### o-系列提示技巧
 
 ```python
-# ❌ 错误：使用CoT提示
+# 对照提示：步骤较多，是否有益需要实测
 bad_prompt = """
 请一步一步思考这个问题：
 1. 首先分析问题的条件
@@ -331,7 +365,7 @@ bad_prompt = """
 问题：如何设计一个分布式缓存系统？
 """
 
-# ✅ 正确：简洁直接
+# 基线提示：直接描述目标与验收条件
 good_prompt = """
 设计一个分布式缓存系统。
 
@@ -343,7 +377,7 @@ good_prompt = """
 请给出详细的架构设计。
 """
 
-# ✅ 使用developer消息（替代system消息）
+# 在支持 developer 角色的 API 中放置应用指令；角色支持以接口文档为准
 messages = [
     {"role": "developer", "content": "你是分布式系统架构专家"},
     {"role": "user", "content": good_prompt}
@@ -351,6 +385,8 @@ messages = [
 ```
 
 ### 混合架构：规划者+执行者
+
+下面为接口骨架，`call_model`、`parse_steps` 与汇总器需实现。步骤间有依赖时必须传递前一步产物和失败状态，不能只把孤立步骤文字发给执行模型。计划输出还需 schema、允许动作及预算检查。
 
 ```python
 class HybridReasoningSystem:
@@ -384,6 +420,12 @@ class HybridReasoningSystem:
 ```
 
 ---
+
+## 高级策略的验收
+
+使用相同测试集和成本预算，比较单次调用、追加验证、候选搜索三种方案。记录正确率、从错到对和从对到错的比例、平均/最坏调用次数、工具失败率与延迟。只有新增机制修复了明确错误，且没有超出预算，才值得保留。
+
+对 ReAct 查工具是否提供了新证据；对 ToT 查剪枝是否丢掉正确路径；对反思查反馈是否可验证；对结构化输出分别统计解析失败、Schema 失败和业务失败。不要把“文本更长、角色更多、看起来更会思考”当作收益。
 
 ## 🔗 相关阅读
 

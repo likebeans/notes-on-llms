@@ -3,7 +3,7 @@ title: "深入理解 Agent Runtime：智能体真正运行起来的核心执行�
 description: "CSDN 原文全文镜像：文章摘要： Agent Runtime 是大模型应用的核心执行系统，负责管理 Agent 任务的完整生命周期，而不仅仅是简单的“LLM + Tool”调用。生产级 Agent 任务可能涉及多工具调用、子任务协调、人工审批、上下文管理等复……"
 pageType: article
 module: agent
-updated: '2026-08-10'
+updated: '2026-10-08'
 contentStatus: needs-review
 tags:
   - "csdn-mirror"
@@ -20,10 +20,16 @@ author: likebeans
 ---
 
 ::: info CSDN 原文镜像
-本文为作者 CSDN 博客的全文镜像，原文发布于 2026-08-10。为适配本站结构，仅补充了站内元数据与来源说明，正文主体保持原文内容。
+本文为作者 CSDN 博客的全文镜像，原文发布于 2026-08-10。本站补充导读与相关主线链接，并修复代码展示；原文观点、来源与发布时间保留。
 
 - 原文链接：[https://blog.csdn.net/m0_63309778/article/details/163638436](https://blog.csdn.net/m0_63309778/article/details/163638436)
 - 站内分区：Agent / Agent Runtime
+:::
+
+::: tip 站内导读与实践边界
+本文把模型调用放回运行时的完整生命周期中阅读，重点看 Run 状态、上下文构建、工具执行和事件持久化的分工。实现时先定义完成、失败、等待和取消的转换，再选择框架；有检查点不代表外部副作用可自动重放。
+
+继续阅读：[规划与推理](/llms/agent/planning)、[异常处理](/llms/agent/exception-handling)。
 :::
 
 <p><img src="https://i-blog.csdnimg.cn/direct/547db36d473d45148c6c626573f5072c.png" alt="在这里插入图片描述" /></p>
@@ -62,7 +68,7 @@ LLM + Tool
 
 
 ```python
-response <span class="token operator">=</span> llm<span class="token punctuation">.</span>chat<span class="token punctuation">(</span>messages<span class="token punctuation">)</span>
+response = llm.chat(messages)
 ```
 
 
@@ -214,11 +220,11 @@ POST /messages
 
 
 ```json
-<span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"runId"</span><span class="token operator">:</span> <span class="token string">"run_001"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"status"</span><span class="token operator">:</span> <span class="token string">"running"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"streamUrl"</span><span class="token operator">:</span> <span class="token string">"/api/runs/run_001/events"</span>
-<span class="token punctuation">}</span>
+{
+"runId": "run_001",
+"status": "running",
+"streamUrl": "/api/runs/run_001/events"
+}
 ```
 
 
@@ -281,32 +287,32 @@ status = running
 
 
 ```python
-<span class="token keyword">while</span> <span class="token keyword">not</span> run<span class="token punctuation">.</span>finished<span class="token punctuation">:</span>
+while not run.finished:
 
-context <span class="token operator">=</span> build_context<span class="token punctuation">(</span>run<span class="token punctuation">)</span>
+context = build_context(run)
 
-response <span class="token operator">=</span> llm<span class="token punctuation">.</span>generate<span class="token punctuation">(</span>
-context<span class="token operator">=</span>context<span class="token punctuation">,</span>
-tools<span class="token operator">=</span>available_tools<span class="token punctuation">,</span>
-<span class="token punctuation">)</span>
+response = llm.generate(
+context=context,
+tools=available_tools,
+)
 
-<span class="token keyword">if</span> response<span class="token punctuation">.</span>has_tool_call<span class="token punctuation">:</span>
-result <span class="token operator">=</span> execute_tool<span class="token punctuation">(</span>
-response<span class="token punctuation">.</span>tool_call
-<span class="token punctuation">)</span>
+if response.has_tool_call:
+result = execute_tool(
+response.tool_call
+)
 
-append_tool_result<span class="token punctuation">(</span>
-run<span class="token punctuation">,</span>
-result<span class="token punctuation">,</span>
-<span class="token punctuation">)</span>
+append_tool_result(
+run,
+result,
+)
 
-<span class="token keyword">continue</span>
+continue
 
-save_assistant_message<span class="token punctuation">(</span>
-response<span class="token punctuation">.</span>text
-<span class="token punctuation">)</span>
+save_assistant_message(
+response.text
+)
 
-run<span class="token punctuation">.</span>complete<span class="token punctuation">(</span><span class="token punctuation">)</span>
+run.complete()
 ```
 
 
@@ -473,9 +479,9 @@ Conversation History
 
 
 ```json
-<span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"result"</span><span class="token operator">:</span> <span class="token string">"...几十万字符..."</span>
-<span class="token punctuation">}</span>
+{
+"result": "...几十万字符..."
+}
 ```
 
 
@@ -504,17 +510,17 @@ Token Budget
 
 
 ```python
-<span class="token keyword">if</span> model <span class="token operator">==</span> <span class="token string">"openai"</span><span class="token punctuation">:</span>
-<span class="token punctuation">.</span><span class="token punctuation">.</span><span class="token punctuation">.</span>
+if model == "openai":
+...
 
-<span class="token keyword">elif</span> model <span class="token operator">==</span> <span class="token string">"qwen"</span><span class="token punctuation">:</span>
-<span class="token punctuation">.</span><span class="token punctuation">.</span><span class="token punctuation">.</span>
+elif model == "qwen":
+...
 
-<span class="token keyword">elif</span> model <span class="token operator">==</span> <span class="token string">"deepseek"</span><span class="token punctuation">:</span>
-<span class="token punctuation">.</span><span class="token punctuation">.</span><span class="token punctuation">.</span>
+elif model == "deepseek":
+...
 
-<span class="token keyword">elif</span> model <span class="token operator">==</span> <span class="token string">"vllm"</span><span class="token punctuation">:</span>
-<span class="token punctuation">.</span><span class="token punctuation">.</span><span class="token punctuation">.</span>
+elif model == "vllm":
+...
 ```
 
 
@@ -542,11 +548,11 @@ LLM Adapter / Provider
 
 
 ```python
-response <span class="token operator">=</span> llm_provider<span class="token punctuation">.</span>generate<span class="token punctuation">(</span>
-messages<span class="token operator">=</span>context<span class="token punctuation">.</span>messages<span class="token punctuation">,</span>
-tools<span class="token operator">=</span>context<span class="token punctuation">.</span>tools<span class="token punctuation">,</span>
-model<span class="token operator">=</span>model<span class="token punctuation">,</span>
-<span class="token punctuation">)</span>
+response = llm_provider.generate(
+messages=context.messages,
+tools=context.tools,
+model=model,
+)
 ```
 
 
@@ -608,12 +614,12 @@ execute_code
 
 
 ```json
-<span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"name"</span><span class="token operator">:</span> <span class="token string">"search_documents"</span><span class="token punctuation">,</span>
-<span class="token string-property property">"arguments"</span><span class="token operator">:</span> <span class="token punctuation">{<!-- --></span>
-<span class="token string-property property">"query"</span><span class="token operator">:</span> <span class="token string">"评分办法"</span>
-<span class="token punctuation">}</span>
-<span class="token punctuation">}</span>
+{
+"name": "search_documents",
+"arguments": {
+"query": "评分办法"
+}
+}
 ```
 
 
@@ -621,7 +627,7 @@ execute_code
 
 
 ```python
-search_documents<span class="token punctuation">(</span><span class="token string">"评分办法"</span><span class="token punctuation">)</span>
+search_documents("评分办法")
 ```
 
 

@@ -52,3 +52,49 @@
     padding: 1rem;
   }
 }
+
+/* Learning tools extend the site's paper-and-ink handbook layout. */
+.nl-study-actions { margin: -1rem 0 2rem; padding-bottom: 1.1rem; border-bottom: 1px solid var(--nl-line); }
+.nl-study-buttons { display: flex; flex-wrap: wrap; align-items: center; gap: .65rem; }
+.nl-study-buttons button, .nl-library-more { padding: .5rem .85rem; border: 1px solid var(--nl-line); border-radius: .3rem; background: var(--nl-surface); color: var(--nl-ink); font-size: .85rem; cursor: pointer; }
+.nl-study-buttons button[aria-pressed='true'] { border-color: var(--nl-green); color: var(--nl-green); background: color-mix(in srgb, var(--nl-green) 8%, var(--nl-surface)); }
+.nl-study-buttons button:disabled { opacity: .6; cursor: default; }
+.nl-study-buttons a { margin-left: auto; color: var(--nl-blue); font-size: .82rem; }
+.nl-study-actions small { display: block; margin-top: .7rem; color: var(--nl-muted); font-size: .75rem; }
+.nl-library-notebook { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 1.5rem; margin: 2rem 0 3rem; padding: 1.5rem; border: 1px solid var(--nl-line); border-top: 3px solid var(--nl-blue); border-radius: .3rem; background: var(--nl-paper); }
+.vp-doc .nl-library-notebook h2 { margin: .55rem 0; padding: 0; border: 0; font-size: 1.35rem; line-height: 1.5; }
+.nl-library-notebook p { margin: .5rem 0; }
+.nl-library-notebook small, .nl-library-hint { color: var(--nl-muted); font-size: .82rem; }
+.nl-library-stats { display: flex; align-items: center; gap: .65rem; }
+.nl-library-stats button { min-width: 5rem; padding: .85rem .6rem; border: 1px solid var(--nl-line); border-radius: .3rem; color: var(--nl-ink); background: var(--nl-surface); cursor: pointer; }
+.nl-library-stats button[aria-pressed='true'] { border-color: var(--nl-blue); color: var(--nl-blue); }
+.nl-library-stats strong, .nl-library-stats span { display: block; }
+.nl-library-stats strong { font-size: 1.85rem; font-variant-numeric: tabular-nums; line-height: 1.25; }
+.nl-library-stats span { margin-top: .4rem; font-size: .75rem; }
+.nl-library-filters { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .85rem; margin: 1.4rem 0; }
+.nl-library-filters label { display: grid; gap: .4rem; color: var(--nl-muted); font-size: .78rem; font-weight: 600; }
+.nl-library-query { grid-column: 1 / -1; }
+.nl-library-filters input, .nl-library-filters select { min-width: 0; width: 100%; padding: .65rem .7rem; border: 1px solid var(--nl-line); border-radius: .25rem; background: var(--nl-surface); color: var(--nl-ink); font: inherit; font-size: .88rem; }
+.nl-library-filters select { appearance: auto; }
+.nl-library-result-bar { display: flex; align-items: center; justify-content: space-between; padding: .7rem 0; border-bottom: 1px solid var(--nl-line); font-size: .85rem; }
+.nl-library-result-bar p { margin: 0; color: var(--nl-muted); }
+.nl-library-result-bar button { color: var(--nl-blue); text-decoration: underline; text-underline-offset: .2rem; cursor: pointer; }
+.vp-doc .nl-library-results { margin: 0; padding: 0; list-style: none; }
+.nl-library-results li { padding: 1.5rem 0; border-bottom: 1px solid var(--nl-line); }
+.nl-library-labels { display: flex; flex-wrap: wrap; gap: .4rem .75rem; font-size: .7rem; color: var(--nl-muted); }
+.nl-library-labels span:first-child { color: var(--nl-blue); font-weight: 700; }
+.vp-doc .nl-library-results h3 { margin: .5rem 0; font-size: 1.15rem; line-height: 1.5; }
+.nl-library-results h3 a { color: var(--nl-ink); text-decoration: none; }
+.nl-library-results h3 a:hover { color: var(--nl-blue); text-decoration: underline; }
+.nl-library-results h3 a span { color: var(--nl-blue); }
+.nl-library-results p { margin: .4rem 0; color: var(--nl-muted); font-size: .9rem; }
+.nl-library-results small { color: var(--nl-muted); font-size: .75rem; }
+.nl-library-empty { padding: 2rem 1rem; text-align: center; color: var(--nl-muted); border-bottom: 1px solid var(--nl-line); }
+.nl-library-more { display: block; margin: 1.5rem auto; }
+.nl-content-status p + p { margin-top: .55rem; }
+@media (max-width: 620px) {
+  .nl-library-notebook { grid-template-columns: 1fr; padding: 1rem; gap: 1rem; }
+  .nl-library-stats button { flex: 1; }
+  .nl-library-filters { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .nl-study-buttons a { width: 100%; margin-left: 0; margin-top: .25rem; }
+}
